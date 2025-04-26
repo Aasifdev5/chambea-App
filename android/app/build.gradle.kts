@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.chambea"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973" // ✅ Manually set to fix plugin mismatch
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

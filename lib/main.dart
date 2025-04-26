@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:chambea/screens/chambeador/home_screen.dart'; // Import the new HomeScreen
+import 'package:chambea/screens/client/home.dart'; // Import the ClientHomeScreen
 
 void main() {
   runApp(ChambeaApp());
@@ -615,12 +616,18 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                             MaterialPageRoute(
                               builder:
                                   (_) =>
-                                      HomeScreen(), // Navigate to the new HomeScreen
+                                      HomeScreen(), // Navigate to Chambeador HomeScreen
                             ),
                           );
-                        } else {
-                          // Handle Cliente navigation (placeholder)
-                          print('Selected Profile: $_selectedProfile');
+                        } else if (_selectedProfile == 'Cliente') {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) =>
+                                      ClientHomeScreen(), // Navigate to ClientHomeScreen
+                            ),
+                          );
                         }
                       }
                       : null,
