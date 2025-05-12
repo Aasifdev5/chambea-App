@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:chambea/screens/client/chat_detail_screen.dart';
 
 class ContratadoScreen extends StatelessWidget {
+  const ContratadoScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -43,13 +46,10 @@ class ContratadoScreen extends StatelessWidget {
                 subtitle: const Text('Electricista'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.star,
-                      color: const Color(0xFFFFC107),
-                    ), // Directly using the hex value
-
-                    const Text('4.1'),
+                  children: const [
+                    Icon(Icons.star, color: Color(0xFFFFC107)),
+                    SizedBox(width: 4),
+                    Text('4.1'),
                   ],
                 ),
               ),
@@ -60,26 +60,26 @@ class ContratadoScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
+                  children: const [
+                    Text(
                       'Fecha',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 4),
-                    const Text('13/06/2024'),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 4),
+                    Text('13/06/2024'),
+                    SizedBox(height: 8),
+                    Text(
                       'Ubicación',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 4),
-                    const Text('734 Sugar Street, Lincoln Park, MI 48146'),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 4),
+                    Text('734 Sugar Street, Lincoln Park, MI 48146'),
+                    SizedBox(height: 8),
+                    Text(
                       'Forma de pago',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const Text(
+                    Text(
                       'El pago puede realizar mediante Código QR o con efectivo después de finalizar el servicio.',
                     ),
                   ],
@@ -90,15 +90,23 @@ class ContratadoScreen extends StatelessWidget {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ChatDetailScreen()),
+                );
+              },
               child: const Text('Ir al chat'),
             ),
             const SizedBox(height: 8),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade100,
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.green,
+                side: const BorderSide(color: Colors.green),
                 minimumSize: const Size(double.infinity, 50),
               ),
               onPressed: () => Navigator.pop(context),

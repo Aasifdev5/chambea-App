@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/service_request.dart';
+import 'package:chambea/screens/client/bandeja_screen.dart';
 
 class MasDetallesStepScreen extends StatefulWidget {
   final ServiceRequest serviceRequest;
@@ -12,25 +13,14 @@ class MasDetallesStepScreen extends StatefulWidget {
 
 class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
   final _formKey = GlobalKey<FormState>();
-  String? _selectedCategory;
-  String? _selectedSubcategory;
   String? _selectedPaymentMethod;
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _budgetController = TextEditingController();
-
-  // Hardcoded categories and subcategories (can be fetched dynamically)
-  final Map<String, List<String>> _subcategories = {
-    'Construcción': ['Albañil', 'Plomero', 'Pintor'],
-    'Hogar': ['Personal de Limpieza', 'Lavanderia', 'Chef'],
-    'Gastronomía': ['Charquero', 'Chef', 'Cocinero'],
-  };
 
   @override
   void initState() {
     super.initState();
     // Pre-fill fields if data exists
-    _selectedCategory = widget.serviceRequest.category;
-    _selectedSubcategory = widget.serviceRequest.subcategory;
     _selectedPaymentMethod = widget.serviceRequest.paymentMethod;
     if (widget.serviceRequest.description != null) {
       _descriptionController.text = widget.serviceRequest.description!;
@@ -49,6 +39,9 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -60,274 +53,289 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
         title: Row(
           children: [
             const Icon(Icons.location_on, color: Colors.black54, size: 16),
-            const SizedBox(width: 4),
+            SizedBox(width: screenWidth * 0.02),
             Text(
               'Av. Benavides 4887',
-              style: TextStyle(color: Colors.black54, fontSize: 14),
+              style: TextStyle(
+                color: Colors.black54,
+                fontSize: screenWidth * 0.035, // Smaller font (Medium: 0.038)
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Cancelar',
-              style: TextStyle(color: Colors.green, fontSize: 16),
+              style: TextStyle(
+                color: const Color(0xFF22c55e),
+                fontSize: screenWidth * 0.035, // Smaller font (Medium: 0.038)
+              ),
             ),
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'Más detalles',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '[*] Campo obligatorio',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildStepCircle(Icons.check, isCompleted: true),
-                  _buildStepLine(),
-                  _buildStepCircle(Icons.check, isCompleted: true),
-                  _buildStepLine(),
-                  _buildStepCircle('03', isCompleted: false),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Text(
-                    'Paso 1',
-                    style: TextStyle(
-                      fontWeight: FontWeight.normal,
-                      color: Colors.grey,
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.06,
+              vertical: screenHeight * 0.02,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Más detalles',
+                      style: TextStyle(
+                        fontSize:
+                            screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Paso 2',
-                    style: TextStyle(
-                      fontWeight: FontWeight.normal,
-                      color: Colors.grey,
+                    SizedBox(width: screenWidth * 0.02),
+                    Text(
+                      '[*] Campo obligatorio',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize:
+                            screenWidth * 0.03, // Smaller font (Medium: 0.032)
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Paso 3',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                  ],
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildStepCircle(Icons.check, isCompleted: true),
+                    _buildStepLine(),
+                    _buildStepCircle(Icons.check, isCompleted: true),
+                    _buildStepLine(),
+                    _buildStepCircle('03', isCompleted: false),
+                  ],
+                ),
+                SizedBox(height: screenHeight * 0.01),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Text(
+                      'Paso 1',
+                      style: TextStyle(
+                        fontWeight: FontWeight.normal,
+                        color: Colors.grey,
+                        fontSize:
+                            screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '¿Qué tipo de servicio necesitas?*',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Construcción',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                value: _selectedCategory,
-                items:
-                    _subcategories.keys.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                    _selectedSubcategory =
-                        null; // Reset subcategory when category changes
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor seleccione una categoría';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Subcategoría',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                value: _selectedSubcategory,
-                items:
-                    _selectedCategory != null
-                        ? _subcategories[_selectedCategory]!.map((
-                          String value,
-                        ) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList()
-                        : [],
-                onChanged:
-                    (value) => setState(() => _selectedSubcategory = value),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor seleccione una subcategoría';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Suba una imagen para indicar el tipo de servicio que requiere (Opcional).',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Ayuda de la persona que asignarás la tarea a comprender lo que se debe hacer.',
-              ),
-              const SizedBox(height: 16),
-              Container(
-                height: 100,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Center(child: Icon(Icons.add, size: 40)),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(
-                  labelText: 'Descripción (Opcional)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Sugiere tu presupuesto*',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Siempre puedes negociar el precio final mediante el chat.',
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _budgetController,
-                decoration: InputDecoration(
-                  labelText: 'Introducir el presupuesto',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor introduzca un presupuesto';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Método de pago',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                value: _selectedPaymentMethod,
-                items:
-                    ['Efectivo', 'Código QR'].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                onChanged:
-                    (value) => setState(() => _selectedPaymentMethod = value),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor seleccione un método de pago';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      widget.serviceRequest.category = _selectedCategory;
-                      widget.serviceRequest.subcategory = _selectedSubcategory;
-                      widget.serviceRequest.description =
-                          _descriptionController.text;
-                      widget.serviceRequest.budget = _budgetController.text;
-                      widget.serviceRequest.paymentMethod =
-                          _selectedPaymentMethod;
-                      if (widget.serviceRequest.isStep3Complete()) {
-                        // Submit the service request (e.g., to a backend API)
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Solicitud enviada con éxito'),
-                          ),
-                        );
-                        Navigator.popUntil(context, (route) => route.isFirst);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Por favor complete todos los campos requeridos',
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text(
-                    'Enviar Solicitud',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 14,
+                    Text(
+                      'Paso 2',
+                      style: TextStyle(
+                        fontWeight: FontWeight.normal,
+                        color: Colors.grey,
+                        fontSize:
+                            screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
+                    Text(
+                      'Paso 3',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                        fontSize:
+                            screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                Text(
+                  'Suba una imagen para indicar el tipo de servicio que requiere (Opcional)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize:
+                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.01),
+                Text(
+                  'Ayuda de la persona que asignarás la tarea a comprender lo que se debe hacer.',
+                  style: TextStyle(
+                    fontSize:
+                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    color: Colors.black54,
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                Container(
+                  height: screenHeight * 0.15,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(child: Icon(Icons.add, size: 40)),
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(
+                    labelText: 'Descripción (Opcional)',
+                    labelStyle: TextStyle(
+                      fontSize:
+                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    ),
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                  maxLines: 3,
+                  style: TextStyle(
+                    fontSize:
+                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                SizedBox(height: screenHeight * 0.02),
+                Text(
+                  'Sugiere tu presupuesto*',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize:
+                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.01),
+                Text(
+                  'Siempre puedes negociar el precio final mediante el chat.',
+                  style: TextStyle(
+                    fontSize:
+                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    color: Colors.black54,
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                TextFormField(
+                  controller: _budgetController,
+                  decoration: InputDecoration(
+                    labelText: 'Introducir el presupuesto *',
+                    labelStyle: TextStyle(
+                      fontSize:
+                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(
+                    fontSize:
+                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor introduzca un presupuesto';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Método de pago *',
+                    labelStyle: TextStyle(
+                      fontSize:
+                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  value: _selectedPaymentMethod,
+                  items:
+                      ['Efectivo', 'Código QR'].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(
+                            value,
+                            style: TextStyle(
+                              fontSize:
+                                  screenWidth *
+                                  0.035, // Smaller font (Medium: 0.038)
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                  onChanged:
+                      (value) => setState(() => _selectedPaymentMethod = value),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor seleccione un método de pago';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: screenHeight * 0.05),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        widget.serviceRequest.description =
+                            _descriptionController.text;
+                        widget.serviceRequest.budget = _budgetController.text;
+                        widget.serviceRequest.paymentMethod =
+                            _selectedPaymentMethod;
+                        if (widget.serviceRequest.isStep3Complete()) {
+                          // Submit the service request (e.g., to a backend API)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Solicitud enviada con éxito'),
+                            ),
+                          );
+                          // Navigate to BandejaScreen
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BandejaScreen(),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Por favor complete todos los campos requeridos',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: Text(
+                      'Enviar Solicitud',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize:
+                            screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF22c55e),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.1,
+                        vertical: screenHeight * 0.02,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.02),
+              ],
+            ),
           ),
         ),
       ),
@@ -335,27 +343,31 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
   }
 
   Widget _buildStepCircle(dynamic content, {required bool isCompleted}) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return CircleAvatar(
       radius: 20,
-      backgroundColor: isCompleted ? Colors.green : Colors.grey.shade300,
+      backgroundColor:
+          isCompleted ? const Color(0xFF22c55e) : Colors.grey.shade300,
       child:
           content is IconData
-              ? Icon(content, color: Colors.white)
+              ? Icon(content, color: Colors.white, size: 20)
               : Text(
                 content,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: screenWidth * 0.035, // Smaller font (Medium: 0.038)
                 ),
               ),
     );
   }
 
   Widget _buildStepLine() {
+    final screenWidth = MediaQuery.of(context).size.width;
     return Expanded(
       child: Container(
         height: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
+        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(

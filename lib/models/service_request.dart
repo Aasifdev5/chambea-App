@@ -1,4 +1,5 @@
 class ServiceRequest {
+  String? date; // Added for date field
   String? startTime;
   String? endTime;
   bool isTimeUndefined;
@@ -11,6 +12,7 @@ class ServiceRequest {
   String? paymentMethod;
 
   ServiceRequest({
+    this.date,
     this.startTime,
     this.endTime,
     this.isTimeUndefined = false,
@@ -25,8 +27,12 @@ class ServiceRequest {
 
   // Method to check if Step 1 is complete
   bool isStep1Complete() {
-    if (isTimeUndefined) return true;
-    return startTime != null &&
+    if (isTimeUndefined) {
+      return date != null && date!.isNotEmpty;
+    }
+    return date != null &&
+        date!.isNotEmpty &&
+        startTime != null &&
         startTime!.isNotEmpty &&
         endTime != null &&
         endTime!.isNotEmpty;

@@ -4,6 +4,7 @@ import 'package:chambea/screens/chambeador/notification_screen.dart';
 import 'package:chambea/screens/chambeador/billetera_screen.dart';
 import 'package:chambea/screens/chambeador/configuracion_screen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart'; // For navigation back to HomeScreen on logout
+import 'package:chambea/screens/client/home.dart';
 
 class MasScreen extends StatelessWidget {
   @override
@@ -163,13 +164,13 @@ class MasScreen extends StatelessWidget {
                 ),
               ),
               onPressed: () {
-                // Placeholder for switching to "Modo chambeador"
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Modo Chambeador activado')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ClientHomeScreen()),
                 );
               },
               child: Text(
-                'Modo Chambeador',
+                'Modo Client',
                 style: TextStyle(fontSize: 16, color: Colors.white),
               ),
             ),

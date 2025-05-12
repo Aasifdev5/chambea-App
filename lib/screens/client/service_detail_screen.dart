@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chambea/screens/client/solicitar_servicio_screen.dart';
 
 class ServiceDetailScreen extends StatelessWidget {
   final String title;
@@ -181,6 +182,7 @@ class ServiceDetailScreen extends StatelessWidget {
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
                       minimumSize: const Size(
                         double.infinity,
                         60,
@@ -189,7 +191,17 @@ class ServiceDetailScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => SolicitarServicioScreen(
+                                subcategoryName: 'Electricidad',
+                              ),
+                        ),
+                      );
+                    },
                     child: const Text('Solicitar Servicio'),
                   ),
                   const SizedBox(height: 16),

@@ -14,7 +14,10 @@ class CercaDeMiScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.green)),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.green),
+            ),
           ),
         ],
       ),
@@ -24,29 +27,31 @@ class CercaDeMiScreen extends StatelessWidget {
           zoom: 12,
         ),
         markers: {
-          const Marker(
-            markerId: MarkerId('current'),
-            position: LatLng(-12.0464, -77.0428),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          Marker(
+            markerId: const MarkerId('current'),
+            position: const LatLng(-12.0464, -77.0428),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueGreen,
+            ),
           ),
-          const Marker(
-            markerId: MarkerId('rosa'),
-            position: LatLng(-12.0450, -77.0410),
+          Marker(
+            markerId: const MarkerId('rosa'),
+            position: const LatLng(-12.0450, -77.0410),
             icon: BitmapDescriptor.defaultMarker,
           ),
-          const Marker(
-            markerId: MarkerId('julio'),
-            position: LatLng(-12.0470, -77.0430),
+          Marker(
+            markerId: const MarkerId('julio'),
+            position: const LatLng(-12.0470, -77.0430),
             icon: BitmapDescriptor.defaultMarker,
           ),
-          const Marker(
-            markerId: MarkerId('pedro'),
-            position: LatLng(-12.0480, -77.0400),
+          Marker(
+            markerId: const MarkerId('pedro'),
+            position: const LatLng(-12.0480, -77.0400),
             icon: BitmapDescriptor.defaultMarker,
           ),
-          const Marker(
-            markerId: MarkerId('andres'),
-            position: LatLng(-12.0440, -77.0420),
+          Marker(
+            markerId: const MarkerId('andres'),
+            position: const LatLng(-12.0440, -77.0420),
             icon: BitmapDescriptor.defaultMarker,
           ),
         },

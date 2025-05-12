@@ -3,8 +3,12 @@ import 'package:chambea/screens/chambeador/buscar_screen.dart';
 import 'package:chambea/screens/chambeador/chat_screen.dart';
 import 'package:chambea/screens/chambeador/mas_screen.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
+import 'package:chambea/screens/chambeador/job_detail_screen.dart';
+import 'package:chambea/screens/chambeador/trabajos.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
@@ -13,8 +17,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    HomeScreenContent(), // Inicio (index 0)
-    TrabajosContent(), // Trabajos (index 1)
+    const HomeScreenContent(), // Inicio (index 0)
+    const TrabajosContent(), // Trabajos (index 1)
     BuscarScreen(), // Buscar (index 2)
     ChatScreen(), // Chat (index 3)
     MasScreen(), // Menú (index 4)
@@ -29,13 +33,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: SafeArea(child: _screens[_selectedIndex]),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.green,
+        selectedItemColor: const Color(0xFF22c55e),
         unselectedItemColor: Colors.black54,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        selectedFontSize: 10, // Reduced from 12 to 10
+        unselectedFontSize: 8, // Reduced from 10 to 8
+        iconSize: 22, // Reduced from 24 to 22
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Trabajos'),
@@ -48,453 +55,793 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class HomeScreenContent extends StatelessWidget {
+class HomeScreenContent extends StatefulWidget {
+  const HomeScreenContent({super.key});
+
+  @override
+  _HomeScreenContentState createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<HomeScreenContent>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AppBar(
-          title: const Text(
-            'Inicio',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search, color: Colors.black54),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => BuscarScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header Section: "¡Ofrece tu servicio hoy mismo!"
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '¡Ofrece tu servicio hoy mismo!',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Colors.grey.shade300,
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Andrés Villamontes',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.star,
-                                          size: 16,
-                                          color: Colors.yellow.shade700,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Text(
-                                          '3.9',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'BOB: 0.00',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const Text(
-                                      'Saldo Actual',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 16),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      '0',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const Text(
-                                      'Servicios en curso',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Ver más')),
-                            );
-                          },
-                          child: const Text(
-                            'Ver más',
-                            style: TextStyle(color: Colors.green, fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double screenWidth = constraints.maxWidth;
+        final double screenHeight = constraints.maxHeight;
+        final double textScaleFactor = MediaQuery.of(
+          context,
+        ).textScaler.scale(1.0);
+        final double baseFontSize =
+            screenWidth * 0.035; // Reduced from 0.04 to 0.035
+        final bool isLandscape =
+            MediaQuery.of(context).orientation == Orientation.landscape;
+
+        return Column(
+          children: [
+            AppBar(
+              title: Text(
+                'Inicio',
+                style: TextStyle(
+                  fontSize:
+                      (baseFontSize * 1.4).clamp(16, 20) *
+                      textScaleFactor, // Reduced from 18,22 to 16,20
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              backgroundColor: Colors.white,
+              elevation: 2,
+              actions: [
+                IconButton(
+                  icon: Icon(
+                    Icons.search,
+                    color: Colors.black54,
+                    size: (screenWidth * 0.06).clamp(
+                      22,
+                      28,
+                    ), // Reduced from 24,30 to 22,28
                   ),
-                  const SizedBox(height: 16),
-                  // Recommended Jobs Section
-                  const Text(
-                    'Trabajos recomendados para ti',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                  onPressed: () {
+                    try {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => BuscarScreen()),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error navigating to BuscarScreen: $e'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFF7F7F7), Colors.white],
                   ),
-                  const SizedBox(height: 8),
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.05,
+                      vertical: screenHeight * 0.02,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          height: 150,
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(8),
+                        // Profile Card with Animation
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Container(
+                            padding: EdgeInsets.all(
+                              screenWidth < 360
+                                  ? screenWidth * 0.03
+                                  : screenWidth * 0.04,
                             ),
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Hace 2 horas',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                  const Text(
-                                    'BOB 80 - 150/Hora',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.green.shade50,
+                                  Colors.green.shade100.withOpacity(0.8),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Instalaciones de luces LED',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                              borderRadius: BorderRadius.circular(
+                                screenWidth * 0.04,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  Chip(
-                                    label: const Text(
-                                      'ILUMINACIÓN',
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                    backgroundColor: Colors.grey.shade200,
-                                  ),
-                                  Chip(
-                                    label: const Text(
-                                      'PANELES',
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                    backgroundColor: Colors.grey.shade200,
-                                  ),
-                                  Chip(
-                                    label: const Text(
-                                      'SEGURIDAD',
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                    backgroundColor: Colors.grey.shade200,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.location_on,
-                                    size: 16,
-                                    color: Colors.black54,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    'Ave Bush - La Paz',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: Colors.grey.shade300,
-                                    child: const Icon(
-                                      Icons.person,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Flexible(
+                                  child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        'Mario Urioste',
+                                      Text(
+                                        '¡Ofrece tu servicio hoy mismo!',
                                         style: TextStyle(
-                                          fontSize: 14,
+                                          fontSize:
+                                              screenWidth < 360
+                                                  ? (baseFontSize * 1.1).clamp(
+                                                        12,
+                                                        16,
+                                                      ) *
+                                                      textScaleFactor // Reduced from 14,18 to 12,16
+                                                  : (baseFontSize * 1.2).clamp(
+                                                        14,
+                                                        18,
+                                                      ) *
+                                                      textScaleFactor, // Reduced from 16,20 to 14,18
                                           fontWeight: FontWeight.bold,
                                           color: Colors.black87,
                                         ),
                                       ),
+                                      SizedBox(height: screenHeight * 0.015),
                                       Row(
                                         children: [
-                                          Icon(
-                                            Icons.star,
-                                            size: 16,
-                                            color: Colors.yellow.shade700,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          const Text(
-                                            '4.3',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.black54,
+                                          CircleAvatar(
+                                            radius: (screenWidth * 0.045).clamp(
+                                              12,
+                                              16,
+                                            ), // Reduced from 14,18 to 12,16
+                                            backgroundColor:
+                                                Colors.grey.shade400,
+                                            child: Icon(
+                                              Icons.person,
+                                              size: (screenWidth * 0.035).clamp(
+                                                10,
+                                                14,
+                                              ), // Reduced from 12,16 to 10,14
+                                              color: Colors.white,
                                             ),
+                                          ),
+                                          SizedBox(width: screenWidth * 0.02),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Andrés Villamontes',
+                                                style: TextStyle(
+                                                  fontSize:
+                                                      (baseFontSize * 1.0)
+                                                          .clamp(10, 14) *
+                                                      textScaleFactor, // Reduced from 12,16 to 10,14
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.star,
+                                                    size: (screenWidth * 0.035)
+                                                        .clamp(
+                                                          10,
+                                                          14,
+                                                        ), // Reduced from 12,16 to 10,14
+                                                    color:
+                                                        Colors.yellow.shade700,
+                                                  ),
+                                                  SizedBox(
+                                                    width: screenWidth * 0.01,
+                                                  ),
+                                                  Text(
+                                                    '3.9',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          (baseFontSize * 0.8)
+                                                              .clamp(10, 12) *
+                                                          textScaleFactor, // Reduced from 12,14 to 10,12
+                                                      color: Colors.black54,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: screenHeight * 0.015),
+                                      Row(
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'BOB: 0.00',
+                                                style: TextStyle(
+                                                  fontSize:
+                                                      (baseFontSize * 1.0)
+                                                          .clamp(10, 14) *
+                                                      textScaleFactor, // Reduced from 12,16 to 10,14
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Saldo Actual',
+                                                style: TextStyle(
+                                                  fontSize:
+                                                      (baseFontSize * 0.7)
+                                                          .clamp(8, 10) *
+                                                      textScaleFactor, // Reduced from 10,12 to 8,10
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(width: screenWidth * 0.04),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '0',
+                                                style: TextStyle(
+                                                  fontSize:
+                                                      (baseFontSize * 1.0)
+                                                          .clamp(10, 14) *
+                                                      textScaleFactor, // Reduced from 12,16 to 10,14
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Servicios en curso',
+                                                style: TextStyle(
+                                                  fontSize:
+                                                      (baseFontSize * 0.7)
+                                                          .clamp(8, 10) *
+                                                      textScaleFactor, // Reduced from 10,12 to 8,10
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
-                                ],
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Ver más')),
+                                    );
+                                  },
+                                  child: Text(
+                                    'Ver más',
+                                    style: TextStyle(
+                                      color: const Color(0xFF22c55e),
+                                      fontSize:
+                                          (baseFontSize * 0.8).clamp(10, 12) *
+                                          textScaleFactor, // Reduced from 12,14 to 10,12
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        // Recommended Jobs
+                        Text(
+                          'Trabajos recomendados para ti',
+                          style: TextStyle(
+                            fontSize:
+                                (baseFontSize * 1.1).clamp(12, 16) *
+                                textScaleFactor, // Reduced from 14,18 to 12,16
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.015),
+                        GestureDetector(
+                          onTap: () {
+                            try {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const JobDetailScreen(),
+                                ),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Error navigating to JobDetailScreen: $e',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                screenWidth * 0.03,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  height: (screenHeight * 0.2).clamp(120, 180),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(screenWidth * 0.03),
+                                    ),
+                                    color: Colors.grey.shade300,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.all(screenWidth * 0.04),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Hace 2 horas',
+                                            style: TextStyle(
+                                              fontSize:
+                                                  (baseFontSize * 0.7).clamp(
+                                                    8,
+                                                    10,
+                                                  ) *
+                                                  textScaleFactor, // Reduced from 10,12 to 8,10
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                          Text(
+                                            'BOB 80 - 150/Hora',
+                                            style: TextStyle(
+                                              fontSize:
+                                                  (baseFontSize * 1.0).clamp(
+                                                    10,
+                                                    14,
+                                                  ) *
+                                                  textScaleFactor, // Reduced from 12,16 to 10,14
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: screenHeight * 0.01),
+                                      Text(
+                                        'Instalaciones de luces LED',
+                                        style: TextStyle(
+                                          fontSize:
+                                              (baseFontSize * 1.2).clamp(
+                                                12,
+                                                16,
+                                              ) *
+                                              textScaleFactor, // Reduced from 14,18 to 12,16
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      SizedBox(height: screenHeight * 0.01),
+                                      Wrap(
+                                        spacing: screenWidth * 0.02,
+                                        children: [
+                                          Chip(
+                                            label: Text(
+                                              'ILUMINACIÓN',
+                                              style: TextStyle(
+                                                fontSize:
+                                                    (baseFontSize * 0.7).clamp(
+                                                      8,
+                                                      10,
+                                                    ) *
+                                                    textScaleFactor, // Reduced from 10,12 to 8,10
+                                              ),
+                                            ),
+                                            backgroundColor:
+                                                Colors.grey.shade200,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: screenWidth * 0.02,
+                                            ),
+                                          ),
+                                          Chip(
+                                            label: Text(
+                                              'PANELES',
+                                              style: TextStyle(
+                                                fontSize:
+                                                    (baseFontSize * 0.7).clamp(
+                                                      8,
+                                                      10,
+                                                    ) *
+                                                    textScaleFactor, // Reduced from 10,12 to 8,10
+                                              ),
+                                            ),
+                                            backgroundColor:
+                                                Colors.grey.shade200,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: screenWidth * 0.02,
+                                            ),
+                                          ),
+                                          Chip(
+                                            label: Text(
+                                              'SEGURIDAD',
+                                              style: TextStyle(
+                                                fontSize:
+                                                    (baseFontSize * 0.7).clamp(
+                                                      8,
+                                                      10,
+                                                    ) *
+                                                    textScaleFactor, // Reduced from 10,12 to 8,10
+                                              ),
+                                            ),
+                                            backgroundColor:
+                                                Colors.grey.shade200,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: screenWidth * 0.02,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: screenHeight * 0.01),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.location_on,
+                                            size: (screenWidth * 0.035).clamp(
+                                              10,
+                                              14,
+                                            ), // Reduced from 12,16 to 10,14
+                                            color: Colors.black54,
+                                          ),
+                                          SizedBox(width: screenWidth * 0.01),
+                                          Text(
+                                            'Ave Bush - La Paz',
+                                            style: TextStyle(
+                                              fontSize:
+                                                  (baseFontSize * 0.8).clamp(
+                                                    10,
+                                                    12,
+                                                  ) *
+                                                  textScaleFactor, // Reduced from 12,14 to 10,12
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: screenHeight * 0.01),
+                                      Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: (screenWidth * 0.045).clamp(
+                                              12,
+                                              16,
+                                            ), // Reduced from 14,18 to 12,16
+                                            backgroundColor: Colors.grey,
+                                            child: Icon(
+                                              Icons.person,
+                                              size: (screenWidth * 0.035).clamp(
+                                                10,
+                                                14,
+                                              ), // Reduced from 12,16 to 10,14
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          SizedBox(width: screenWidth * 0.02),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Mario Urioste',
+                                                style: TextStyle(
+                                                  fontSize:
+                                                      (baseFontSize * 1.0)
+                                                          .clamp(10, 14) *
+                                                      textScaleFactor, // Reduced from 12,16 to 10,14
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.star,
+                                                    size: (screenWidth * 0.035)
+                                                        .clamp(
+                                                          10,
+                                                          14,
+                                                        ), // Reduced from 12,16 to 10,14
+                                                    color: Colors.yellow,
+                                                  ),
+                                                  SizedBox(
+                                                    width: screenWidth * 0.01,
+                                                  ),
+                                                  Text(
+                                                    '4.3',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          (baseFontSize * 0.8)
+                                                              .clamp(10, 12) *
+                                                          textScaleFactor, // Reduced from 12,14 to 10,12
+                                                      color: Colors.black54,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        // Recommended Clients
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Clientes Recomendados',
+                              style: TextStyle(
+                                fontSize:
+                                    (baseFontSize * 1.1).clamp(12, 16) *
+                                    textScaleFactor, // Reduced from 14,18 to 12,16
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Ver más clientes'),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                'Ver más',
+                                style: TextStyle(
+                                  color: const Color(0xFF22c55e),
+                                  fontSize:
+                                      (baseFontSize * 0.8).clamp(10, 12) *
+                                      textScaleFactor, // Reduced from 12,14 to 10,12
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: screenHeight * 0.015),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildClientCard(
+                                context: context,
+                                name: 'Rosa Elena Pérez',
+                                rating: 4.1,
+                                screenWidth: screenWidth,
+                                screenHeight: screenHeight,
+                                textScaleFactor: textScaleFactor,
+                                baseFontSize: baseFontSize,
+                              ),
+                              _buildClientCard(
+                                context: context,
+                                name: 'Julio César Suarez',
+                                rating: 4.1,
+                                screenWidth: screenWidth,
+                                screenHeight: screenHeight,
+                                textScaleFactor: textScaleFactor,
+                                baseFontSize: baseFontSize,
+                              ),
+                              _buildClientCard(
+                                context: context,
+                                name: 'Pedro Castillo',
+                                rating: 4.1,
+                                screenWidth: screenWidth,
+                                screenHeight: screenHeight,
+                                textScaleFactor: textScaleFactor,
+                                baseFontSize: baseFontSize,
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Recommended Clients Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Clientes Recomendados',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Ver más clientes')),
-                          );
-                        },
-                        child: const Text(
-                          'Ver más',
-                          style: TextStyle(color: Colors.green, fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildClientCard(name: 'Rosa Elena Pérez', rating: 4.1),
-                        _buildClientCard(
-                          name: 'Julio César Suarez',
-                          rating: 4.1,
-                        ),
-                        _buildClientCard(name: 'Pedro Castillo', rating: 4.1),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Reviews Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Últimos comentarios',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Ver todos los comentarios'),
+                        SizedBox(height: screenHeight * 0.02),
+                        // Recent Reviews
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Últimos comentarios',
+                              style: TextStyle(
+                                fontSize:
+                                    (baseFontSize * 1.1).clamp(12, 16) *
+                                    textScaleFactor, // Reduced from 14,18 to 12,16
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
                             ),
-                          );
-                        },
-                        child: const Text(
-                          'Ver todos',
-                          style: TextStyle(color: Colors.green, fontSize: 14),
+                            TextButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Ver todos los comentarios'),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                'Ver todos',
+                                style: TextStyle(
+                                  color: const Color(0xFF22c55e),
+                                  fontSize:
+                                      (baseFontSize * 0.8).clamp(10, 12) *
+                                      textScaleFactor, // Reduced from 12,14 to 10,12
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        SizedBox(height: screenHeight * 0.015),
+                        _buildReviewCard(
+                          context: context,
+                          client: 'Julio Sequeira',
+                          rating: 4,
+                          timeAgo: 'Hace 2 horas',
+                          comment:
+                              'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
+                          screenWidth: screenWidth,
+                          screenHeight: screenHeight,
+                          textScaleFactor: textScaleFactor,
+                          baseFontSize: baseFontSize,
+                        ),
+                        _buildReviewCard(
+                          context: context,
+                          client: 'Julio Sequeira',
+                          rating: 4,
+                          timeAgo: 'Hace 2 horas',
+                          comment:
+                              'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
+                          screenWidth: screenWidth,
+                          screenHeight: screenHeight,
+                          textScaleFactor: textScaleFactor,
+                          baseFontSize: baseFontSize,
+                        ),
+                        _buildReviewCard(
+                          context: context,
+                          client: 'Julio Sequeira',
+                          rating: 4,
+                          timeAgo: 'Hace 2 horas',
+                          comment:
+                              'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
+                          screenWidth: screenWidth,
+                          screenHeight: screenHeight,
+                          textScaleFactor: textScaleFactor,
+                          baseFontSize: baseFontSize,
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  _buildReviewCard(
-                    client: 'Julio Sequeira',
-                    rating: 4,
-                    timeAgo: 'Hace 2 horas',
-                    comment:
-                        'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
-                  ),
-                  _buildReviewCard(
-                    client: 'Julio Sequeira',
-                    rating: 4,
-                    timeAgo: 'Hace 2 horas',
-                    comment:
-                        'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
-                  ),
-                  _buildReviewCard(
-                    client: 'Julio Sequeira',
-                    rating: 4,
-                    timeAgo: 'Hace 2 horas',
-                    comment:
-                        'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildClientCard({required String name, required double rating}) {
+  Widget _buildClientCard({
+    required BuildContext context,
+    required String name,
+    required double rating,
+    required double screenWidth,
+    required double screenHeight,
+    required double textScaleFactor,
+    required double baseFontSize,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(right: 16),
+      margin: EdgeInsets.only(right: screenWidth * 0.04),
       child: Column(
         children: [
           CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.grey.shade300,
-            child: const Icon(Icons.person, size: 30, color: Colors.white),
+            radius: (screenWidth * 0.07).clamp(
+              22,
+              32,
+            ), // Reduced from 24,36 to 22,32
+            backgroundColor: Colors.grey,
+            child: Icon(
+              Icons.person,
+              size: (screenWidth * 0.05).clamp(
+                18,
+                26,
+              ), // Reduced from 20,30 to 18,26
+              color: Colors.white,
+            ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: screenHeight * 0.01),
           Text(
             name,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize:
+                  (baseFontSize * 1.0).clamp(10, 14) *
+                  textScaleFactor, // Reduced from 12,16 to 10,14
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
+            textAlign: TextAlign.center,
           ),
           Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.star, size: 16, color: Colors.yellow.shade700),
-              const SizedBox(width: 4),
+              Icon(
+                Icons.star,
+                size: (screenWidth * 0.035).clamp(
+                  10,
+                  14,
+                ), // Reduced from 12,16 to 10,14
+                color: Colors.yellow,
+              ),
+              SizedBox(width: screenWidth * 0.01),
               Text(
                 rating.toString(),
-                style: const TextStyle(fontSize: 14, color: Colors.black54),
+                style: TextStyle(
+                  fontSize:
+                      (baseFontSize * 0.8).clamp(10, 12) *
+                      textScaleFactor, // Reduced from 12,14 to 10,12
+                  color: Colors.black54,
+                ),
               ),
             ],
           ),
@@ -504,38 +851,54 @@ class HomeScreenContent extends StatelessWidget {
   }
 
   Widget _buildReviewCard({
+    required BuildContext context,
     required String client,
     required double rating,
     required String timeAgo,
     required String comment,
+    required double screenWidth,
+    required double screenHeight,
+    required double textScaleFactor,
+    required double baseFontSize,
   }) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      margin: EdgeInsets.only(bottom: screenHeight * 0.02),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(screenWidth * 0.03),
+      ),
+      elevation: 4,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(screenWidth * 0.04),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.grey.shade300,
-                  child: const Icon(
+                  radius: (screenWidth * 0.045).clamp(
+                    12,
+                    16,
+                  ), // Reduced from 14,18 to 12,16
+                  backgroundColor: Colors.grey,
+                  child: Icon(
                     Icons.person,
-                    size: 16,
+                    size: (screenWidth * 0.035).clamp(
+                      10,
+                      14,
+                    ), // Reduced from 12,16 to 10,14
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: screenWidth * 0.02),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       client,
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: TextStyle(
+                        fontSize:
+                            (baseFontSize * 1.0).clamp(10, 14) *
+                            textScaleFactor, // Reduced from 12,16 to 10,14
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
@@ -544,14 +907,19 @@ class HomeScreenContent extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.star,
-                          size: 16,
-                          color: Colors.yellow.shade700,
+                          size: (screenWidth * 0.035).clamp(
+                            10,
+                            14,
+                          ), // Reduced from 12,16 to 10,14
+                          color: Colors.yellow,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: screenWidth * 0.01),
                         Text(
                           rating.toString(),
-                          style: const TextStyle(
-                            fontSize: 14,
+                          style: TextStyle(
+                            fontSize:
+                                (baseFontSize * 0.8).clamp(10, 12) *
+                                textScaleFactor, // Reduced from 12,14 to 10,12
                             color: Colors.black54,
                           ),
                         ),
@@ -562,253 +930,27 @@ class HomeScreenContent extends StatelessWidget {
                 const Spacer(),
                 Text(
                   timeAgo,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  style: TextStyle(
+                    fontSize:
+                        (baseFontSize * 0.7).clamp(8, 10) *
+                        textScaleFactor, // Reduced from 10,12 to 8,10
+                    color: Colors.black54,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: screenHeight * 0.01),
             Text(
               comment,
-              style: const TextStyle(fontSize: 14, color: Colors.black54),
+              style: TextStyle(
+                fontSize:
+                    (baseFontSize * 0.8).clamp(10, 12) *
+                    textScaleFactor, // Reduced from 12,14 to 10,12
+                color: Colors.black54,
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class TrabajosContent extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AppBar(
-          title: const Text(
-            'Trabajos',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search, color: Colors.black54),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => BuscarScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            children: [
-              _buildJobListingCard(
-                context: context,
-                timeAgo: 'Hace 2 horas',
-                title: 'Instalaciones de luces LED',
-                categories: ['ILUMINACIÓN', 'PANELES', 'SEGURIDAD'],
-                location: 'Ave Bush - La Paz',
-                priceRange: 'BOB 80 - 150/Hora',
-                client: 'Mario Urioste',
-                rating: 4.3,
-              ),
-              _buildJobListingCard(
-                context: context,
-                timeAgo: 'Hace 1 día',
-                title: 'Reparación de Cortocircuito',
-                categories: ['ILUMINACIÓN', 'PANELES', 'SEGURIDAD'],
-                location: 'Ave Bush - La Paz',
-                priceRange: 'BOB 70 - 120/Hora',
-                client: 'Julio César Suárez',
-                rating: 4.1,
-              ),
-              _buildJobListingCard(
-                context: context,
-                timeAgo: 'Hace 3 horas',
-                title: 'Mantenimiento de PANELES',
-                categories: ['ILUMINACIÓN', 'PANELES', 'SEGURIDAD'],
-                location: 'Ave Bush - La Paz',
-                priceRange: 'BOB 90 - 160/Hora',
-                client: 'Rosa Elena Pérez',
-                rating: 4.2,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildJobListingCard({
-    required BuildContext context,
-    required String timeAgo,
-    required String title,
-    required List<String> categories,
-    required String location,
-    required String priceRange,
-    required String client,
-    required double rating,
-  }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 150,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(8),
-              ),
-              color: Colors.grey.shade300,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      timeAgo,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    Text(
-                      priceRange,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children:
-                      categories
-                          .map(
-                            (category) => Chip(
-                              label: Text(
-                                category,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              backgroundColor: Colors.grey.shade200,
-                            ),
-                          )
-                          .toList(),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Colors.black54,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      location,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.grey.shade300,
-                      child: const Icon(
-                        Icons.person,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          client,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.star,
-                              size: 16,
-                              color: Colors.yellow.shade700,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              rating.toString(),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    minimumSize: const Size(double.infinity, 40),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => PropuestaScreen()),
-                    );
-                  },
-                  child: const Text(
-                    'Enviar propuesta',
-                    style: TextStyle(fontSize: 14, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

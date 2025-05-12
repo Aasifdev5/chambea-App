@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/solicitar_servicio_screen.dart';
+import 'package:chambea/screens/client/propuestas_screen.dart';
 
 class SolicitudesScreen extends StatelessWidget {
+  const SolicitudesScreen({super.key}); // Added constructor for clarity
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -20,18 +23,22 @@ class SolicitudesScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
                 _buildRequestCard(
-                  'Activo',
-                  'Instalaciones de luces LED',
-                  'Ave Bush - La Paz',
-                  'BOB: 80',
-                  1,
+                  context: context, // Pass context
+                  status: 'Activo',
+                  title: 'Instalaciones de luces LED',
+                  location: 'Ave Bush - La Paz',
+                  price: 'BOB: 80',
+                  proposals: 1,
+                  subcategoryName: 'Electricidad',
                 ),
                 _buildRequestCard(
-                  'Activo',
-                  'Limpieza de 4 habitaciones',
-                  'Ave Bush - La Paz',
-                  'BOB: 80',
-                  5,
+                  context: context, // Pass context
+                  status: 'Activo',
+                  title: 'Limpieza de 4 habitaciones',
+                  location: 'Ave Bush - La Paz',
+                  price: 'BOB: 80',
+                  proposals: 5,
+                  subcategoryName: 'Limpieza',
                 ),
               ],
             ),
@@ -47,11 +54,18 @@ class SolicitudesScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => SolicitarServicioScreen(),
+                    builder:
+                        (context) =>
+                            SolicitarServicioScreen(subcategoryName: ''),
                   ),
                 );
               },
-              child: const Text('Solicitar servicio'),
+              child: const Text(
+                'Solicitar servicio',
+                style: TextStyle(
+                  color: Colors.white,
+                ), // Set text color to white
+              ),
             ),
           ),
         ],
@@ -59,13 +73,15 @@ class SolicitudesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRequestCard(
-    String status,
-    String title,
-    String location,
-    String price,
-    int proposals,
-  ) {
+  Widget _buildRequestCard({
+    required BuildContext context, // Add context parameter
+    required String status,
+    required String title,
+    required String location,
+    required String price,
+    required int proposals,
+    required String subcategoryName,
+  }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -115,8 +131,22 @@ class SolicitudesScreen extends StatelessWidget {
             const SizedBox(height: 8),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              onPressed: () {},
-              child: Text('$proposals Propuesta${proposals > 1 ? 's' : ''}'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) =>
+                            PropuestasScreen(subcategoryName: subcategoryName),
+                  ),
+                );
+              },
+              child: Text(
+                '$proposals Propuesta${proposals > 1 ? 's' : ''}',
+                style: const TextStyle(
+                  color: Colors.white,
+                ), // Set text color to white
+              ),
             ),
           ],
         ),

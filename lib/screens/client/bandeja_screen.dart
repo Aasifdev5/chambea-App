@@ -43,6 +43,7 @@ class BandejaScreen extends StatelessWidget {
                   'Andrés Villamontes',
                   4.1,
                   1,
+                  'Electricidad', // Added subcategoryName
                 ),
                 _buildJobCard(
                   context,
@@ -55,6 +56,7 @@ class BandejaScreen extends StatelessWidget {
                   'Andrés Villamontes',
                   4.1,
                   0,
+                  'Electricidad', // Added subcategoryName
                 ),
               ],
             ),
@@ -75,6 +77,7 @@ class BandejaScreen extends StatelessWidget {
     String client,
     double rating,
     int proposals,
+    String subcategoryName, // Added subcategoryName parameter
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -166,9 +169,11 @@ class BandejaScreen extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.green),
+                      foregroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () {},
                     child: const Text('Rechazar'),
@@ -179,6 +184,8 @@ class BandejaScreen extends StatelessWidget {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -199,17 +206,33 @@ class BandejaScreen extends StatelessWidget {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 24,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 5,
                   ),
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PropuestasScreen(),
+                        builder:
+                            (context) => PropuestasScreen(
+                              subcategoryName: subcategoryName,
+                            ),
                       ),
                     );
                   },
                   child: Text(
                     '$proposals Propuesta${proposals > 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

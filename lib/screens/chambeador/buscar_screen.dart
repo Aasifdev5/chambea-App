@@ -7,11 +7,10 @@ class BuscarScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed:
-              () => Navigator.pop(context), // Navigate back to previous screen
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'Buscar trabajo',
           style: TextStyle(
             fontSize: 20,
@@ -23,169 +22,247 @@ class BuscarScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.search, color: Colors.black54),
+            icon: const Icon(Icons.search, color: Colors.black54),
             onPressed: () {
-              // Placeholder for search functionality
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Búsqueda iniciada')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Búsqueda iniciada')),
+              );
             },
           ),
         ],
       ),
       body: ListView(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        children: [_buildTrabajoCard(context)],
+      ),
+    );
+  }
+
+  Widget _buildTrabajoCard(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+          // Image with overlay label
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
+                child: Image.network(
+                  'https://cdn.pixabay.com/photo/2021/11/14/12/07/fire-6792859_1280.jpg',
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  // Add loading and error handling
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 150,
+                      width: double.infinity,
+                      color: Colors.grey.shade200,
+                      child: const Center(child: CircularProgressIndicator()),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 150,
+                      width: double.infinity,
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          color: Colors.grey,
+                          size: 40,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Consultar',
+                    style: TextStyle(color: Colors.green[800], fontSize: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  height: 150,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(8),
-                    ),
-                    color: Colors.grey.shade300,
-                  ),
+                const Text(
+                  'Hace 2 horas',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
                 ),
-                Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Hace 2h',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                            ),
-                          ),
-                          Text(
-                            'BOB. 80 - 150/Hora',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
+                const SizedBox(height: 4),
+                const Text(
+                  'Cortocircuito en cocina',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Salió chispa de un enchufe de la cocina y ahora no funciona. Necesito revisión y solución urgente. Llevar herramientas.',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+
+                // Tags
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _buildTagChip('Enchufes'),
+                    _buildTagChip('Instalación de cables'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Icons row
+                Row(
+                  children: [
+                    const Icon(Icons.today, size: 16, color: Colors.black54),
+                    const SizedBox(width: 4),
+                    const Text('Hoy', style: TextStyle(color: Colors.black54)),
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      '16:00',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.monetization_on,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'BOB: 80 - 150 / Hora',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Ave Bush - La Paz',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.qr_code, size: 16, color: Colors.black54),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Efectivo o QR',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // User info
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: const NetworkImage(
+                        'https://i.pravatar.cc/150?img=12',
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Instalaciones de luces LED',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                      onBackgroundImageError: (error, stackTrace) {
+                        // This will be handled by the fallback UI below
+                      },
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.grey,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Mario Urioste',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              '4.1',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Trabajo rechazado')),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.green),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Rechazar',
+                          style: TextStyle(color: Colors.green),
                         ),
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Busco un profesional para realizar la instalación de luces LED en mi hogar y oficina. Necesito alguien con experiencia que pueda ofrecer eficiencia energética y buen rendimiento lumínico. Por favor, contáctame si estás interesado y eres profesional para realizar este trabajo de manera confiable.',
-                        style: TextStyle(fontSize: 14, color: Colors.black54),
-                      ),
-                      SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          Chip(
-                            label: Text(
-                              'ILUMINACIÓN',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            backgroundColor: Colors.grey.shade200,
-                          ),
-                          Chip(
-                            label: Text(
-                              'PANELES',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            backgroundColor: Colors.grey.shade200,
-                          ),
-                          Chip(
-                            label: Text(
-                              'SEGURIDAD',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            backgroundColor: Colors.grey.shade200,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            size: 16,
-                            color: Colors.black54,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Ave Bush - La Paz',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8),
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: Colors.grey.shade300,
-                            child: Icon(
-                              Icons.person,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Mario Urioste',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.star,
-                                    size: 16,
-                                    color: Colors.yellow.shade700,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    '4.1',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8),
-                      ElevatedButton(
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
-                          minimumSize: Size(double.infinity, 40),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -198,19 +275,27 @@ class BuscarScreen extends StatelessWidget {
                             ),
                           );
                         },
-                        child: Text(
+                        child: const Text(
                           'Enviar propuesta',
-                          style: TextStyle(fontSize: 14, color: Colors.white),
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTagChip(String label) {
+    return Chip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      backgroundColor: Colors.grey.shade200,
+      shape: const StadiumBorder(),
     );
   }
 }

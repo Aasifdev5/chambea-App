@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chambea/screens/chambeador/profile_photo_upload_screen.dart'; // Import the new screen
 
 class InformacionBasicaScreen extends StatefulWidget {
   @override
@@ -16,6 +17,7 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
   String _email = '';
   String _gender = 'Masculino';
   String _address = '';
+  String? _profilePhotoPath; // To store the path of the uploaded photo
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +25,7 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed:
-              () => Navigator.pop(context), // Navigate back to previous screen
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Información básica',
@@ -39,7 +40,6 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              // Save changes and navigate back
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text('Cambios aplicados')));
@@ -58,27 +58,56 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.grey.shade300,
-                    child: Icon(Icons.person, size: 50, color: Colors.white),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.green,
-                      child: Icon(
-                        Icons.camera_alt,
-                        size: 18,
-                        color: Colors.white,
+              child: GestureDetector(
+                onTap: () async {
+                  // Navigate to the photo upload screen and get the result
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfilePhotoUploadScreen(),
+                    ),
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _profilePhotoPath = result;
+                    });
+                  }
+                },
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.grey.shade300,
+                      backgroundImage:
+                          _profilePhotoPath != null
+                              ? AssetImage(
+                                _profilePhotoPath!,
+                              ) // Placeholder for now
+                              : null,
+                      child:
+                          _profilePhotoPath == null
+                              ? Icon(
+                                Icons.person,
+                                size: 50,
+                                color: Colors.white,
+                              )
+                              : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.green,
+                        child: Icon(
+                          Icons.camera_alt,
+                          size: 18,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             SizedBox(height: 20),
@@ -233,17 +262,30 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                 ),
               ),
               onPressed: () {
-                // Navigate to next screen (placeholder)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Datos guardados, avanzando al siguiente paso',
+                // Validate and navigate to the next screen
+                if (_name.isNotEmpty &&
+                    _lastName.isNotEmpty &&
+                    _birthDate.isNotEmpty &&
+                    _phone.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Datos guardados, avanzando al siguiente paso',
+                      ),
                     ),
-                  ),
-                );
-                // Placeholder for next screen navigation
-                // Replace with actual next screen (e.g., verification or confirmation)
-                Navigator.pushNamed(context, '/next_screen'); // Example route
+                  );
+                  // Placeholder for next screen navigation
+                  // Replace with actual navigation
+                  Navigator.pushNamed(context, '/next_screen');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Por favor completa todos los campos requeridos',
+                      ),
+                    ),
+                  );
+                }
               },
               child: Text(
                 'Siguiente',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chambea/screens/client/solicitar_servicio_screen.dart';
 
 class SubcategoriasScreen extends StatelessWidget {
   final String category;
@@ -31,7 +32,6 @@ class SubcategoriasScreen extends StatelessWidget {
       {'name': 'Clases de Música', 'icon': Icons.music_note},
       {'name': 'Clases de Idiomas', 'icon': Icons.language},
     ],
-    // 🔥 Add more categories and subcategories here
   };
 
   @override
@@ -97,10 +97,16 @@ class SubcategoriasScreen extends StatelessWidget {
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.grey),
             onTap: () {
-              // Handle subcategory tap
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text('Seleccionado: $name')));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (_) => SolicitarServicioScreen(subcategoryName: name),
+                ),
+              );
             },
           );
         },
