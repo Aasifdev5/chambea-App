@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/contratado_screen.dart';
-import 'package:chambea/screens/client/propuestas_screen.dart';
 
 class BandejaScreen extends StatelessWidget {
   @override
@@ -42,8 +41,6 @@ class BandejaScreen extends StatelessWidget {
                   '3 días',
                   'Andrés Villamontes',
                   4.1,
-                  1,
-                  'Electricidad', // Added subcategoryName
                 ),
                 _buildJobCard(
                   context,
@@ -55,8 +52,6 @@ class BandejaScreen extends StatelessWidget {
                   '3 días',
                   'Andrés Villamontes',
                   4.1,
-                  0,
-                  'Electricidad', // Added subcategoryName
                 ),
               ],
             ),
@@ -76,8 +71,6 @@ class BandejaScreen extends StatelessWidget {
     String duration,
     String client,
     double rating,
-    int proposals,
-    String subcategoryName, // Added subcategoryName parameter
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -200,42 +193,6 @@ class BandejaScreen extends StatelessWidget {
                 ),
               ],
             ),
-            if (proposals > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 14,
-                      horizontal: 24,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 5,
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => PropuestasScreen(
-                              subcategoryName: subcategoryName,
-                            ),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    '$proposals Propuesta${proposals > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
