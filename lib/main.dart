@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:chambea/screens/chambeador/chambeadorregister_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:intl_phone_number_input/intl_phone_number_input.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 import 'package:chambea/screens/client/perfil_screen.dart';
-import 'package:chambea/screens/chambeador/antecedentes_screen.dart';
+import 'package:chambea/screens/chambeador/chambeadorregister_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const ChambeaApp());
 }
 
@@ -124,8 +131,7 @@ class OnboardingOneScreen extends StatelessWidget {
                   '¡Bienvenido a CHAMBEA!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                    fontSize: screenWidth * 0.045,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -135,8 +141,7 @@ class OnboardingOneScreen extends StatelessWidget {
                   'Realiza tus actividades con tranquilidad mientras nuestros profesionales se encargan de todo.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    fontSize: screenWidth * 0.035,
                     color: Colors.black54,
                     height: 1.4,
                   ),
@@ -166,9 +171,7 @@ class OnboardingOneScreen extends StatelessWidget {
                         'Saltar',
                         style: TextStyle(
                           color: const Color(0xFF22c55e),
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -216,8 +219,7 @@ class OnboardingTwoScreen extends StatelessWidget {
                   'Encuentra servicios a tu medida',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                    fontSize: screenWidth * 0.045,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -227,8 +229,7 @@ class OnboardingTwoScreen extends StatelessWidget {
                   'Conecta con trabajadores de confianza en tu vecindario para ayudarte en casa, apartamento u oficina.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    fontSize: screenWidth * 0.035,
                     color: Colors.black54,
                     height: 1.4,
                   ),
@@ -258,9 +259,7 @@ class OnboardingTwoScreen extends StatelessWidget {
                         'Saltar',
                         style: TextStyle(
                           color: const Color(0xFF22c55e),
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -308,8 +307,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                   'Programa según tu conveniencia',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                    fontSize: screenWidth * 0.045,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -319,8 +317,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                   'Elige el momento perfecto para ti y el trabajador con flexibilidad y facilidad.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    fontSize: screenWidth * 0.035,
                     color: Colors.black54,
                     height: 1.4,
                   ),
@@ -350,9 +347,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                         'Saltar',
                         style: TextStyle(
                           color: const Color(0xFF22c55e),
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -374,13 +369,12 @@ class OnboardingThreeScreen extends StatelessWidget {
                   icon: const Icon(
                     Icons.arrow_forward,
                     color: Colors.white,
-                    size: 20, // Reduced icon size for smaller aesthetic
+                    size: 20,
                   ),
                   label: Text(
                     'Comenzar',
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -402,8 +396,135 @@ class OnboardingThreeScreen extends StatelessWidget {
 }
 
 // Login Screen
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _phoneController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'BO'); // Default to Bolivia
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return; // User canceled sign-in
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await _auth.signInWithCredential(credential);
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error en Google Sign-In: $e')));
+      }
+    }
+  }
+
+  Future<void> _startPhoneAuth() async {
+    try {
+      final phoneNumber = _phoneNumber.phoneNumber;
+      if (phoneNumber == null || phoneNumber.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, ingresa un número de teléfono'),
+          ),
+        );
+        return;
+      }
+
+      final isValid = _validatePhoneNumber(phoneNumber);
+      if (!isValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Número de teléfono inválido para el país seleccionado',
+            ),
+          ),
+        );
+        return;
+      }
+
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _auth.signInWithCredential(credential);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
+            );
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: ${e.message ?? 'Verificación fallida'}'),
+              ),
+            );
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OTPScreen(
+                  verificationId: verificationId,
+                  phoneNumber: phoneNumber,
+                ),
+              ),
+            );
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al enviar el código: $e')),
+        );
+      }
+    }
+  }
+
+  bool _validatePhoneNumber(String phoneNumber) {
+    final cleanedNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    if (_phoneNumber.isoCode == 'BO') {
+      return RegExp(
+        r'^\+591\d{8}$',
+      ).hasMatch(cleanedNumber); // Bolivia: 8 digits
+    } else if (_phoneNumber.isoCode == 'US') {
+      return RegExp(r'^\+1\d{10}$').hasMatch(cleanedNumber); // USA: 10 digits
+    } else if (_phoneNumber.isoCode == 'MX') {
+      return RegExp(
+        r'^\+52\d{10}$',
+      ).hasMatch(cleanedNumber); // Mexico: 10 digits
+    }
+    return cleanedNumber.length >= 9 && cleanedNumber.length <= 15;
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -428,8 +549,7 @@ class LoginScreen extends StatelessWidget {
                 Text(
                   'Introduce tu número de teléfono',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                    fontSize: screenWidth * 0.045,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -439,43 +559,43 @@ class LoginScreen extends StatelessWidget {
                 Text(
                   'Te enviaremos un código para verificar tu número telefónico',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    fontSize: screenWidth * 0.035,
                     color: Colors.black54,
                     height: 1.4,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: screenHeight * 0.04),
-                TextField(
+                InternationalPhoneNumberInput(
+                  onInputChanged: (PhoneNumber number) {
+                    setState(() {
+                      _phoneNumber = number;
+                    });
+                  },
+                  selectorConfig: const SelectorConfig(
+                    selectorType: PhoneInputSelectorType.DROPDOWN,
+                    setSelectorButtonAsPrefixIcon: true,
+                    leadingPadding: 12,
+                  ),
+                  ignoreBlank: false,
+                  autoValidateMode: AutovalidateMode.disabled,
+                  initialValue: _phoneNumber,
+                  selectorTextStyle: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: Colors.black87,
+                  ),
+                  textStyle: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: Colors.black87,
+                  ),
+                  textFieldController: _phoneController,
+                  formatInput: false,
                   keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    prefixIcon: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screenWidth * 0.03,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.flag, color: Colors.grey),
-                          SizedBox(width: screenWidth * 0.02),
-                          Text(
-                            '+591',
-                            style: TextStyle(
-                              fontSize:
-                                  screenWidth *
-                                  0.035, // Smaller font (Medium: 0.038)
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  inputDecoration: InputDecoration(
                     hintText: 'Número de teléfono',
                     hintStyle: TextStyle(
                       color: Colors.black38,
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                     ),
                     filled: true,
                     fillColor: Colors.white,
@@ -505,17 +625,11 @@ class LoginScreen extends StatelessWidget {
                     ),
                     elevation: 8,
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OTPScreen()),
-                    );
-                  },
+                  onPressed: _startPhoneAuth,
                   child: Text(
                     'Enviar código',
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -542,22 +656,18 @@ class LoginScreen extends StatelessWidget {
                   label: Text(
                     'Continuar con Google',
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                       color: Colors.black87,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  onPressed: () {
-                    // Add Google sign-in logic here
-                  },
+                  onPressed: _signInWithGoogle,
                 ),
                 SizedBox(height: screenHeight * 0.05),
                 Text(
                   'Al unirte a nuestra aplicación, aceptas nuestros Términos de Uso y Política de privacidad',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.03, // Smaller font (Medium: 0.032)
+                    fontSize: screenWidth * 0.03,
                     color: Colors.black54,
                     height: 1.4,
                   ),
@@ -573,41 +683,149 @@ class LoginScreen extends StatelessWidget {
   }
 }
 
-// OTPScreen
+// OTP Screen
 class OTPScreen extends StatefulWidget {
-  const OTPScreen({super.key});
+  final String verificationId;
+  final String phoneNumber;
+
+  const OTPScreen({
+    super.key,
+    required this.verificationId,
+    required this.phoneNumber,
+  });
 
   @override
   State<OTPScreen> createState() => _OTPScreenState();
 }
 
-class _OTPScreenState extends State<OTPScreen> {
+class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   final List<TextEditingController> _otpControllers = List.generate(
     4,
     (index) => TextEditingController(),
   );
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   String _otp = '';
+  bool _canResend = false;
+  int _resendCountdown = 60;
 
   @override
-  void dispose() {
-    for (var controller in _otpControllers) {
-      controller.dispose();
-    }
-    super.dispose();
+  void initState() {
+    super.initState();
+    listenForCode();
+    _startResendTimer();
   }
 
-  void _onOtpChanged() {
+  void _startResendTimer() {
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendCountdown > 0) {
+        setState(() {
+          _resendCountdown--;
+        });
+      } else {
+        setState(() {
+          _canResend = true;
+          timer.cancel();
+        });
+      }
+    });
+  }
+
+  @override
+  void codeUpdated() {
+    if (code != null && code!.length == 4) {
+      setState(() {
+        _otp = code!;
+        for (int i = 0; i < 4; i++) {
+          _otpControllers[i].text = _otp[i];
+        }
+      });
+      _verifyOtp();
+    }
+  }
+
+  Future<void> _verifyOtp() async {
     _otp = _otpControllers.map((controller) => controller.text).join();
-    if (_otp.length == 4) {
-      if (_otp == '7421') {
+    if (_otp.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, ingresa un código de 4 dígitos'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: widget.verificationId,
+        smsCode: _otp,
+      );
+      await _auth.signInWithCredential(credential);
+      if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Código incorrecto')));
+        ).showSnackBar(SnackBar(content: Text('Código incorrecto: $e')));
+      }
+    }
+  }
+
+  Future<void> _resendOtp() async {
+    if (!_canResend) return;
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: widget.phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _auth.signInWithCredential(credential);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
+            );
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: ${e.message ?? 'Verificación fallida'}'),
+              ),
+            );
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OTPScreen(
+                  verificationId: verificationId,
+                  phoneNumber: widget.phoneNumber,
+                ),
+              ),
+            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Código reenviado')));
+            setState(() {
+              _canResend = false;
+              _resendCountdown = 60;
+              _startResendTimer();
+            });
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al reenviar el código: $e')),
+        );
       }
     }
   }
@@ -624,7 +842,7 @@ class _OTPScreenState extends State<OTPScreen> {
         keyboardType: TextInputType.number,
         maxLength: 1,
         style: TextStyle(
-          fontSize: screenWidth * 0.045, // Smaller font (Medium: 0.05)
+          fontSize: screenWidth * 0.045,
           color: Colors.black87,
           fontWeight: FontWeight.w600,
         ),
@@ -641,13 +859,24 @@ class _OTPScreenState extends State<OTPScreen> {
           ),
         ),
         onChanged: (value) {
-          _onOtpChanged();
           if (value.isNotEmpty && index < 3) {
             FocusScope.of(context).nextFocus();
+          }
+          if (index == 3 && value.isNotEmpty) {
+            _verifyOtp();
           }
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    cancel();
+    for (var controller in _otpControllers) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -674,8 +903,7 @@ class _OTPScreenState extends State<OTPScreen> {
                 Text(
                   'Ingresa el código',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                    fontSize: screenWidth * 0.045,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -683,10 +911,9 @@ class _OTPScreenState extends State<OTPScreen> {
                 ),
                 SizedBox(height: screenHeight * 0.015),
                 Text(
-                  'Te enviamos un código de verificación al número\n+591 394 934 834',
+                  'Te enviamos un código de verificación al número\n${widget.phoneNumber}',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    fontSize: screenWidth * 0.035,
                     color: Colors.black54,
                     height: 1.4,
                   ),
@@ -699,23 +926,26 @@ class _OTPScreenState extends State<OTPScreen> {
                 ),
                 SizedBox(height: screenHeight * 0.03),
                 Text(
-                  'Puedes reenviar el código en 60 segundos',
+                  _canResend
+                      ? 'Puedes reenviar el código ahora'
+                      : 'Puedes reenviar el código en $_resendCountdown segundos',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.03, // Smaller font (Medium: 0.032)
+                    fontSize: screenWidth * 0.03,
                     color: Colors.black54,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: screenHeight * 0.05),
-                Text(
-                  'From Messages\n123 456',
-                  style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.03, // Smaller font (Medium: 0.032)
-                    color: Colors.black54,
+                TextButton(
+                  onPressed: _canResend ? _resendOtp : null,
+                  child: Text(
+                    'Reenviar código',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: _canResend ? const Color(0xFF22c55e) : Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
                 ),
                 SizedBox(height: screenHeight * 0.02),
               ],
@@ -757,8 +987,7 @@ class ActiveServiceScreen extends StatelessWidget {
                 Text(
                   'Permite que la aplicación acceda a tu ubicación',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                    fontSize: screenWidth * 0.045,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -768,8 +997,7 @@ class ActiveServiceScreen extends StatelessWidget {
                 Text(
                   'Permítenos acceder a tu ubicación para conectarte con los mejores trabajadores cerca de ti y ofrecerte un servicio rápido y eficiente.',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    fontSize: screenWidth * 0.035,
                     color: Colors.black54,
                     height: 1.4,
                   ),
@@ -798,8 +1026,7 @@ class ActiveServiceScreen extends StatelessWidget {
                   child: Text(
                     'Activar los servicios locales',
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -817,8 +1044,7 @@ class ActiveServiceScreen extends StatelessWidget {
                   child: Text(
                     'Omitir',
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                       color: const Color(0xFF22c55e),
                       fontWeight: FontWeight.w600,
                     ),
@@ -865,8 +1091,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 Text(
                   'Selecciona tu Perfil',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                    fontSize: screenWidth * 0.045,
                     fontWeight: FontWeight.w700,
                     color: Colors.black87,
                     letterSpacing: 0.5,
@@ -877,8 +1102,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 Text(
                   'Elige si deseas contratar servicios o mostrar tus habilidades como profesional.',
                   style: TextStyle(
-                    fontSize:
-                        screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                    fontSize: screenWidth * 0.035,
                     color: Colors.black54,
                     height: 1.4,
                   ),
@@ -935,9 +1159,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                       child: Text(
                         'Acepto la política de privacidad, términos y condiciones',
                         style: TextStyle(
-                          fontSize:
-                              screenWidth *
-                              0.03, // Smaller font (Medium: 0.032)
+                          fontSize: screenWidth * 0.03,
                           color: Colors.black87,
                           decoration: TextDecoration.underline,
                         ),
@@ -948,10 +1170,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 SizedBox(height: screenHeight * 0.03),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _selectedProfile != null && _termsAccepted
-                            ? const Color(0xFF22c55e)
-                            : Colors.grey.shade400,
+                    backgroundColor: _selectedProfile != null && _termsAccepted
+                        ? const Color(0xFF22c55e)
+                        : Colors.grey.shade400,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(
                       horizontal: screenWidth * 0.1,
@@ -963,31 +1184,27 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                     elevation: 5,
                     shadowColor: const Color(0xFF22c55e).withOpacity(0.3),
                   ),
-                  onPressed:
-                      _selectedProfile != null && _termsAccepted
-                          ? () {
-                            if (_selectedProfile == 'Chambeador') {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChambeadorRegisterScreen(),
-                                ),
-                              );
-                            } else if (_selectedProfile == 'Cliente') {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PerfilScreen(),
-                                ),
-                              );
-                            }
+                  onPressed: _selectedProfile != null && _termsAccepted
+                      ? () {
+                          if (_selectedProfile == 'Chambeador') {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChambeadorRegisterScreen(),
+                              ),
+                            );
+                          } else if (_selectedProfile == 'Cliente') {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => PerfilScreen()),
+                            );
                           }
-                          : null,
+                        }
+                      : null,
                   child: Text(
                     'Continuar',
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1024,18 +1241,16 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors:
-                isSelected
-                    ? [Colors.white, const Color(0xFFE8F5E9)]
-                    : [Colors.white, Colors.grey.shade50],
+            colors: isSelected
+                ? [Colors.white, const Color(0xFFE8F5E9)]
+                : [Colors.white, Colors.grey.shade50],
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color:
-                  isSelected
-                      ? const Color(0xFF22c55e).withOpacity(0.3)
-                      : Colors.grey.withOpacity(0.2),
+              color: isSelected
+                  ? const Color(0xFF22c55e).withOpacity(0.3)
+                  : Colors.grey.withOpacity(0.2),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1062,11 +1277,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   Text(
                     profileType,
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                      fontSize: screenWidth * 0.035,
                       fontWeight: FontWeight.w700,
-                      color:
-                          isSelected ? const Color(0xFF22c55e) : Colors.black87,
+                      color: isSelected
+                          ? const Color(0xFF22c55e)
+                          : Colors.black87,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1074,8 +1289,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   Text(
                     description,
                     style: TextStyle(
-                      fontSize:
-                          screenWidth * 0.03, // Smaller font (Medium: 0.032)
+                      fontSize: screenWidth * 0.03,
                       color: Colors.black54,
                       height: 1.3,
                     ),
@@ -1177,14 +1391,16 @@ class _ProgressIndicatorState extends State<_ProgressIndicator>
               decoration: BoxDecoration(
                 shape: widget.isActive ? BoxShape.rectangle : BoxShape.circle,
                 color: _colorAnimation.value,
-                borderRadius:
-                    widget.isActive ? BorderRadius.circular(12) : null,
+                borderRadius: widget.isActive
+                    ? BorderRadius.circular(12)
+                    : null,
                 boxShadow: [
                   BoxShadow(
-                    color: (widget.isActive
-                            ? const Color(0xFF22c55e)
-                            : Colors.grey.shade200)
-                        .withOpacity(0.3),
+                    color:
+                        (widget.isActive
+                                ? const Color(0xFF22c55e)
+                                : Colors.grey.shade200)
+                            .withOpacity(0.3),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
