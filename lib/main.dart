@@ -8,15 +8,99 @@ import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:chambea/screens/client/perfil_screen.dart';
 import 'package:chambea/screens/chambeador/chambeadorregister_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: AndroidProvider.playIntegrity,
+  );
   runApp(const ChambeaApp());
+}
+
+class ApiService {
+  static const String baseUrl = 'https://chambea.lat';
+
+  static Future<Map<String, String>> getHeaders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    String? token = await user?.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  static Future<bool> isLoggedIn() async {
+    return FirebaseAuth.instance.currentUser != null;
+  }
+
+  static Future<Map<String, dynamic>> get(String endpoint) async {
+    final headers = await getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    throw Exception('Failed to load data: ${response.statusCode}');
+  }
+
+  static Future<Map<String, dynamic>> post(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
+    final headers = await getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+      body: json.encode(body),
+    );
+    return {
+      'statusCode': response.statusCode,
+      'body': json.decode(response.body),
+    };
+  }
+
+  static Future<Map<String, dynamic>> put(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
+    final headers = await getHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+      body: json.encode(body),
+    );
+    return {
+      'statusCode': response.statusCode,
+      'body': json.decode(response.body),
+    };
+  }
+
+  static Future<Map<String, dynamic>> delete(String endpoint) async {
+    final headers = await getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+    );
+    return {
+      'statusCode': response.statusCode,
+      'body': json.decode(response.body),
+    };
+  }
 }
 
 class ChambeaApp extends StatelessWidget {
   const ChambeaApp({super.key});
+
+  Future<Widget> _getInitialScreen() async {
+    final isLoggedIn = await ApiService.isLoggedIn();
+    return isLoggedIn ? const ProfileSelectionScreen() : const SplashScreen();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +119,22 @@ class ChambeaApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SplashScreen(),
+      home: FutureBuilder<Widget>(
+        future: _getInitialScreen(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          } else if (snapshot.hasError) {
+            return const Scaffold(
+              body: Center(child: Text('Error al cargar la pantalla inicial')),
+            );
+          } else {
+            return snapshot.data!;
+          }
+        },
+      ),
     );
   }
 }
@@ -406,12 +505,12 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'BO'); // Default to Bolivia
+  PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'BO');
 
   Future<void> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return; // User canceled sign-in
+      if (googleUser == null) return;
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
@@ -507,15 +606,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _validatePhoneNumber(String phoneNumber) {
     final cleanedNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
     if (_phoneNumber.isoCode == 'BO') {
-      return RegExp(
-        r'^\+591\d{8}$',
-      ).hasMatch(cleanedNumber); // Bolivia: 8 digits
+      return RegExp(r'^\+591\d{8}$').hasMatch(cleanedNumber);
     } else if (_phoneNumber.isoCode == 'US') {
-      return RegExp(r'^\+1\d{10}$').hasMatch(cleanedNumber); // USA: 10 digits
+      return RegExp(r'^\+1\d{10}$').hasMatch(cleanedNumber);
     } else if (_phoneNumber.isoCode == 'MX') {
-      return RegExp(
-        r'^\+52\d{10}$',
-      ).hasMatch(cleanedNumber); // Mexico: 10 digits
+      return RegExp(r'^\+52\d{10}$').hasMatch(cleanedNumber);
     }
     return cleanedNumber.length >= 9 && cleanedNumber.length <= 15;
   }
@@ -700,7 +795,7 @@ class OTPScreen extends StatefulWidget {
 
 class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   final List<TextEditingController> _otpControllers = List.generate(
-    4,
+    6,
     (index) => TextEditingController(),
   );
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -732,10 +827,10 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 
   @override
   void codeUpdated() {
-    if (code != null && code!.length == 4) {
+    if (code != null && code!.length == 6) {
       setState(() {
         _otp = code!;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 6; i++) {
           _otpControllers[i].text = _otp[i];
         }
       });
@@ -745,10 +840,10 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 
   Future<void> _verifyOtp() async {
     _otp = _otpControllers.map((controller) => controller.text).join();
-    if (_otp.length != 4) {
+    if (_otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor, ingresa un código de 4 dígitos'),
+          content: Text('Por favor, ingresa un código de 6 dígitos'),
         ),
       );
       return;
@@ -833,16 +928,16 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   Widget _otpTextField(int index) {
     final screenWidth = MediaQuery.of(context).size.width;
     return Container(
-      width: screenWidth * 0.12,
-      height: screenWidth * 0.12,
-      margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
+      width: screenWidth * 0.1,
+      height: screenWidth * 0.1,
+      margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
       child: TextField(
         controller: _otpControllers[index],
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         maxLength: 1,
         style: TextStyle(
-          fontSize: screenWidth * 0.045,
+          fontSize: screenWidth * 0.04,
           color: Colors.black87,
           fontWeight: FontWeight.w600,
         ),
@@ -859,10 +954,10 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           ),
         ),
         onChanged: (value) {
-          if (value.isNotEmpty && index < 3) {
+          if (value.isNotEmpty && index < 5) {
             FocusScope.of(context).nextFocus();
           }
-          if (index == 3 && value.isNotEmpty) {
+          if (index == 5 && value.isNotEmpty) {
             _verifyOtp();
           }
         },
@@ -920,9 +1015,10 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: screenHeight * 0.04),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(4, (index) => _otpTextField(index)),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: screenWidth * 0.01,
+                  children: List.generate(6, (index) => _otpTextField(index)),
                 ),
                 SizedBox(height: screenHeight * 0.03),
                 Text(

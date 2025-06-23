@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "317466770837-pnvgai4gmdjlt9d69tgfsqsjeaksmk37.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.chambea",
+            "certificate_hash": "0a08a60f9fe27ba9adcf0a09c8acc736498e8498"
+          }
+        },
+        {
           "client_id": "317466770837-p5aaiqeggc81cpjnn47dieb4bpa786vg.apps.googleusercontent.com",
           "client_type": 3
         }

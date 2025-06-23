@@ -1,13 +1,43 @@
 import 'package:flutter/material.dart';
-// Import your other screens
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:chambea/screens/client/perfil_screen.dart';
 import 'package:chambea/screens/client/notificaciones_screen.dart';
 import 'package:chambea/screens/client/billetera_screen.dart';
 import 'package:chambea/screens/client/configuracion_screen.dart';
-import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/screens/client/supportscreen.dart';
+import 'package:chambea/screens/chambeador/home_screen.dart';
+import 'package:chambea/main.dart'; // Import for SplashScreen
 
 class MenuScreen extends StatelessWidget {
+  const MenuScreen({super.key});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      // Sign out from Firebase Authentication
+      await FirebaseAuth.instance.signOut();
+      // Sign out from Google Sign-In if used
+      await GoogleSignIn().signOut();
+      // Navigate to SplashScreen and clear navigation stack
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const SplashScreen()),
+          (route) => false,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sesión cerrada exitosamente')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,7 +70,6 @@ class MenuScreen extends StatelessWidget {
                 );
               },
             ),
-
             ListTile(
               leading: const Icon(Icons.settings, color: Colors.green),
               title: const Text('Configuración'),
@@ -71,9 +100,7 @@ class MenuScreen extends StatelessWidget {
               leading: const Icon(Icons.logout, color: Colors.green),
               title: const Text('Cerrar sesión'),
               trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                // Handle logout here
-              },
+              onTap: () => _handleLogout(context),
             ),
             const Spacer(),
             ElevatedButton(

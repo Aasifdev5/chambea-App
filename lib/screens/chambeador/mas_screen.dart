@@ -1,22 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:chambea/screens/chambeador/perfil_chambeador_screen.dart';
 import 'package:chambea/screens/chambeador/notification_screen.dart';
 import 'package:chambea/screens/chambeador/billetera_screen.dart';
 import 'package:chambea/screens/chambeador/configuracion_screen.dart';
-import 'package:chambea/screens/chambeador/home_screen.dart'; // For navigation back to HomeScreen on logout
+import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/screens/client/home.dart';
+import 'package:chambea/main.dart'; // For SplashScreen
 
 class MasScreen extends StatelessWidget {
+  const MasScreen({super.key});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      // Sign out from Firebase Authentication
+      await FirebaseAuth.instance.signOut();
+      // Sign out from Google Sign-In if used
+      await GoogleSignIn().signOut();
+      // Navigate to SplashScreen and clear navigation stack
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const SplashScreen()),
+          (route) => false,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sesión cerrada exitosamente')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed:
-              () => Navigator.pop(context), // Navigate back to previous screen
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () =>
+              Navigator.pop(context), // Navigate back to previous screen
         ),
-        title: Text(
+        title: const Text(
           'Menú',
           style: TextStyle(
             fontSize: 20,
@@ -28,11 +59,11 @@ class MasScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Menú',
               style: TextStyle(
                 fontSize: 20,
@@ -40,14 +71,14 @@ class MasScreen extends StatelessWidget {
                 color: Colors.black87,
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ListTile(
-              leading: Icon(Icons.person, color: Colors.green),
-              title: Text(
+              leading: const Icon(Icons.person, color: Colors.green),
+              title: const Text(
                 'Perfil',
                 style: TextStyle(fontSize: 16, color: Colors.black87),
               ),
-              trailing: Icon(
+              trailing: const Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: Colors.black54,
@@ -60,18 +91,17 @@ class MasScreen extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.notifications, color: Colors.green),
-              title: Text(
+              leading: const Icon(Icons.notifications, color: Colors.green),
+              title: const Text(
                 'Notificación',
                 style: TextStyle(fontSize: 16, color: Colors.black87),
               ),
-              trailing: Icon(
+              trailing: const Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: Colors.black54,
               ),
               onTap: () {
-                // Navigate to PerfilScreen (assuming it handles notifications as per previous update)
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => NotificationScreen()),
@@ -79,12 +109,15 @@ class MasScreen extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.account_balance_wallet, color: Colors.green),
-              title: Text(
+              leading: const Icon(
+                Icons.account_balance_wallet,
+                color: Colors.green,
+              ),
+              title: const Text(
                 'Billetera',
                 style: TextStyle(fontSize: 16, color: Colors.black87),
               ),
-              trailing: Icon(
+              trailing: const Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: Colors.black54,
@@ -97,12 +130,12 @@ class MasScreen extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.settings, color: Colors.green),
-              title: Text(
+              leading: const Icon(Icons.settings, color: Colors.green),
+              title: const Text(
                 'Configuración',
                 style: TextStyle(fontSize: 16, color: Colors.black87),
               ),
-              trailing: Icon(
+              trailing: const Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: Colors.black54,
@@ -115,50 +148,40 @@ class MasScreen extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.support, color: Colors.green),
-              title: Text(
+              leading: const Icon(Icons.support, color: Colors.green),
+              title: const Text(
                 'Soporte técnico',
                 style: TextStyle(fontSize: 16, color: Colors.black87),
               ),
-              trailing: Icon(
+              trailing: const Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: Colors.black54,
               ),
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Soporte técnico contactado')),
+                  const SnackBar(content: Text('Soporte técnico contactado')),
                 );
               },
             ),
             ListTile(
-              leading: Icon(Icons.logout, color: Colors.green),
-              title: Text(
+              leading: const Icon(Icons.logout, color: Colors.green),
+              title: const Text(
                 'Cerrar sesión',
                 style: TextStyle(fontSize: 16, color: Colors.black87),
               ),
-              trailing: Icon(
+              trailing: const Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: Colors.black54,
               ),
-              onTap: () {
-                // Simulate logout by navigating back to HomeScreen and showing a SnackBar
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => HomeScreen()),
-                  (Route<dynamic> route) => false, // Clear the navigation stack
-                );
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Sesión cerrada')));
-              },
+              onTap: () => _handleLogout(context),
             ),
-            Spacer(),
+            const Spacer(),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
-                minimumSize: Size(double.infinity, 50),
+                minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -166,10 +189,12 @@ class MasScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => ClientHomeScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const ClientHomeScreen(),
+                  ),
                 );
               },
-              child: Text(
+              child: const Text(
                 'Modo Client',
                 style: TextStyle(fontSize: 16, color: Colors.white),
               ),
