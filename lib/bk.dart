@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+update this import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,7 +10,6 @@ import 'package:chambea/screens/client/perfil_screen.dart';
 import 'package:chambea/screens/chambeador/chambeadorregister_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:chambea/screens/client/home.dart'; // Added import for ClientHomeScreen
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1168,75 +1167,6 @@ class ProfileSelectionScreen extends StatefulWidget {
 class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   String? _selectedProfile;
   bool _termsAccepted = false;
-  bool _isLoading = false;
-
-  Future<void> _handleProfileSelection() async {
-    if (_selectedProfile == null || !_termsAccepted) return;
-
-    setState(() => _isLoading = true);
-    try {
-      // Call /api/account-type to verify the account type
-      final response = await ApiService.get('/api/account-type');
-      print('DEBUG: Fetch account type response: $response');
-      if (response['status'] == 'success') {
-        final accountType = response['data']['account_type'] ?? 'Client';
-        if (accountType == 'Client' && _selectedProfile == 'Cliente') {
-          print('DEBUG: User is Client, redirecting to ClientHomeScreen');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-            );
-          }
-        } else if (_selectedProfile == 'Chambeador') {
-          print(
-            'DEBUG: User selected Chambeador, navigating to ChambeadorRegisterScreen',
-          );
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: User selected Cliente but account_type is $accountType, navigating to PerfilScreen',
-          );
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const PerfilScreen()),
-            );
-          }
-        }
-      } else {
-        throw Exception('Unexpected response status: ${response['status']}');
-      }
-    } catch (e) {
-      print('DEBUG: Fetch account type error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al verificar el tipo de cuenta: $e')),
-        );
-        // Fallback to original navigation logic
-        if (_selectedProfile == 'Chambeador') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const PerfilScreen()),
-          );
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1334,36 +1264,47 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   ],
                 ),
                 SizedBox(height: screenHeight * 0.03),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              _selectedProfile != null && _termsAccepted
-                              ? const Color(0xFF22c55e)
-                              : Colors.grey.shade400,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.1,
-                            vertical: screenHeight * 0.02,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 5,
-                          shadowColor: const Color(0xFF22c55e).withOpacity(0.3),
-                        ),
-                        onPressed: _selectedProfile != null && _termsAccepted
-                            ? _handleProfileSelection
-                            : null,
-                        child: Text(
-                          'Continuar',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _selectedProfile != null && _termsAccepted
+                        ? const Color(0xFF22c55e)
+                        : Colors.grey.shade400,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.1,
+                      vertical: screenHeight * 0.02,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 5,
+                    shadowColor: const Color(0xFF22c55e).withOpacity(0.3),
+                  ),
+                  onPressed: _selectedProfile != null && _termsAccepted
+                      ? () {
+                          if (_selectedProfile == 'Chambeador') {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChambeadorRegisterScreen(),
+                              ),
+                            );
+                          } else if (_selectedProfile == 'Cliente') {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => PerfilScreen()),
+                            );
+                          }
+                        }
+                      : null,
+                  child: Text(
+                    'Continuar',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
                 SizedBox(height: screenHeight * 0.02),
               ],
             ),
