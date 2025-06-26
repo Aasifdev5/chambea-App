@@ -21,10 +21,12 @@ dependencies:
   google_sign_in: ^6.2.1
   shared_preferences: ^2.2.2
   cached_network_image: ^3.3.1
+  provider: ^6.1.5  # Updated to latest
+  flutter_bloc: ^8.1.6  # Updated to latest
   retry: ^3.1.2
   logger: ^2.0.2
   sms_autofill: ^2.3.0
-  firebase_app_check: ^0.3.0
+  firebase_app_check: ^0.3.2+7  # Updated to latest
   http: ^1.4.0
   url_launcher: ^6.3.1
   google_maps_flutter: ^2.12.3
