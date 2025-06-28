@@ -41,46 +41,51 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBELZepUzHuskwtTCgxy3yGaBFTQ-4q6XI',
-    appId: '1:317466770837:web:271877bf7f5f31bb72ca9c',
-    messagingSenderId: '317466770837',
-    projectId: 'chambeaapp-6a037',
-    authDomain: 'chambeaapp-6a037.firebaseapp.com',
-    storageBucket: 'chambeaapp-6a037.firebasestorage.app',
+    apiKey: 'AIzaSyCrsDB7eYDpluV8jaBPLsTF9ZsNuvYM28E',
+    appId: '1:132354394234:web:703beb60a854100a0d13c3',
+    messagingSenderId: '132354394234',
+    projectId: 'client-chambea',
+    authDomain: 'client-chambea.firebaseapp.com',
+    storageBucket: 'client-chambea.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyD7a58jkgdVnxBvKug2km62hySPnls0hu0',
-    appId: '1:317466770837:android:25438e628ceca05672ca9c',
-    messagingSenderId: '317466770837',
-    projectId: 'chambeaapp-6a037',
-    storageBucket: 'chambeaapp-6a037.firebasestorage.app',
+    apiKey: 'AIzaSyDcsOnv8P90FM9lgc3HaXQnvr_CKVGoqV4',
+    appId: '1:132354394234:android:1195e21b6ab5fd770d13c3',
+    messagingSenderId: '132354394234',
+    projectId: 'client-chambea',
+    storageBucket: 'client-chambea.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBo5xGgeL7jejR0N_Z7RJKznFkqHSMvcrM',
-    appId: '1:317466770837:ios:038f882d8b68929172ca9c',
-    messagingSenderId: '317466770837',
-    projectId: 'chambeaapp-6a037',
-    storageBucket: 'chambeaapp-6a037.firebasestorage.app',
+    apiKey: 'AIzaSyCmOcPQXvFL9hnsPZySq9FW_cvxqvcHB2k',
+    appId: '1:132354394234:ios:e61f4b803470a83f0d13c3',
+    messagingSenderId: '132354394234',
+    projectId: 'client-chambea',
+    storageBucket: 'client-chambea.firebasestorage.app',
+    androidClientId: '132354394234-l26oqphl5obnjs7mudbmighngc0grn31.apps.googleusercontent.com',
+    iosClientId: '132354394234-lips37nopasjsstgi0aeravocc7163b5.apps.googleusercontent.com',
     iosBundleId: 'com.example.chambea',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBo5xGgeL7jejR0N_Z7RJKznFkqHSMvcrM',
-    appId: '1:317466770837:ios:038f882d8b68929172ca9c',
-    messagingSenderId: '317466770837',
-    projectId: 'chambeaapp-6a037',
-    storageBucket: 'chambeaapp-6a037.firebasestorage.app',
+    apiKey: 'AIzaSyCmOcPQXvFL9hnsPZySq9FW_cvxqvcHB2k',
+    appId: '1:132354394234:ios:e61f4b803470a83f0d13c3',
+    messagingSenderId: '132354394234',
+    projectId: 'client-chambea',
+    storageBucket: 'client-chambea.firebasestorage.app',
+    androidClientId: '132354394234-l26oqphl5obnjs7mudbmighngc0grn31.apps.googleusercontent.com',
+    iosClientId: '132354394234-lips37nopasjsstgi0aeravocc7163b5.apps.googleusercontent.com',
     iosBundleId: 'com.example.chambea',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBELZepUzHuskwtTCgxy3yGaBFTQ-4q6XI',
-    appId: '1:317466770837:web:2e34153b7d298e1972ca9c',
-    messagingSenderId: '317466770837',
-    projectId: 'chambeaapp-6a037',
-    authDomain: 'chambeaapp-6a037.firebaseapp.com',
-    storageBucket: 'chambeaapp-6a037.firebasestorage.app',
+    apiKey: 'AIzaSyCrsDB7eYDpluV8jaBPLsTF9ZsNuvYM28E',
+    appId: '1:132354394234:web:ca6498f5f0d0907b0d13c3',
+    messagingSenderId: '132354394234',
+    projectId: 'client-chambea',
+    authDomain: 'client-chambea.firebaseapp.com',
+    storageBucket: 'client-chambea.firebasestorage.app',
   );
+
 }

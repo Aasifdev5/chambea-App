@@ -20,7 +20,7 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
+      androidProvider: AndroidProvider.debug, // Use for testing
     );
     FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
     FirebaseAppCheck.instance.onTokenChange.listen((token) {

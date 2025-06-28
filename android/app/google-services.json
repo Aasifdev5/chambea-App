@@ -1,48 +1,48 @@
 {
   "project_info": {
-    "project_number": "317466770837",
-    "project_id": "chambeaapp-6a037",
-    "storage_bucket": "chambeaapp-6a037.firebasestorage.app"
+    "project_number": "132354394234",
+    "project_id": "client-chambea",
+    "storage_bucket": "client-chambea.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:317466770837:android:25438e628ceca05672ca9c",
+        "mobilesdk_app_id": "1:132354394234:android:1195e21b6ab5fd770d13c3",
         "android_client_info": {
           "package_name": "com.example.chambea"
         }
       },
       "oauth_client": [
         {
-          "client_id": "317466770837-pnvgai4gmdjlt9d69tgfsqsjeaksmk37.apps.googleusercontent.com",
+          "client_id": "132354394234-l26oqphl5obnjs7mudbmighngc0grn31.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.chambea",
-            "certificate_hash": "0a08a60f9fe27ba9adcf0a09c8acc736498e8498"
+            "certificate_hash": "41aae8a92a0f85a90f9953dc917f772ebbfaa255"
           }
         },
         {
-          "client_id": "317466770837-p5aaiqeggc81cpjnn47dieb4bpa786vg.apps.googleusercontent.com",
+          "client_id": "132354394234-jvcpjlj01qt8buiuuq3ol0jqbm0k3oq8.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyD7a58jkgdVnxBvKug2km62hySPnls0hu0"
+          "current_key": "AIzaSyDcsOnv8P90FM9lgc3HaXQnvr_CKVGoqV4"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "317466770837-p5aaiqeggc81cpjnn47dieb4bpa786vg.apps.googleusercontent.com",
+              "client_id": "132354394234-jvcpjlj01qt8buiuuq3ol0jqbm0k3oq8.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "317466770837-esiteu243bq4fmfviurl5cecsd4cs0kg.apps.googleusercontent.com",
+              "client_id": "132354394234-lips37nopasjsstgi0aeravocc7163b5.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.newChambeaApp"
+                "bundle_id": "com.example.chambea"
               }
             }
           ]
