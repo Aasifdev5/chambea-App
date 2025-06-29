@@ -1,4 +1,4 @@
-package com.example.chambea
+package com.chambea.clientapp
 
 import io.flutter.embedding.android.FlutterActivity
 

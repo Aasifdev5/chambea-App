@@ -1,51 +1,26 @@
 {
   "project_info": {
-    "project_number": "132354394234",
-    "project_id": "client-chambea",
-    "storage_bucket": "client-chambea.firebasestorage.app"
+    "project_number": "268154597894",
+    "project_id": "clientchambeaapp-aa95d",
+    "storage_bucket": "clientchambeaapp-aa95d.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:132354394234:android:1195e21b6ab5fd770d13c3",
+        "mobilesdk_app_id": "1:268154597894:android:fe256a0ba709ca9a2f4987",
         "android_client_info": {
-          "package_name": "com.example.chambea"
+          "package_name": "com.chambea.clientapp"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "132354394234-l26oqphl5obnjs7mudbmighngc0grn31.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.chambea",
-            "certificate_hash": "41aae8a92a0f85a90f9953dc917f772ebbfaa255"
-          }
-        },
-        {
-          "client_id": "132354394234-jvcpjlj01qt8buiuuq3ol0jqbm0k3oq8.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDcsOnv8P90FM9lgc3HaXQnvr_CKVGoqV4"
+          "current_key": "AIzaSyAQaXUqh5bPQBwjGLJHoerpXv1ytOyEaro"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "132354394234-jvcpjlj01qt8buiuuq3ol0jqbm0k3oq8.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "132354394234-lips37nopasjsstgi0aeravocc7163b5.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.chambea"
-              }
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
