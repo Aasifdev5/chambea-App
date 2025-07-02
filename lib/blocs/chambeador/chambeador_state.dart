@@ -1,4 +1,8 @@
-class ChambeadorState {
+import 'package:equatable/equatable.dart';
+
+class ChambeadorState extends Equatable {
+  final bool isLoading;
+  final String? error;
   final String name;
   final String lastName;
   final String profession;
@@ -7,37 +11,41 @@ class ChambeadorState {
   final String email;
   final String gender;
   final String address;
-  final String? profilePhotoPath;
   final String aboutMe;
   final List<String> skills;
   final String category;
   final Map<String, bool> subcategories;
+  final String? profilePhotoPath;
   final String? certificatePath;
-  final String idNumber;
-  final bool isLoading;
-  final String? error;
+  final String? idNumber;
+  final String? frontImagePath;
+  final String? backImagePath;
 
-  ChambeadorState({
+  const ChambeadorState({
+    this.isLoading = false,
+    this.error,
     this.name = '',
     this.lastName = '',
-    this.profession = '',
+    this.profession = 'Plomero',
     this.birthDate = '',
     this.phone = '',
     this.email = '',
-    this.gender = '',
+    this.gender = 'Masculino',
     this.address = '',
-    this.profilePhotoPath,
     this.aboutMe = '',
     this.skills = const [],
     this.category = '',
     this.subcategories = const {},
+    this.profilePhotoPath,
     this.certificatePath,
-    this.idNumber = '',
-    this.isLoading = false,
-    this.error,
+    this.idNumber,
+    this.frontImagePath,
+    this.backImagePath,
   });
 
   ChambeadorState copyWith({
+    bool? isLoading,
+    String? error,
     String? name,
     String? lastName,
     String? profession,
@@ -46,17 +54,19 @@ class ChambeadorState {
     String? email,
     String? gender,
     String? address,
-    String? profilePhotoPath,
     String? aboutMe,
     List<String>? skills,
     String? category,
     Map<String, bool>? subcategories,
+    String? profilePhotoPath,
     String? certificatePath,
     String? idNumber,
-    bool? isLoading,
-    String? error,
+    String? frontImagePath,
+    String? backImagePath,
   }) {
     return ChambeadorState(
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
       name: name ?? this.name,
       lastName: lastName ?? this.lastName,
       profession: profession ?? this.profession,
@@ -65,15 +75,38 @@ class ChambeadorState {
       email: email ?? this.email,
       gender: gender ?? this.gender,
       address: address ?? this.address,
-      profilePhotoPath: profilePhotoPath ?? this.profilePhotoPath,
       aboutMe: aboutMe ?? this.aboutMe,
       skills: skills ?? this.skills,
       category: category ?? this.category,
       subcategories: subcategories ?? this.subcategories,
+      profilePhotoPath: profilePhotoPath ?? this.profilePhotoPath,
       certificatePath: certificatePath ?? this.certificatePath,
       idNumber: idNumber ?? this.idNumber,
-      isLoading: isLoading ?? this.isLoading,
-      error: error,
+      frontImagePath: frontImagePath ?? this.frontImagePath,
+      backImagePath: backImagePath ?? this.backImagePath,
     );
   }
+
+  @override
+  List<Object?> get props => [
+    isLoading,
+    error,
+    name,
+    lastName,
+    profession,
+    birthDate,
+    phone,
+    email,
+    gender,
+    address,
+    aboutMe,
+    skills,
+    category,
+    subcategories,
+    profilePhotoPath,
+    certificatePath,
+    idNumber,
+    frontImagePath,
+    backImagePath,
+  ];
 }

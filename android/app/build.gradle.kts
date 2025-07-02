@@ -1,20 +1,15 @@
-import java.util.Properties
-
-val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(keystorePropertiesFile.inputStream())
-}
-
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
-    id("org.jetbrains.kotlin.android")
+    // END: FlutterFire Configuration
+    id("kotlin-android")
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.chambea.clientapp"
+    namespace = "com.newchambea.com"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -24,62 +19,53 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
     defaultConfig {
-        applicationId = "com.chambea.clientapp"
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId = "com.newchambea.com"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        multiDexEnabled = true
-    }
-
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-        }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+dependencies {
+    // Import the BoM for the Firebase platform
+    implementation(platform("com.google.firebase:firebase-bom:33.15.0"))
+
+    // Firebase Authentication
+    implementation("com.google.firebase:firebase-auth")
+
+    // Firebase App Check
+    implementation("com.google.firebase:firebase-appcheck")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")  // For Play Integrity
+    implementation("com.google.firebase:firebase-appcheck-debug")          // For debug mode
+
+    // Cloud Firestore (optional, based on your Flutter dependencies)
+    implementation("com.google.firebase:firebase-firestore")
+
+    // Firebase Storage (optional, based on your Flutter dependencies)
+    implementation("com.google.firebase:firebase-storage")
+
+    // Firebase Messaging (if using push notifications)
+    implementation("com.google.firebase:firebase-messaging")
+
+    // Google Sign-In (required for Firebase Auth Google Sign-In)
+    implementation("com.google.android.gms:play-services-auth")
 }
 
 flutter {
     source = "../.."
-}
-
-dependencies {
-    implementation("androidx.multidex:multidex:2.0.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7")
-
-    implementation("com.google.firebase:firebase-auth") {
-        exclude(group = "androidx.lifecycle", module = "lifecycle-viewmodel-savedstate")
-    }
-    implementation("com.google.firebase:firebase-firestore") {
-        exclude(group = "androidx.lifecycle", module = "lifecycle-viewmodel-savedstate")
-    }
-    implementation("com.google.firebase:firebase-storage") {
-        exclude(group = "androidx.lifecycle", module = "lifecycle-viewmodel-savedstate")
-    }
-    implementation("com.google.firebase:firebase-appcheck") {
-        exclude(group = "androidx.lifecycle", module = "lifecycle-viewmodel-savedstate")
-    }
-}
-
-configurations.all {
-    resolutionStrategy {
-        force("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
-        force("androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7")
-    }
 }

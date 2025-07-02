@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:268154597894:android:fe256a0ba709ca9a2f4987",
+        "mobilesdk_app_id": "1:268154597894:android:dd9cd121680aec8e2f4987",
         "android_client_info": {
-          "package_name": "com.chambea.clientapp"
+          "package_name": "com.newchambea.com"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "268154597894-nfdes402mbmji2fulqugiftqq8aa25fn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.newchambea.com",
+            "certificate_hash": "fa4daffe7d9f7de01cc079244aba852cd4e58dba"
+          }
+        },
+        {
+          "client_id": "268154597894-kqtmr8nqq2cpmjb3nu785mk9rvanu94s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAQaXUqh5bPQBwjGLJHoerpXv1ytOyEaro"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "268154597894-kqtmr8nqq2cpmjb3nu785mk9rvanu94s.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "268154597894-662vaoj77vgvffvaa5ps83i6co7u9u3n.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.chambea"
+              }
+            }
+          ]
         }
       }
     }

@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:async'; // Added for TimeoutException
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
@@ -12,7 +12,7 @@ class ApiService {
   static const Duration retryDelay = Duration(seconds: 1);
 
   /// Returns headers with Firebase ID token for authenticated requests
-  static Future<Map<String, String>> getHeaders() async {
+  static Future<Map<String, String>> _getHeaders() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception('User not authenticated');
@@ -29,7 +29,7 @@ class ApiService {
   }
 
   /// Returns headers for multipart requests
-  static Future<Map<String, String>> getMultipartHeaders() async {
+  static Future<Map<String, String>> _getMultipartHeaders() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception('User not authenticated');
@@ -41,18 +41,10 @@ class ApiService {
     return {'Accept': 'application/json', 'Authorization': 'Bearer $token'};
   }
 
-  /// Checks if the user is logged in using Firebase Authentication
-  static Future<bool> isLoggedIn() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
-    final token = await user.getIdToken();
-    return token != null;
-  }
-
   /// Performs a GET request with retry logic
   static Future<Map<String, dynamic>> get(String endpoint) async {
     return _retryRequest(() async {
-      final headers = await getHeaders();
+      final headers = await _getHeaders();
       print('DEBUG: GET request to $baseUrl$endpoint with headers: $headers');
 
       final response = await http
@@ -69,7 +61,7 @@ class ApiService {
     Map<String, dynamic> body,
   ) async {
     return _retryRequest(() async {
-      final headers = await getHeaders();
+      final headers = await _getHeaders();
       print(
         'DEBUG: POST request to $baseUrl$endpoint with headers: $headers, body: $body',
       );
@@ -78,7 +70,7 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl$endpoint'),
             headers: headers,
-            body: json.encode(body),
+            body: jsonEncode(body),
           )
           .timeout(Duration(seconds: timeoutSeconds));
 
@@ -92,7 +84,7 @@ class ApiService {
     Map<String, dynamic> body,
   ) async {
     return _retryRequest(() async {
-      final headers = await getHeaders();
+      final headers = await _getHeaders();
       print(
         'DEBUG: PUT request to $baseUrl$endpoint with headers: $headers, body: $body',
       );
@@ -101,7 +93,7 @@ class ApiService {
           .put(
             Uri.parse('$baseUrl$endpoint'),
             headers: headers,
-            body: json.encode(body),
+            body: jsonEncode(body),
           )
           .timeout(Duration(seconds: timeoutSeconds));
 
@@ -109,37 +101,24 @@ class ApiService {
     });
   }
 
-  /// Performs a DELETE request with retry logic
-  static Future<Map<String, dynamic>> delete(String endpoint) async {
-    return _retryRequest(() async {
-      final headers = await getHeaders();
-      print(
-        'DEBUG: DELETE request to $baseUrl$endpoint with headers: $headers',
-      );
-
-      final response = await http
-          .delete(Uri.parse('$baseUrl$endpoint'), headers: headers)
-          .timeout(Duration(seconds: timeoutSeconds));
-
-      return _handleResponse(response, endpoint, 'DELETE');
-    });
-  }
-
-  /// Uploads an image with retry logic
-  static Future<Map<String, dynamic>> uploadImage(
+  /// Uploads a file without additional form fields
+  static Future<Map<String, dynamic>> uploadFile(
     String endpoint,
-    File image,
+    String fieldName,
+    File file,
   ) async {
     return _retryRequest(() async {
-      final headers = await getMultipartHeaders();
-      print('DEBUG: Image upload to $baseUrl$endpoint with headers: $headers');
+      final headers = await _getMultipartHeaders();
+      print('DEBUG: File upload to $baseUrl$endpoint with headers: $headers');
 
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl$endpoint'),
       );
       request.headers.addAll(headers);
-      request.files.add(await http.MultipartFile.fromPath('image', image.path));
+      request.files.add(
+        await http.MultipartFile.fromPath(fieldName, file.path),
+      );
 
       final response = await request.send().timeout(
         Duration(seconds: timeoutSeconds),
@@ -147,7 +126,92 @@ class ApiService {
       final responseBody = await response.stream.bytesToString();
 
       print(
-        'DEBUG: Image upload response: ${response.statusCode} - $responseBody',
+        'DEBUG: File upload response: ${response.statusCode} - $responseBody',
+      );
+
+      return _handleResponse(
+        http.Response(responseBody, response.statusCode),
+        endpoint,
+        'POST',
+      );
+    });
+  }
+
+  /// Uploads a file with additional form fields
+  static Future<Map<String, dynamic>> uploadFileWithFields(
+    String endpoint,
+    String fieldName,
+    File file,
+    Map<String, dynamic> fields,
+  ) async {
+    return _retryRequest(() async {
+      final headers = await _getMultipartHeaders();
+      print(
+        'DEBUG: File upload to $baseUrl$endpoint with headers: $headers, fields: $fields',
+      );
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl$endpoint'),
+      );
+      request.headers.addAll(headers);
+      request.fields.addAll(
+        fields.map((key, value) => MapEntry(key, value?.toString() ?? '')),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath(fieldName, file.path),
+      );
+
+      final response = await request.send().timeout(
+        Duration(seconds: timeoutSeconds),
+      );
+      final responseBody = await response.stream.bytesToString();
+
+      print(
+        'DEBUG: File upload response: ${response.statusCode} - $responseBody',
+      );
+
+      return _handleResponse(
+        http.Response(responseBody, response.statusCode),
+        endpoint,
+        'POST',
+      );
+    });
+  }
+
+  /// Uploads identity card with retry logic
+  static Future<Map<String, dynamic>> uploadIdentityCard(
+    String endpoint,
+    String idNumber,
+    File frontImage,
+    File backImage,
+  ) async {
+    return _retryRequest(() async {
+      final headers = await _getMultipartHeaders();
+      print(
+        'DEBUG: Identity card upload to $baseUrl$endpoint with headers: $headers, idNumber: $idNumber',
+      );
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl$endpoint'),
+      );
+      request.headers.addAll(headers);
+      request.fields['id_number'] = idNumber;
+      request.files.add(
+        await http.MultipartFile.fromPath('front_image', frontImage.path),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath('back_image', backImage.path),
+      );
+
+      final response = await request.send().timeout(
+        Duration(seconds: timeoutSeconds),
+      );
+      final responseBody = await response.stream.bytesToString();
+
+      print(
+        'DEBUG: Identity card upload response: ${response.statusCode} - $responseBody',
       );
 
       return _handleResponse(
@@ -189,9 +253,9 @@ class ApiService {
     }
 
     try {
-      final body = json.decode(response.body) as Map<String, dynamic>;
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'statusCode': response.statusCode, 'body': body};
+        return body;
       } else if (response.statusCode == 401) {
         throw Exception(
           'Unauthorized: Invalid or missing authentication token',
@@ -204,7 +268,7 @@ class ApiService {
         );
       } else if (response.statusCode == 422) {
         throw Exception(
-          'Validation error: ${body['message'] ?? response.body}',
+          'Validation error: ${body['message'] ?? body['errors'] ?? response.body}',
         );
       } else {
         throw Exception(

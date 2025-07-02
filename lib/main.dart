@@ -11,24 +11,21 @@ import 'package:chambea/screens/chambeador/chambeadorregister_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'firebase_options.dart';
-import 'package:chambea/screens/client/home.dart'; // Added import for ClientHomeScreen
+import 'package:chambea/screens/client/home.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:chambea/blocs/client/client_bloc.dart';
+import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
+import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
-    );
-    FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
-    FirebaseAppCheck.instance.onTokenChange.listen((token) {
-      print('App Check Token: $token');
-    });
-  } catch (e) {
-    print('Firebase Initialization Error: $e');
-  }
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: AndroidProvider.playIntegrity,
+  );
+
   runApp(const ChambeaApp());
 }
 
@@ -104,6 +101,24 @@ class ApiService {
       'body': json.decode(response.body),
     };
   }
+
+  static Future<Map<String, dynamic>> uploadFile(
+    String endpoint,
+    String fieldName,
+    File file,
+  ) async {
+    final headers = await getHeaders();
+    headers.remove('Content-Type');
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl$endpoint'));
+    request.headers.addAll(headers);
+    request.files.add(await http.MultipartFile.fromPath(fieldName, file.path));
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    throw Exception('Failed to upload file: ${response.statusCode}');
+  }
 }
 
 class ChambeaApp extends StatelessWidget {
@@ -116,42 +131,65 @@ class ChambeaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CHAMBEA',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF22c55e),
-        scaffoldBackgroundColor: Colors.white,
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF22c55e),
-            foregroundColor: Colors.white,
-            elevation: 5,
-            shadowColor: const Color(0xFF22c55e).withOpacity(0.3),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) {
+            print('DEBUG: Creating ClientBloc');
+            return ClientBloc();
+          },
+        ),
+        BlocProvider(
+          create: (context) {
+            print('DEBUG: Creating ChambeadorBloc');
+            return ChambeadorBloc();
+          },
+        ),
+      ],
+      child: MaterialApp(
+        title: 'CHAMBEA',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          primaryColor: const Color(0xFF22c55e),
+          scaffoldBackgroundColor: Colors.white,
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF22c55e),
+              foregroundColor: Colors.white,
+              elevation: 5,
+              shadowColor: const Color(0xFF22c55e).withOpacity(0.3),
+            ),
           ),
         ),
-      ),
-      home: FutureBuilder<Widget>(
-        future: _getInitialScreen(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          } else if (snapshot.hasError) {
-            return const Scaffold(
-              body: Center(child: Text('Error al cargar la pantalla inicial')),
-            );
-          } else {
-            return snapshot.data!;
-          }
+        home: FutureBuilder<Widget>(
+          future: _getInitialScreen(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            } else if (snapshot.hasError) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Error al cargar la pantalla inicial'),
+                ),
+              );
+            } else {
+              return snapshot.data!;
+            }
+          },
+        ),
+        routes: {
+          '/perfil': (context) => const PerfilScreen(),
+          '/chambeador_register': (context) => ChambeadorRegisterScreen(),
+          '/client_home': (context) => const ClientHomeScreen(),
+          '/login': (context) => const LoginScreen(),
         },
       ),
     );
   }
 }
 
-// Splash Screen
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -178,7 +216,7 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     Timer(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
       );
@@ -211,7 +249,6 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-// Onboarding 1
 class OnboardingOneScreen extends StatelessWidget {
   const OnboardingOneScreen({super.key});
 
@@ -271,7 +308,7 @@ class OnboardingOneScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacement(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const OnboardingTwoScreen(),
@@ -299,7 +336,6 @@ class OnboardingOneScreen extends StatelessWidget {
   }
 }
 
-// Onboarding 2
 class OnboardingTwoScreen extends StatelessWidget {
   const OnboardingTwoScreen({super.key});
 
@@ -359,7 +395,7 @@ class OnboardingTwoScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacement(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const OnboardingThreeScreen(),
@@ -387,7 +423,6 @@ class OnboardingTwoScreen extends StatelessWidget {
   }
 }
 
-// Onboarding 3
 class OnboardingThreeScreen extends StatelessWidget {
   const OnboardingThreeScreen({super.key});
 
@@ -447,7 +482,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacement(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const LoginScreen(),
@@ -490,7 +525,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
@@ -506,7 +541,6 @@ class OnboardingThreeScreen extends StatelessWidget {
   }
 }
 
-// Login Screen
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -533,7 +567,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await _auth.signInWithCredential(credential);
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -576,7 +610,7 @@ class _LoginScreenState extends State<LoginScreen> {
         verificationCompleted: (PhoneAuthCredential credential) async {
           await _auth.signInWithCredential(credential);
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -790,7 +824,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// OTP Screen
 class OTPScreen extends StatefulWidget {
   final String verificationId;
   final String phoneNumber;
@@ -868,7 +901,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
       );
       await _auth.signInWithCredential(credential);
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -890,7 +923,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         verificationCompleted: (PhoneAuthCredential credential) async {
           await _auth.signInWithCredential(credential);
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -907,7 +940,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         },
         codeSent: (String verificationId, int? resendToken) {
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => OTPScreen(
@@ -1065,7 +1098,6 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   }
 }
 
-// Active Service Screen
 class ActiveServiceScreen extends StatelessWidget {
   const ActiveServiceScreen({super.key});
 
@@ -1168,7 +1200,6 @@ class ActiveServiceScreen extends StatelessWidget {
   }
 }
 
-// Profile Selection Screen
 class ProfileSelectionScreen extends StatefulWidget {
   const ProfileSelectionScreen({super.key});
 
@@ -1184,9 +1215,10 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   Future<void> _handleProfileSelection() async {
     if (_selectedProfile == null || !_termsAccepted) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
     try {
-      // Call /api/account-type to verify the account type
       final response = await ApiService.get('/api/account-type');
       print('DEBUG: Fetch account type response: $response');
       if (response['status'] == 'success') {
@@ -1194,7 +1226,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         if (accountType == 'Client' && _selectedProfile == 'Cliente') {
           print('DEBUG: User is Client, redirecting to ClientHomeScreen');
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
             );
@@ -1204,7 +1236,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
             'DEBUG: User selected Chambeador, navigating to ChambeadorRegisterScreen',
           );
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
             );
@@ -1214,7 +1246,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
             'DEBUG: User selected Cliente but account_type is $accountType, navigating to PerfilScreen',
           );
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PerfilScreen()),
             );
@@ -1229,14 +1261,13 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al verificar el tipo de cuenta: $e')),
         );
-        // Fallback to original navigation logic
         if (_selectedProfile == 'Chambeador') {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
           );
         } else {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const PerfilScreen()),
           );
@@ -1244,7 +1275,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -1488,7 +1521,6 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   }
 }
 
-// Progress Indicator Widget
 class _ProgressIndicator extends StatefulWidget {
   final bool isActive;
 

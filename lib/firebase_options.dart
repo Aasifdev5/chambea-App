@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAQaXUqh5bPQBwjGLJHoerpXv1ytOyEaro',
-    appId: '1:268154597894:android:fe256a0ba709ca9a2f4987',
+    appId: '1:268154597894:android:dd9cd121680aec8e2f4987',
     messagingSenderId: '268154597894',
     projectId: 'clientchambeaapp-aa95d',
     storageBucket: 'clientchambeaapp-aa95d.firebasestorage.app',
@@ -63,6 +63,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '268154597894',
     projectId: 'clientchambeaapp-aa95d',
     storageBucket: 'clientchambeaapp-aa95d.firebasestorage.app',
+    androidClientId: '268154597894-3qrlicb4v9n25f06vge8aoj4p9fjagun.apps.googleusercontent.com',
+    iosClientId: '268154597894-662vaoj77vgvffvaa5ps83i6co7u9u3n.apps.googleusercontent.com',
     iosBundleId: 'com.example.chambea',
   );
 
@@ -72,6 +74,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '268154597894',
     projectId: 'clientchambeaapp-aa95d',
     storageBucket: 'clientchambeaapp-aa95d.firebasestorage.app',
+    androidClientId: '268154597894-3qrlicb4v9n25f06vge8aoj4p9fjagun.apps.googleusercontent.com',
+    iosClientId: '268154597894-662vaoj77vgvffvaa5ps83i6co7u9u3n.apps.googleusercontent.com',
     iosBundleId: 'com.example.chambea',
   );
 

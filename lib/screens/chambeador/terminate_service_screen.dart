@@ -191,7 +191,7 @@ class TerminateServiceScreen extends StatelessWidget {
                     color: Colors.black87,
                   ),
                   onSubmit: () {
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ReviewServiceScreen(job: job),

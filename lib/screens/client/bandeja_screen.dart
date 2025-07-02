@@ -1,7 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/contratado_screen.dart';
+import 'package:chambea/services/api_service.dart';
 
-class BandejaScreen extends StatelessWidget {
+class BandejaScreen extends StatefulWidget {
+  @override
+  _BandejaScreenState createState() => _BandejaScreenState();
+}
+
+class _BandejaScreenState extends State<BandejaScreen> {
+  List<dynamic> _serviceRequests = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchServiceRequests();
+  }
+
+  Future<void> _fetchServiceRequests() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await ApiService.get('/api/service-requests');
+      setState(() {
+        _serviceRequests = response['data'] ?? [];
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,33 +64,39 @@ class BandejaScreen extends StatelessWidget {
             child: Text('Lista de propuestas'),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _buildJobCard(
-                  context,
-                  'Pendiente',
-                  'Instalaciones de luces LED',
-                  'Ave Bush - La Paz',
-                  'BOB: 80',
-                  '8:00 AM - 12:00 PM',
-                  '3 días',
-                  'Andrés Villamontes',
-                  4.1,
-                ),
-                _buildJobCard(
-                  context,
-                  'Completado',
-                  'Instalaciones de luces LED',
-                  'Ave Bush - La Paz',
-                  'BOB: 80',
-                  '8:00 AM - 12:00 PM',
-                  '3 días',
-                  'Andrés Villamontes',
-                  4.1,
-                ),
-              ],
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(child: Text('Error: $_error'))
+                : _serviceRequests.isEmpty
+                ? const Center(child: Text('No hay propuestas disponibles'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _serviceRequests.length,
+                    itemBuilder: (context, index) {
+                      final request = _serviceRequests[index];
+                      return _buildJobCard(
+                        context,
+                        request['proposals']?.isEmpty ?? true
+                            ? 'Pendiente'
+                            : 'Propuesta Recibida',
+                        '${request['category'] ?? 'Servicio'} - ${request['subcategory'] ?? 'General'}',
+                        request['location'] ?? 'Sin ubicación',
+                        request['budget'] != null &&
+                                double.tryParse(request['budget'].toString()) !=
+                                    null
+                            ? 'BOB: ${request['budget']}'
+                            : 'BOB: No especificado',
+                        request['is_time_undefined'] == 1
+                            ? 'Horario flexible'
+                            : request['start_time'] ?? 'Sin horario',
+                        'No especificado',
+                        'Usuario ${request['created_by'] ?? 'Desconocido'}',
+                        0.0,
+                        request['id'],
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -71,6 +113,7 @@ class BandejaScreen extends StatelessWidget {
     String duration,
     String client,
     double rating,
+    int requestId,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -88,19 +131,17 @@ class BandejaScreen extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        status == 'Pendiente'
-                            ? Colors.yellow.shade100
-                            : Colors.green.shade100,
+                    color: status == 'Pendiente'
+                        ? Colors.yellow.shade100
+                        : Colors.green.shade100,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     status,
                     style: TextStyle(
-                      color:
-                          status == 'Pendiente'
-                              ? Colors.yellow.shade800
-                              : Colors.green.shade800,
+                      color: status == 'Pendiente'
+                          ? Colors.yellow.shade800
+                          : Colors.green.shade800,
                       fontSize: 12,
                     ),
                   ),
@@ -157,7 +198,7 @@ class BandejaScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text('El precio de 80 BOB es mi servicio por hora'),
+            Text('El precio de $price es mi servicio por hora'),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -168,7 +209,22 @@ class BandejaScreen extends StatelessWidget {
                       foregroundColor: Colors.green,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    onPressed: () {},
+                    onPressed: () async {
+                      try {
+                        await ApiService.post(
+                          '/api/service-requests/$requestId/reject',
+                          {},
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Propuesta rechazada')),
+                        );
+                        _fetchServiceRequests();
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error al rechazar: $e')),
+                        );
+                      }
+                    },
                     child: const Text('Rechazar'),
                   ),
                 ),
@@ -184,7 +240,8 @@ class BandejaScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ContratadoScreen(),
+                          builder: (context) =>
+                              ContratadoScreen(requestId: requestId),
                         ),
                       );
                     },

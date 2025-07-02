@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/ubicacion_step_screen.dart';
 import 'package:chambea/models/service_request.dart';
-import 'package:intl/intl.dart'; // For formatting the date
+import 'package:intl/intl.dart';
 
 class SolicitarServicioScreen extends StatefulWidget {
-  final String? subcategoryName; // Nullable to allow unspecified subcategory
+  final String? subcategoryName;
 
   const SolicitarServicioScreen({Key? key, required this.subcategoryName})
     : super(key: key);
@@ -16,20 +16,18 @@ class SolicitarServicioScreen extends StatefulWidget {
 
 class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
   final _formKey = GlobalKey<FormState>();
-  final ServiceRequest _serviceRequest = ServiceRequest();
+  final ServiceRequest _serviceRequest = ServiceRequest(isTimeUndefined: true);
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _startTimeController = TextEditingController();
   String? _selectedCategory;
   String? _selectedSubcategory;
 
-  // Hardcoded categories and subcategories (can be fetched dynamically)
   final Map<String, List<String>> _subcategories = {
     'Construcción': ['Albañil', 'Plomero', 'Pintor'],
     'Hogar': ['Personal de Limpieza', 'Lavanderia', 'Chef'],
     'Gastronomía': ['Charquero', 'Chef', 'Cocinero'],
   };
 
-  // Function to pick a date
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -45,13 +43,25 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
     }
   }
 
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _startTimeController.text = picked.format(context);
+        _serviceRequest.startTime = _startTimeController.text;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    if (widget.subcategoryName != null) {
+    if (widget.subcategoryName != null && widget.subcategoryName!.isNotEmpty) {
       _selectedSubcategory = widget.subcategoryName;
       _serviceRequest.subcategory = widget.subcategoryName;
-      // Pre-select category based on subcategory
       _subcategories.forEach((category, subcategories) {
         if (subcategories.contains(widget.subcategoryName)) {
           _selectedCategory = category;
@@ -85,7 +95,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
           'Solicitar servicio',
           style: TextStyle(
             color: Colors.black,
-            fontSize: screenWidth * 0.045, // Smaller font (Medium: 0.05)
+            fontSize: screenWidth * 0.045,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -96,7 +106,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
               'Cancelar',
               style: TextStyle(
                 color: const Color(0xFF22c55e),
-                fontSize: screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                fontSize: screenWidth * 0.035,
               ),
             ),
           ),
@@ -123,12 +133,10 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                       ),
                       SizedBox(width: screenWidth * 0.02),
                       Text(
-                        'Av. Benovides 4887',
+                        'Av. Benavides 4887',
                         style: TextStyle(
                           color: Colors.black54,
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                         ),
                       ),
                     ],
@@ -139,9 +147,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                       Text(
                         'Solicitar servicio',
                         style: TextStyle(
-                          fontSize:
-                              screenWidth *
-                              0.045, // Smaller font (Medium: 0.05)
+                          fontSize: screenWidth * 0.045,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -150,9 +156,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                         '[*] Campo obligatorio',
                         style: TextStyle(
                           color: Colors.red,
-                          fontSize:
-                              screenWidth *
-                              0.03, // Smaller font (Medium: 0.032)
+                          fontSize: screenWidth * 0.03,
                         ),
                       ),
                     ],
@@ -177,9 +181,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                         ),
                       ),
                       Text(
@@ -187,9 +189,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.normal,
                           color: Colors.grey,
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                         ),
                       ),
                       Text(
@@ -197,9 +197,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.normal,
                           color: Colors.grey,
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                         ),
                       ),
                     ],
@@ -210,8 +208,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                     Text(
                       'Subcategoría: ${widget.subcategoryName}',
                       style: TextStyle(
-                        fontSize:
-                            screenWidth * 0.035, // Smaller font (Medium: 0.038)
+                        fontSize: screenWidth * 0.035,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
@@ -219,49 +216,38 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                   if (widget.subcategoryName != null &&
                       widget.subcategoryName!.isNotEmpty)
                     SizedBox(height: screenHeight * 0.02),
-                  // Show dropdowns only if subcategoryName is null or empty
                   if (widget.subcategoryName == null ||
                       widget.subcategoryName!.isEmpty) ...[
                     Text(
                       '¿Qué tipo de servicio necesitas?*',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize:
-                            screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                        fontSize: screenWidth * 0.045,
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.02),
                     DropdownButtonFormField<String>(
                       decoration: InputDecoration(
                         labelText: 'Categoría *',
-                        labelStyle: TextStyle(
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
-                        ),
+                        labelStyle: TextStyle(fontSize: screenWidth * 0.035),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       value: _selectedCategory,
-                      items:
-                          _subcategories.keys.map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(
-                                value,
-                                style: TextStyle(
-                                  fontSize:
-                                      screenWidth *
-                                      0.035, // Smaller font (Medium: 0.038)
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                      items: _subcategories.keys.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(
+                            value,
+                            style: TextStyle(fontSize: screenWidth * 0.035),
+                          ),
+                        );
+                      }).toList(),
                       onChanged: (value) {
                         setState(() {
                           _selectedCategory = value;
-                          _selectedSubcategory = null; // Reset subcategory
+                          _selectedSubcategory = null;
                           _serviceRequest.category = value;
                           _serviceRequest.subcategory = null;
                         });
@@ -277,34 +263,27 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                     DropdownButtonFormField<String>(
                       decoration: InputDecoration(
                         labelText: 'Subcategoría *',
-                        labelStyle: TextStyle(
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
-                        ),
+                        labelStyle: TextStyle(fontSize: screenWidth * 0.035),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       value: _selectedSubcategory,
-                      items:
-                          _selectedCategory != null
-                              ? _subcategories[_selectedCategory]!.map((
-                                String value,
-                              ) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(
-                                    value,
-                                    style: TextStyle(
-                                      fontSize:
-                                          screenWidth *
-                                          0.035, // Smaller font (Medium: 0.038)
-                                    ),
+                      items: _selectedCategory != null
+                          ? _subcategories[_selectedCategory]!.map((
+                              String value,
+                            ) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  value,
+                                  style: TextStyle(
+                                    fontSize: screenWidth * 0.035,
                                   ),
-                                );
-                              }).toList()
-                              : [],
+                                ),
+                              );
+                            }).toList()
+                          : [],
                       onChanged: (value) {
                         setState(() {
                           _selectedSubcategory = value;
@@ -324,8 +303,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                     '¿Cuándo necesitas que haga esto?*',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize:
-                          screenWidth * 0.045, // Smaller font (Medium: 0.05)
+                      fontSize: screenWidth * 0.045,
                     ),
                   ),
                   SizedBox(height: screenHeight * 0.02),
@@ -334,10 +312,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                     readOnly: true,
                     decoration: InputDecoration(
                       labelText: 'Fecha *',
-                      labelStyle: TextStyle(
-                        fontSize:
-                            screenWidth * 0.035, // Smaller font (Medium: 0.038)
-                      ),
+                      labelStyle: TextStyle(fontSize: screenWidth * 0.035),
                       suffixIcon: const Icon(Icons.calendar_today),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -357,27 +332,13 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                     readOnly: true,
                     decoration: InputDecoration(
                       labelText: 'Hora de inicio *',
-                      labelStyle: TextStyle(
-                        fontSize:
-                            screenWidth * 0.035, // Smaller font (Medium: 0.038)
-                      ),
+                      labelStyle: TextStyle(fontSize: screenWidth * 0.035),
                       suffixIcon: const Icon(Icons.access_time),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onTap: () async {
-                      TimeOfDay? picked = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.now(),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          _startTimeController.text = picked.format(context);
-                          _serviceRequest.startTime = _startTimeController.text;
-                        });
-                      }
-                    },
+                    onTap: () => _selectTime(context),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Por favor seleccione una hora de inicio';
@@ -390,17 +351,13 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
-                          if (_serviceRequest.category != null &&
-                              _serviceRequest.subcategory != null &&
-                              _serviceRequest.date != null &&
-                              _serviceRequest.startTime != null) {
+                          if (_serviceRequest.isStep1Complete()) {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder:
-                                    (_) => UbicacionStepScreen(
-                                      serviceRequest: _serviceRequest,
-                                    ),
+                                builder: (_) => UbicacionStepScreen(
+                                  serviceRequest: _serviceRequest,
+                                ),
                               ),
                             );
                           } else {
@@ -423,9 +380,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                         'Siguiente',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize:
-                              screenWidth *
-                              0.035, // Smaller font (Medium: 0.038)
+                          fontSize: screenWidth * 0.035,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -454,14 +409,15 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     return CircleAvatar(
       radius: 20,
-      backgroundColor:
-          isActive ? const Color(0xFF22c55e) : Colors.grey.shade300,
+      backgroundColor: isActive
+          ? const Color(0xFF22c55e)
+          : Colors.grey.shade300,
       child: Text(
         number,
         style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
-          fontSize: screenWidth * 0.035, // Smaller font (Medium: 0.038)
+          fontSize: screenWidth * 0.035,
         ),
       ),
     );

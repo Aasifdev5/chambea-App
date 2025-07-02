@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/chambeador/informacion_basica_screen.dart';
-import 'package:chambea/screens/chambeador/calculo_certificado_screen.dart';
+import 'package:chambea/screens/chambeador/identity_card_screen.dart';
 import 'package:chambea/screens/chambeador/antecedentes_screen.dart';
 import 'package:chambea/screens/chambeador/perfil_chambeador_screen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
@@ -28,7 +28,7 @@ class ChambeadorRegisterScreen extends StatelessWidget {
                     title: const Text('Información básica'),
                     trailing: const Icon(Icons.arrow_forward),
                     onTap: () {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => InformacionBasicaScreen(),
@@ -41,11 +41,9 @@ class ChambeadorRegisterScreen extends StatelessWidget {
                     title: const Text('Cédula de identidad'),
                     trailing: const Icon(Icons.arrow_forward),
                     onTap: () {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => CalculoCertificadoScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => IdentityCardScreen()),
                       );
                     },
                   ),
@@ -54,7 +52,7 @@ class ChambeadorRegisterScreen extends StatelessWidget {
                     title: const Text('Certificado de antecedentes policiales'),
                     trailing: const Icon(Icons.arrow_forward),
                     onTap: () {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => AntecedentesScreen()),
                       );
@@ -65,7 +63,7 @@ class ChambeadorRegisterScreen extends StatelessWidget {
                     title: const Text('Perfil Chambeador'),
                     trailing: const Icon(Icons.arrow_forward),
                     onTap: () {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => PerfilChambeadorScreen(),
@@ -81,13 +79,9 @@ class ChambeadorRegisterScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacement(
+                  Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) =>
-                              HomeScreen(), // Navigate to Chambeador HomeScreen
-                    ),
+                    MaterialPageRoute(builder: (_) => HomeScreen()),
                   );
                 },
                 style: ElevatedButton.styleFrom(

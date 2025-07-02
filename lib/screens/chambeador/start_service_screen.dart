@@ -115,21 +115,20 @@ class StartServiceScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children:
-                          job.categories
-                              .map(
-                                (category) => Chip(
-                                  label: Text(category),
-                                  backgroundColor: Colors.grey.shade200,
-                                  labelStyle: const TextStyle(fontSize: 12),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                      children: job.categories
+                          .map(
+                            (category) => Chip(
+                              label: Text(category),
+                              backgroundColor: Colors.grey.shade200,
+                              labelStyle: const TextStyle(fontSize: 12),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -290,7 +289,7 @@ class StartServiceScreen extends StatelessWidget {
                   ),
                   onSubmit: () {
                     final updatedJob = job.copyWith(status: 'En curso');
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => TerminateServiceScreen(job: updatedJob),
@@ -315,7 +314,7 @@ class StartServiceScreen extends StatelessWidget {
                     color: Colors.black87,
                   ),
                   onSubmit: () {
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ReviewServiceScreen(job: job),

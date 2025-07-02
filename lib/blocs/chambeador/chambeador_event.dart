@@ -1,8 +1,9 @@
-import 'dart:io';
 import 'package:equatable/equatable.dart';
+import 'dart:io';
 
 abstract class ChambeadorEvent extends Equatable {
   const ChambeadorEvent();
+
   @override
   List<Object?> get props => [];
 }
@@ -21,7 +22,7 @@ class UpdateProfileEvent extends ChambeadorEvent {
   final String aboutMe;
   final List<String> skills;
   final String category;
-  final Map<String, bool> subcategories;
+  final List<String> subcategories;
 
   const UpdateProfileEvent({
     required this.name,
@@ -64,17 +65,6 @@ class UploadProfilePhotoEvent extends ChambeadorEvent {
   List<Object?> get props => [image];
 }
 
-class AddSubcategoryEvent extends ChambeadorEvent {
-  final String subcategory;
-
-  const AddSubcategoryEvent({required this.subcategory});
-
-  @override
-  List<Object?> get props => [subcategory];
-}
-
-class FetchCertificateEvent extends ChambeadorEvent {}
-
 class UploadCertificateEvent extends ChambeadorEvent {
   final File certificate;
 
@@ -84,14 +74,12 @@ class UploadCertificateEvent extends ChambeadorEvent {
   List<Object?> get props => [certificate];
 }
 
-class FetchIdentityCardEvent extends ChambeadorEvent {}
-
-class UpdateIdentityCardEvent extends ChambeadorEvent {
+class UploadIdentityCardEvent extends ChambeadorEvent {
   final String idNumber;
   final File frontImage;
   final File backImage;
 
-  const UpdateIdentityCardEvent({
+  const UploadIdentityCardEvent({
     required this.idNumber,
     required this.frontImage,
     required this.backImage,
@@ -99,4 +87,13 @@ class UpdateIdentityCardEvent extends ChambeadorEvent {
 
   @override
   List<Object?> get props => [idNumber, frontImage, backImage];
+}
+
+class AddSubcategoryEvent extends ChambeadorEvent {
+  final String subcategory;
+
+  const AddSubcategoryEvent({required this.subcategory});
+
+  @override
+  List<Object?> get props => [subcategory];
 }

@@ -21,6 +21,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
   );
   final TextEditingController _locationDetailsController =
       TextEditingController();
+  LatLng _selectedLocation = const LatLng(-12.0464, -77.0428);
 
   @override
   void initState() {
@@ -28,16 +29,26 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
     _markers.add(
       Marker(
         markerId: const MarkerId('location'),
-        position: const LatLng(-12.0464, -77.0428), // Lima, Peru
+        position: _selectedLocation,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        draggable: true,
+        onDragEnd: (newPosition) {
+          _selectedLocation = newPosition;
+        },
       ),
     );
-    // Pre-fill fields if data exists
     if (widget.serviceRequest.location != null) {
       _locationController.text = widget.serviceRequest.location!;
     }
     if (widget.serviceRequest.locationDetails != null) {
       _locationDetailsController.text = widget.serviceRequest.locationDetails!;
+    }
+    if (widget.serviceRequest.latitude != null &&
+        widget.serviceRequest.longitude != null) {
+      _selectedLocation = LatLng(
+        widget.serviceRequest.latitude!,
+        widget.serviceRequest.longitude!,
+      );
     }
   }
 
@@ -51,6 +62,9 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -64,7 +78,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
             const Icon(Icons.location_on, color: Colors.black54, size: 16),
             const SizedBox(width: 4),
             Text(
-              'Av. Benovides 4887',
+              'Av. Benavides 4887',
               style: TextStyle(color: Colors.black54, fontSize: 14),
             ),
           ],
@@ -148,11 +162,30 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                   onMapCreated: (GoogleMapController controller) {
                     _mapController = controller;
                   },
-                  initialCameraPosition: const CameraPosition(
-                    target: LatLng(-12.0464, -77.0428), // Lima, Peru
+                  initialCameraPosition: CameraPosition(
+                    target: _selectedLocation,
                     zoom: 15,
                   ),
                   markers: _markers,
+                  onTap: (position) {
+                    setState(() {
+                      _markers.clear();
+                      _markers.add(
+                        Marker(
+                          markerId: const MarkerId('location'),
+                          position: position,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueGreen,
+                          ),
+                          draggable: true,
+                          onDragEnd: (newPosition) {
+                            _selectedLocation = newPosition;
+                          },
+                        ),
+                      );
+                      _selectedLocation = position;
+                    });
+                  },
                 ),
               ),
               const SizedBox(height: 16),
@@ -161,7 +194,6 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _locationController,
-                      readOnly: true,
                       decoration: InputDecoration(
                         labelText: 'Ubicación',
                         border: OutlineInputBorder(
@@ -179,7 +211,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () {
-                      // Add logic to edit location (e.g., open a location picker)
+                      // Add logic for location picker if needed
                     },
                     child: const Text(
                       'Editar',
@@ -215,14 +247,17 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                       widget.serviceRequest.location = _locationController.text;
                       widget.serviceRequest.locationDetails =
                           _locationDetailsController.text;
+                      widget.serviceRequest.latitude =
+                          _selectedLocation.latitude;
+                      widget.serviceRequest.longitude =
+                          _selectedLocation.longitude;
                       if (widget.serviceRequest.isStep2Complete()) {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder:
-                                (_) => MasDetallesStepScreen(
-                                  serviceRequest: widget.serviceRequest,
-                                ),
+                            builder: (_) => MasDetallesStepScreen(
+                              serviceRequest: widget.serviceRequest,
+                            ),
                           ),
                         );
                       } else {
@@ -265,16 +300,15 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
     return CircleAvatar(
       radius: 20,
       backgroundColor: isCompleted ? Colors.green : Colors.grey.shade300,
-      child:
-          content is IconData
-              ? Icon(content, color: Colors.white)
-              : Text(
-                content,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+      child: content is IconData
+          ? Icon(content, color: Colors.white)
+          : Text(
+              content,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
+            ),
     );
   }
 

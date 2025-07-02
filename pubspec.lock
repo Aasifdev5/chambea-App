@@ -85,10 +85,10 @@ packages:
     dependency: transitive
     description:
       name: camera_android_camerax
-      sha256: b4197bd6ce75bc66963a904c34c4cbb6aaa2260a5d4aca13b3556926cf3a92b8
+      sha256: "4b6c1bef4270c39df96402c4d62f2348c3bb2bbaefd0883b9dbd58f426306ad0"
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.18+3"
+    version: "0.6.19"
   camera_avfoundation:
     dependency: transitive
     description:
@@ -210,7 +210,7 @@ packages:
     source: hosted
     version: "1.0.8"
   equatable:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: equatable
       sha256: "567c64b3cb4cf82397aac55f4f0cbd3ca20d77c6c03bedbc4ceaddc08904aef7"
@@ -572,10 +572,10 @@ packages:
     dependency: transitive
     description:
       name: google_maps_flutter_web
-      sha256: a9822dbf31a3f76f239f6bda346511b051d3edf739806e9091be2729e8b645de
+      sha256: ce2cac714e5462bf761ff2fdfc3564c7e5d7ed0578268dccb0a54dbdb1e6214e
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.12+1"
+    version: "0.5.12+2"
   google_sign_in:
     dependency: "direct main"
     description:
@@ -820,10 +820,10 @@ packages:
     dependency: transitive
     description:
       name: location_web
-      sha256: "744bdff53dc455a2dc9a34474c49cde364d4fbef2aee009f8b0b4b68570c27a1"
+      sha256: b8e3add5efe0d65c5e692b7a135d80a4015c580d3ea646fa71973e97668dd868
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.0"
+    version: "6.0.1"
   logger:
     dependency: "direct main"
     description:
@@ -1020,10 +1020,10 @@ packages:
     dependency: transitive
     description:
       name: posix
-      sha256: f0d7856b6ca1887cfa6d1d394056a296ae33489db914e365e2044fdada449e62
+      sha256: "6323a5b0fa688b6a010df4905a56b00181479e6d10534cecfecede2aa55add61"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.2"
+    version: "6.0.3"
   provider:
     dependency: "direct main"
     description:
@@ -1225,10 +1225,10 @@ packages:
     dependency: transitive
     description:
       name: synchronized
-      sha256: "0669c70faae6270521ee4f05bffd2919892d42d1276e6c495be80174b6bc0ef6"
+      sha256: c254ade258ec8282947a0acbbc90b9575b4f19673533ee46f2f6e9b3aeefd7c0
       url: "https://pub.dev"
     source: hosted
-    version: "3.3.1"
+    version: "3.4.0"
   term_glyph:
     dependency: transitive
     description:

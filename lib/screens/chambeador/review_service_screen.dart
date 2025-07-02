@@ -36,15 +36,15 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
     mockReviews.add(review); // Add to mock data for now
 
     // Navigate back to TrabajosContent
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const TrabajosContent()),
     );
 
     // Show a success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reseña enviada con éxito')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Reseña enviada con éxito')));
   }
 
   @override
@@ -85,11 +85,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
                 const CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.grey,
-                  child: Icon(
-                    Icons.person,
-                    size: 16,
-                    color: Colors.white,
-                  ),
+                  child: Icon(Icons.person, size: 16, color: Colors.white),
                 ),
                 const SizedBox(width: 8),
                 Text(

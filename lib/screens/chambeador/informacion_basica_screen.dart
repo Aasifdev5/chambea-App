@@ -1,308 +1,437 @@
 import 'package:flutter/material.dart';
-import 'package:chambea/screens/chambeador/profile_photo_upload_screen.dart'; // Import the new screen
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
+import 'package:chambea/blocs/chambeador/chambeador_event.dart';
+import 'package:chambea/blocs/chambeador/chambeador_state.dart';
+import 'package:chambea/screens/chambeador/profile_photo_upload_screen.dart';
 
 class InformacionBasicaScreen extends StatefulWidget {
+  const InformacionBasicaScreen({super.key});
+
   @override
   _InformacionBasicaScreenState createState() =>
       _InformacionBasicaScreenState();
 }
 
 class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
-  // State variables for form fields
-  String _name = '';
-  String _lastName = '';
-  String _profession = 'Electricista';
-  String _birthDate = '';
-  String _phone = '';
-  String _email = '';
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _birthDateController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _addressController = TextEditingController();
+
+  String _profession = 'Plomero'; // Matches API response
   String _gender = 'Masculino';
-  String _address = '';
-  String? _profilePhotoPath; // To store the path of the uploaded photo
+
+  @override
+  void initState() {
+    super.initState();
+    print('Initializing InformacionBasicaScreen, fetching profile'); // Debug
+    context.read<ChambeadorBloc>().add(FetchProfileEvent());
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _lastNameController.dispose();
+    _birthDateController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Información básica',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Cambios aplicados')));
-              Navigator.pop(context);
-            },
-            child: Text(
-              'Aplicar',
-              style: TextStyle(color: Colors.green, fontSize: 16),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return BlocConsumer<ChambeadorBloc, ChambeadorState>(
+      listener: (context, state) {
+        print('Listener received state: $state'); // Debug
+        if (state.error != null) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.error!)));
+        } else if (!state.isLoading) {
+          _nameController.text = state.name;
+          _lastNameController.text = state.lastName;
+          _birthDateController.text = state.birthDate;
+          _phoneController.text = state.phone;
+          _emailController.text = state.email;
+          _addressController.text = state.address;
+          setState(() {
+            _profession = state.profession.isNotEmpty
+                ? state.profession
+                : 'Plomero';
+            _gender = state.gender.isNotEmpty ? state.gender : 'Masculino';
+          });
+          print(
+            'Updated controllers: name=${_nameController.text}, profession=$_profession, subcategories=${state.subcategories}',
+          ); // Debug
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black54),
+              onPressed: () => Navigator.pop(context),
             ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: GestureDetector(
-                onTap: () async {
-                  // Navigate to the photo upload screen and get the result
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ProfilePhotoUploadScreen(),
-                    ),
-                  );
-                  if (result != null) {
-                    setState(() {
-                      _profilePhotoPath = result;
-                    });
+            title: const Text(
+              'Información básica',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            actions: [
+              TextButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    final subcategoriesList = state.subcategories.keys
+                        .where((key) => state.subcategories[key]!)
+                        .toList();
+                    print(
+                      'Applying changes with subcategories: $subcategoriesList',
+                    ); // Debug
+                    context.read<ChambeadorBloc>().add(
+                      UpdateProfileEvent(
+                        name: _nameController.text,
+                        lastName: _lastNameController.text,
+                        profession: _profession,
+                        birthDate: _birthDateController.text,
+                        phone: _phoneController.text,
+                        email: _emailController.text,
+                        gender: _gender,
+                        address: _addressController.text,
+                        aboutMe: state.aboutMe,
+                        skills: state.skills,
+                        category: state.category,
+                        subcategories: subcategoriesList,
+                      ),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Cambios aplicados')),
+                    );
+                    Navigator.pop(context);
+                  } else {
+                    print('Form validation failed'); // Debug
                   }
                 },
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey.shade300,
-                      backgroundImage:
-                          _profilePhotoPath != null
-                              ? AssetImage(
-                                _profilePhotoPath!,
-                              ) // Placeholder for now
-                              : null,
-                      child:
-                          _profilePhotoPath == null
-                              ? Icon(
-                                Icons.person,
-                                size: 50,
-                                color: Colors.white,
+                child: const Text(
+                  'Aplicar',
+                  style: TextStyle(color: Colors.green, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+          body: state.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.04,
+                    vertical: screenHeight * 0.02,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: GestureDetector(
+                            onTap: () async {
+                              print(
+                                'Navigating to ProfilePhotoUploadScreen',
+                              ); // Debug
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ProfilePhotoUploadScreen(),
+                                ),
+                              );
+                              if (result != null) {
+                                print(
+                                  'Uploading profile photo: $result',
+                                ); // Debug
+                                context.read<ChambeadorBloc>().add(
+                                  UploadProfilePhotoEvent(image: result),
+                                );
+                              }
+                            },
+                            child: Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: screenWidth * 0.13,
+                                  backgroundColor: Colors.grey.shade300,
+                                  backgroundImage:
+                                      state.profilePhotoPath != null
+                                      ? NetworkImage(state.profilePhotoPath!)
+                                      : null,
+                                  child: state.profilePhotoPath == null
+                                      ? Icon(
+                                          Icons.person,
+                                          size: screenWidth * 0.13,
+                                          color: Colors.white,
+                                        )
+                                      : null,
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: CircleAvatar(
+                                    radius: screenWidth * 0.04,
+                                    backgroundColor: Colors.green,
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      size: screenWidth * 0.04,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.03),
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            labelText: 'Nombre*',
+                            hintText: 'Nombres',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        TextFormField(
+                          controller: _lastNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Apellidos*',
+                            hintText: 'Apellidos',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        DropdownButtonFormField<String>(
+                          value: _profession,
+                          decoration: InputDecoration(
+                            labelText: 'Profesión',
+                            hintText: 'Selecciona tu profesión',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          items: ['Electricista', 'Plomero', 'Carpintero']
+                              .map(
+                                (profession) => DropdownMenuItem(
+                                  value: profession,
+                                  child: Text(profession),
+                                ),
                               )
-                              : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Colors.green,
-                        child: Icon(
-                          Icons.camera_alt,
-                          size: 18,
-                          color: Colors.white,
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _profession = value!;
+                              print(
+                                'Selected profession: $_profession',
+                              ); // Debug
+                            });
+                          },
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Nombre*',
-                hintText: 'Nombres',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _name = value;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Apellidos*',
-                hintText: 'Apellidos',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _lastName = value;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _profession.isEmpty ? null : _profession,
-              decoration: InputDecoration(
-                labelText: 'Profesión',
-                hintText: 'Selecciona tu profesión',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              items:
-                  ['Electricista', 'Plomero', 'Carpintero']
-                      .map(
-                        (profession) => DropdownMenuItem(
-                          value: profession,
-                          child: Text(profession),
+                        SizedBox(height: screenHeight * 0.02),
+                        TextFormField(
+                          controller: _birthDateController,
+                          decoration: InputDecoration(
+                            labelText: 'Fecha de nacimiento*',
+                            hintText: 'dd/mm/yyyy',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value!.isEmpty) {
+                              return 'Este campo es requerido';
+                            }
+                            try {
+                              final parts = value.split('/');
+                              if (parts.length != 3) return 'Formato inválido';
+                              final day = int.parse(parts[0]);
+                              final month = int.parse(parts[1]);
+                              final year = int.parse(parts[2]);
+                              final date = DateTime(year, month, day);
+                              if (date.year != year ||
+                                  date.month != month ||
+                                  date.day != day) {
+                                return 'Fecha inválida';
+                              }
+                              return null;
+                            } catch (e) {
+                              return 'Formato inválido';
+                            }
+                          },
                         ),
-                      )
-                      .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _profession = value!;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Fecha de nacimiento*',
-                hintText: 'Fecha de Nacimiento',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _birthDate = value;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            TextField(
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: 'Número telefónico*',
-                hintText: 'Número Telefónico',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _phone = value;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            TextField(
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: 'Email',
-                hintText: 'Correo electrónico',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _email = value;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _gender.isEmpty ? null : _gender,
-              decoration: InputDecoration(
-                labelText: 'Género',
-                hintText: 'Seleccionar género',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              items:
-                  ['Masculino', 'Femenino', 'Otro']
-                      .map(
-                        (gender) => DropdownMenuItem(
-                          value: gender,
-                          child: Text(gender),
+                        SizedBox(height: screenHeight * 0.02),
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: 'Número telefónico*',
+                            hintText: 'Número Telefónico',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
                         ),
-                      )
-                      .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _gender = value!;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Dirección de domicilio',
-                hintText: 'Ciudad',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _address = value;
-                });
-              },
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                minimumSize: Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                // Validate and navigate to the next screen
-                if (_name.isNotEmpty &&
-                    _lastName.isNotEmpty &&
-                    _birthDate.isNotEmpty &&
-                    _phone.isNotEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Datos guardados, avanzando al siguiente paso',
-                      ),
+                        SizedBox(height: screenHeight * 0.02),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'Correo electrónico',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value!.isNotEmpty &&
+                                !RegExp(
+                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                ).hasMatch(value)) {
+                              return 'Correo electrónico inválido';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        DropdownButtonFormField<String>(
+                          value: _gender,
+                          decoration: InputDecoration(
+                            labelText: 'Género',
+                            hintText: 'Seleccionar género',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          items: ['Masculino', 'Femenino', 'Otro']
+                              .map(
+                                (gender) => DropdownMenuItem(
+                                  value: gender,
+                                  child: Text(gender),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _gender = value!;
+                              print('Selected gender: $_gender'); // Debug
+                            });
+                          },
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        TextFormField(
+                          controller: _addressController,
+                          decoration: InputDecoration(
+                            labelText: 'Dirección de domicilio',
+                            hintText: 'Ciudad',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.03),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            minimumSize: const Size(double.infinity, 50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              final subcategoriesList = state.subcategories.keys
+                                  .where((key) => state.subcategories[key]!)
+                                  .toList();
+                              print(
+                                'Saving with subcategories: $subcategoriesList',
+                              ); // Debug
+                              context.read<ChambeadorBloc>().add(
+                                UpdateProfileEvent(
+                                  name: _nameController.text,
+                                  lastName: _lastNameController.text,
+                                  profession: _profession,
+                                  birthDate: _birthDateController.text,
+                                  phone: _phoneController.text,
+                                  email: _emailController.text,
+                                  gender: _gender,
+                                  address: _addressController.text,
+                                  aboutMe: state.aboutMe,
+                                  skills: state.skills,
+                                  category: state.category,
+                                  subcategories: subcategoriesList,
+                                ),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Datos guardados, avanzando al siguiente paso',
+                                  ),
+                                ),
+                              );
+                              Navigator.pushNamed(
+                                context,
+                                '/perfil_chambeador',
+                              );
+                            } else {
+                              print('Form validation failed'); // Debug
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Por favor, completa todos los campos requeridos',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text(
+                            'Siguiente',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        const Center(
+                          child: Text(
+                            'Si tienes preguntas, por favor, contacte servicio de asistencia',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                  // Placeholder for next screen navigation
-                  // Replace with actual navigation
-                  Navigator.pushNamed(context, '/next_screen');
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Por favor completa todos los campos requeridos',
-                      ),
-                    ),
-                  );
-                }
-              },
-              child: Text(
-                'Siguiente',
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
-            SizedBox(height: 10),
-            Center(
-              child: Text(
-                'Si tienes preguntas, por favor, contacte servicio de asistencia',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-      ),
+                  ),
+                ),
+        );
+      },
     );
   }
 }

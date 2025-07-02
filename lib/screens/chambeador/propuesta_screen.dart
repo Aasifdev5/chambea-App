@@ -90,7 +90,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
                 ),
               ),
               onPressed: () {
-                Navigator.pushReplacement(
+                Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => ContratadoScreen()),
                 );
@@ -237,12 +237,9 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
         DropdownButtonFormField<String>(
           value: value,
           onChanged: onChanged,
-          items:
-              items
-                  .map(
-                    (item) => DropdownMenuItem(value: item, child: Text(item)),
-                  )
-                  .toList(),
+          items: items
+              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+              .toList(),
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
