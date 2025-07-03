@@ -1,44 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
+import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
+import 'package:chambea/blocs/chambeador/jobs_event.dart';
+import 'package:chambea/blocs/chambeador/jobs_state.dart';
 
 class BuscarScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Buscar trabajo',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+    return BlocProvider(
+      create: (context) => JobsBloc()..add(FetchJobs()),
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black54),
+            onPressed: () => Navigator.pop(context),
           ),
+          title: const Text(
+            'Buscar trabajo',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.search, color: Colors.black54),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Búsqueda iniciada')),
+                );
+              },
+            ),
+          ],
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.black54),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Búsqueda iniciada')),
+        body: BlocBuilder<JobsBloc, JobsState>(
+          builder: (context, state) {
+            if (state is JobsLoading) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (state is JobsError) {
+              return Center(child: Text('Error: ${state.message}'));
+            } else if (state is JobsLoaded) {
+              if (state.jobs.isEmpty) {
+                return const Center(child: Text('No hay trabajos disponibles'));
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
+                itemCount: state.jobs.length,
+                itemBuilder: (context, index) {
+                  final job = state.jobs[index];
+                  return _buildTrabajoCard(context, job);
+                },
               );
-            },
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        children: [_buildTrabajoCard(context)],
+            }
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildTrabajoCard(BuildContext context) {
+  Widget _buildTrabajoCard(BuildContext context, Map<String, dynamic> job) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
@@ -54,11 +82,11 @@ class BuscarScreen extends StatelessWidget {
                   top: Radius.circular(12),
                 ),
                 child: Image.network(
-                  'https://cdn.pixabay.com/photo/2021/11/14/12/07/fire-6792859_1280.jpg',
+                  job['image'] ??
+                      'https://cdn.pixabay.com/photo/2021/11/14/12/07/fire-6792859_1280.jpg',
                   height: 150,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  // Add loading and error handling
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return Container(
@@ -109,48 +137,45 @@ class BuscarScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Hace 2 horas',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                Text(
+                  _formatTimeAgo(job['created_at']),
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Cortocircuito en cocina',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Salió chispa de un enchufe de la cocina y ahora no funciona. Necesito revisión y solución urgente. Llevar herramientas.',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                Text(
+                  job['description'] ?? 'Sin descripción disponible',
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
                 ),
                 const SizedBox(height: 8),
-
                 // Tags
                 Wrap(
                   spacing: 8,
                   children: [
-                    _buildTagChip('Enchufes'),
-                    _buildTagChip('Instalación de cables'),
+                    _buildTagChip(job['category']?.toUpperCase() ?? 'SERVICIO'),
+                    _buildTagChip(
+                      job['subcategory']?.toUpperCase() ?? 'GENERAL',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-
                 // Icons row
                 Row(
                   children: [
                     const Icon(Icons.today, size: 16, color: Colors.black54),
                     const SizedBox(width: 4),
-                    const Text('Hoy', style: TextStyle(color: Colors.black54)),
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.access_time,
-                      size: 16,
-                      color: Colors.black54,
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      '16:00',
-                      style: TextStyle(color: Colors.black54),
+                    Text(
+                      job['is_time_undefined'] == 1
+                          ? '${job['date'] ?? 'Hoy'} · Flexible'
+                          : '${job['date'] ?? 'Hoy'} · ${job['start_time'] ?? 'Sin horario'}',
+                      style: const TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(width: 12),
                     const Icon(
@@ -159,14 +184,16 @@ class BuscarScreen extends StatelessWidget {
                       color: Colors.black54,
                     ),
                     const SizedBox(width: 4),
-                    const Text(
-                      'BOB: 80 - 150 / Hora',
-                      style: TextStyle(color: Colors.black54),
+                    Text(
+                      job['budget'] != null &&
+                              double.tryParse(job['budget'].toString()) != null
+                          ? 'BOB: ${job['budget']}/Hora'
+                          : 'BOB: No especificado',
+                      style: const TextStyle(color: Colors.black54),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-
                 Row(
                   children: [
                     const Icon(
@@ -175,34 +202,32 @@ class BuscarScreen extends StatelessWidget {
                       color: Colors.black54,
                     ),
                     const SizedBox(width: 4),
-                    const Text(
-                      'Ave Bush - La Paz',
-                      style: TextStyle(color: Colors.black54),
+                    Text(
+                      '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
+                      style: const TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(width: 8),
                     const Icon(Icons.qr_code, size: 16, color: Colors.black54),
                     const SizedBox(width: 4),
-                    const Text(
-                      'Efectivo o QR',
-                      style: TextStyle(color: Colors.black54),
+                    Text(
+                      job['payment_method'] ?? 'No especificado',
+                      style: const TextStyle(color: Colors.black54),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-
                 // User info
                 Row(
                   children: [
                     CircleAvatar(
                       radius: 16,
                       backgroundColor: Colors.grey.shade200,
-                      backgroundImage: const NetworkImage(
-                        'https://i.pravatar.cc/150?img=12',
-                      ),
-                      onBackgroundImageError: (error, stackTrace) {
-                        // This will be handled by the fallback UI below
-                      },
-                      child: const Icon(
+                      backgroundImage: job['worker_image'] != null
+                          ? NetworkImage(job['worker_image'])
+                          : const NetworkImage(
+                              'https://i.pravatar.cc/150?img=12',
+                            ),
+                      onBackgroundImageError: (error, stackTrace) => const Icon(
                         Icons.person,
                         color: Colors.grey,
                         size: 16,
@@ -212,9 +237,10 @@ class BuscarScreen extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Mario Urioste',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        Text(
+                          job['worker_name'] ??
+                              'Usuario ${job['created_by'] ?? 'Desconocido'}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Row(
                           children: [
@@ -224,9 +250,9 @@ class BuscarScreen extends StatelessWidget {
                               color: Colors.amber,
                             ),
                             const SizedBox(width: 4),
-                            const Text(
-                              '4.1',
-                              style: TextStyle(color: Colors.black54),
+                            Text(
+                              job['worker_rating']?.toString() ?? '0.0',
+                              style: const TextStyle(color: Colors.black54),
                             ),
                           ],
                         ),
@@ -235,7 +261,6 @@ class BuscarScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-
                 // Action buttons
                 Row(
                   children: [
@@ -271,7 +296,8 @@ class BuscarScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => PropuestaScreen(),
+                              builder: (_) =>
+                                  PropuestaScreen(requestId: job['id']),
                             ),
                           );
                         },
@@ -297,5 +323,19 @@ class BuscarScreen extends StatelessWidget {
       backgroundColor: Colors.grey.shade200,
       shape: const StadiumBorder(),
     );
+  }
+
+  String _formatTimeAgo(String? createdAt) {
+    if (createdAt == null) return 'Hace un momento';
+    final now = DateTime.now();
+    final created = DateTime.parse(createdAt);
+    final difference = now.difference(created);
+    if (difference.inDays > 0) {
+      return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+    } else {
+      return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+    }
   }
 }

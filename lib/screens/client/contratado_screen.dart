@@ -4,8 +4,9 @@ import 'package:chambea/services/api_service.dart';
 
 class ContratadoScreen extends StatefulWidget {
   final int requestId;
+  final int? proposalId;
 
-  const ContratadoScreen({required this.requestId, super.key});
+  const ContratadoScreen({required this.requestId, this.proposalId, super.key});
 
   @override
   _ContratadoScreenState createState() => _ContratadoScreenState();
@@ -35,18 +36,38 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
       final response = await ApiService.get(
         '/api/service-requests/${widget.requestId}',
       );
-      final data = response['data'];
-      // Placeholder for worker details (fetch from proposals or user API)
+      final data = Map<String, dynamic>.from(response['data'] ?? {});
       String workerName = 'Usuario ${data['created_by'] ?? 'Desconocido'}';
       String workerRole = data['subcategory'] ?? 'Trabajador';
       double workerRating = 0.0;
 
-      // If proposals exist, use the first proposal's worker details (adjust as needed)
-      if (data['proposals']?.isNotEmpty ?? false) {
-        final proposal = data['proposals'][0];
-        workerName = proposal['worker_name'] ?? workerName;
-        workerRole = proposal['worker_role'] ?? workerRole;
-        workerRating = (proposal['worker_rating'] ?? 0.0).toDouble();
+      // Fetch worker details based on proposalId if provided
+      if (widget.proposalId != null) {
+        final proposals = List<Map<String, dynamic>>.from(
+          data['proposals'] ?? [],
+        );
+        final selectedProposal = proposals.firstWhere(
+          (proposal) => proposal['id'] == widget.proposalId,
+          orElse: () => {},
+        );
+        if (selectedProposal.isNotEmpty) {
+          try {
+            final userResponse = await ApiService.get(
+              '/api/users/${selectedProposal['worker_id']}',
+            );
+            final user = userResponse['data'] ?? {};
+            workerName = user['name'] ?? workerName;
+            workerRole = selectedProposal['worker_role'] ?? workerRole;
+            workerRating = (user['rating'] ?? 0.0).toDouble();
+          } catch (e) {
+            workerName =
+                selectedProposal['worker_name'] ??
+                'Usuario ${selectedProposal['worker_id']}';
+            workerRole = selectedProposal['worker_role'] ?? workerRole;
+            workerRating = (selectedProposal['worker_rating'] ?? 0.0)
+                .toDouble();
+          }
+        }
       }
 
       setState(() {

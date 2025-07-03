@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/chambeador/buscar_screen.dart';
 import 'package:chambea/screens/chambeador/chat_screen.dart';
 import 'package:chambea/screens/chambeador/mas_screen.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
 import 'package:chambea/screens/chambeador/job_detail_screen.dart';
 import 'package:chambea/screens/chambeador/trabajos.dart';
+import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
+import 'package:chambea/blocs/chambeador/jobs_event.dart';
+import 'package:chambea/blocs/chambeador/jobs_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,11 +21,14 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const HomeScreenContent(), // Inicio (index 0)
-    const TrabajosContent(), // Trabajos (index 1)
-    BuscarScreen(), // Buscar (index 2)
-    ChatScreen(), // Chat (index 3)
-    MasScreen(), // Menú (index 4)
+    BlocProvider(
+      create: (context) => JobsBloc()..add(FetchJobs()),
+      child: const HomeScreenContent(),
+    ),
+    const TrabajosContent(),
+    BuscarScreen(),
+    ChatScreen(),
+    MasScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -40,9 +47,9 @@ class _HomeScreenState extends State<HomeScreen> {
         unselectedItemColor: Colors.black54,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedFontSize: 10, // Reduced from 12 to 10
-        unselectedFontSize: 8, // Reduced from 10 to 8
-        iconSize: 22, // Reduced from 24 to 22
+        selectedFontSize: 10,
+        unselectedFontSize: 8,
+        iconSize: 22,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Trabajos'),
@@ -96,10 +103,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
         final double textScaleFactor = MediaQuery.of(
           context,
         ).textScaler.scale(1.0);
-        final double baseFontSize =
-            screenWidth * 0.035; // Reduced from 0.04 to 0.035
-        final bool isLandscape =
-            MediaQuery.of(context).orientation == Orientation.landscape;
+        final double baseFontSize = screenWidth * 0.035;
 
         return Column(
           children: [
@@ -108,8 +112,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 'Inicio',
                 style: TextStyle(
                   fontSize:
-                      (baseFontSize * 1.4).clamp(16, 20) *
-                      textScaleFactor, // Reduced from 18,22 to 16,20
+                      (baseFontSize * 1.4).clamp(16, 20) * textScaleFactor,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
@@ -121,10 +124,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   icon: Icon(
                     Icons.search,
                     color: Colors.black54,
-                    size: (screenWidth * 0.06).clamp(
-                      22,
-                      28,
-                    ), // Reduced from 24,30 to 22,28
+                    size: (screenWidth * 0.06).clamp(22, 28),
                   ),
                   onPressed: () {
                     try {
@@ -161,7 +161,6 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Profile Card with Animation
                         FadeTransition(
                           opacity: _fadeAnimation,
                           child: Container(
@@ -202,18 +201,17 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                       Text(
                                         '¡Ofrece tu servicio hoy mismo!',
                                         style: TextStyle(
-                                          fontSize:
-                                              screenWidth < 360
-                                                  ? (baseFontSize * 1.1).clamp(
-                                                        12,
-                                                        16,
-                                                      ) *
-                                                      textScaleFactor // Reduced from 14,18 to 12,16
-                                                  : (baseFontSize * 1.2).clamp(
-                                                        14,
-                                                        18,
-                                                      ) *
-                                                      textScaleFactor, // Reduced from 16,20 to 14,18
+                                          fontSize: screenWidth < 360
+                                              ? (baseFontSize * 1.1).clamp(
+                                                      12,
+                                                      16,
+                                                    ) *
+                                                    textScaleFactor
+                                              : (baseFontSize * 1.2).clamp(
+                                                      14,
+                                                      18,
+                                                    ) *
+                                                    textScaleFactor,
                                           fontWeight: FontWeight.bold,
                                           color: Colors.black87,
                                         ),
@@ -225,7 +223,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                             radius: (screenWidth * 0.045).clamp(
                                               12,
                                               16,
-                                            ), // Reduced from 14,18 to 12,16
+                                            ),
                                             backgroundColor:
                                                 Colors.grey.shade400,
                                             child: Icon(
@@ -233,7 +231,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                               size: (screenWidth * 0.035).clamp(
                                                 10,
                                                 14,
-                                              ), // Reduced from 12,16 to 10,14
+                                              ),
                                               color: Colors.white,
                                             ),
                                           ),
@@ -243,12 +241,12 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                'Andrés Villamontes',
+                                                'Andrés Villamontes', // Replace with dynamic user data
                                                 style: TextStyle(
                                                   fontSize:
                                                       (baseFontSize * 1.0)
                                                           .clamp(10, 14) *
-                                                      textScaleFactor, // Reduced from 12,16 to 10,14
+                                                      textScaleFactor,
                                                   fontWeight: FontWeight.w600,
                                                   color: Colors.black87,
                                                 ),
@@ -258,10 +256,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                   Icon(
                                                     Icons.star,
                                                     size: (screenWidth * 0.035)
-                                                        .clamp(
-                                                          10,
-                                                          14,
-                                                        ), // Reduced from 12,16 to 10,14
+                                                        .clamp(10, 14),
                                                     color:
                                                         Colors.yellow.shade700,
                                                   ),
@@ -274,7 +269,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                       fontSize:
                                                           (baseFontSize * 0.8)
                                                               .clamp(10, 12) *
-                                                          textScaleFactor, // Reduced from 12,14 to 10,12
+                                                          textScaleFactor,
                                                       color: Colors.black54,
                                                     ),
                                                   ),
@@ -297,7 +292,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                   fontSize:
                                                       (baseFontSize * 1.0)
                                                           .clamp(10, 14) *
-                                                      textScaleFactor, // Reduced from 12,16 to 10,14
+                                                      textScaleFactor,
                                                   fontWeight: FontWeight.bold,
                                                   color: Colors.black87,
                                                 ),
@@ -308,7 +303,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                   fontSize:
                                                       (baseFontSize * 0.7)
                                                           .clamp(8, 10) *
-                                                      textScaleFactor, // Reduced from 10,12 to 8,10
+                                                      textScaleFactor,
                                                   color: Colors.black54,
                                                 ),
                                               ),
@@ -325,7 +320,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                   fontSize:
                                                       (baseFontSize * 1.0)
                                                           .clamp(10, 14) *
-                                                      textScaleFactor, // Reduced from 12,16 to 10,14
+                                                      textScaleFactor,
                                                   fontWeight: FontWeight.bold,
                                                   color: Colors.black87,
                                                 ),
@@ -336,7 +331,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                   fontSize:
                                                       (baseFontSize * 0.7)
                                                           .clamp(8, 10) *
-                                                      textScaleFactor, // Reduced from 10,12 to 8,10
+                                                      textScaleFactor,
                                                   color: Colors.black54,
                                                 ),
                                               ),
@@ -359,7 +354,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                       color: const Color(0xFF22c55e),
                                       fontSize:
                                           (baseFontSize * 0.8).clamp(10, 12) *
-                                          textScaleFactor, // Reduced from 12,14 to 10,12
+                                          textScaleFactor,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -369,266 +364,77 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           ),
                         ),
                         SizedBox(height: screenHeight * 0.02),
-                        // Recommended Jobs
                         Text(
                           'Trabajos recomendados para ti',
                           style: TextStyle(
                             fontSize:
                                 (baseFontSize * 1.1).clamp(12, 16) *
-                                textScaleFactor, // Reduced from 14,18 to 12,16
+                                textScaleFactor,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87,
                           ),
                         ),
                         SizedBox(height: screenHeight * 0.015),
-                        GestureDetector(
-                          onTap: () {
-                            try {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const JobDetailScreen(),
-                                ),
+                        BlocBuilder<JobsBloc, JobsState>(
+                          builder: (context, state) {
+                            if (state is JobsLoading) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
                               );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Error navigating to JobDetailScreen: $e',
-                                  ),
-                                ),
+                            } else if (state is JobsError) {
+                              return Center(
+                                child: Text('Error: ${state.message}'),
+                              );
+                            } else if (state is JobsLoaded) {
+                              if (state.jobs.isEmpty) {
+                                return const Center(
+                                  child: Text('No hay trabajos disponibles'),
+                                );
+                              }
+                              return ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: state.jobs.length,
+                                itemBuilder: (context, index) {
+                                  final job = state.jobs[index];
+                                  return _buildJobCard(
+                                    context: context,
+                                    requestId: job['id'],
+                                    timeAgo: _formatTimeAgo(job['created_at']),
+                                    title:
+                                        '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
+                                    budget:
+                                        job['budget'] != null &&
+                                            double.tryParse(
+                                                  job['budget'].toString(),
+                                                ) !=
+                                                null
+                                        ? 'BOB: ${job['budget']}/Hora'
+                                        : 'BOB: No especificado',
+                                    location:
+                                        '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
+                                    workerName:
+                                        'Usuario ${job['created_by'] ?? 'Desconocido'}',
+                                    workerRating:
+                                        0.0, // Fetch from user API if available
+                                    tags: [
+                                      job['category']?.toUpperCase() ??
+                                          'SERVICIO',
+                                      job['subcategory']?.toUpperCase() ??
+                                          'GENERAL',
+                                    ],
+                                    screenWidth: screenWidth,
+                                    screenHeight: screenHeight,
+                                    textScaleFactor: textScaleFactor,
+                                    baseFontSize: baseFontSize,
+                                  );
+                                },
                               );
                             }
+                            return const SizedBox.shrink();
                           },
-                          child: Card(
-                            elevation: 4,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                screenWidth * 0.03,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  height: (screenHeight * 0.2).clamp(120, 180),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(screenWidth * 0.03),
-                                    ),
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.all(screenWidth * 0.04),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Hace 2 horas',
-                                            style: TextStyle(
-                                              fontSize:
-                                                  (baseFontSize * 0.7).clamp(
-                                                    8,
-                                                    10,
-                                                  ) *
-                                                  textScaleFactor, // Reduced from 10,12 to 8,10
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                          Text(
-                                            'BOB 80 - 150/Hora',
-                                            style: TextStyle(
-                                              fontSize:
-                                                  (baseFontSize * 1.0).clamp(
-                                                    10,
-                                                    14,
-                                                  ) *
-                                                  textScaleFactor, // Reduced from 12,16 to 10,14
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: screenHeight * 0.01),
-                                      Text(
-                                        'Instalaciones de luces LED',
-                                        style: TextStyle(
-                                          fontSize:
-                                              (baseFontSize * 1.2).clamp(
-                                                12,
-                                                16,
-                                              ) *
-                                              textScaleFactor, // Reduced from 14,18 to 12,16
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                      SizedBox(height: screenHeight * 0.01),
-                                      Wrap(
-                                        spacing: screenWidth * 0.02,
-                                        children: [
-                                          Chip(
-                                            label: Text(
-                                              'ILUMINACIÓN',
-                                              style: TextStyle(
-                                                fontSize:
-                                                    (baseFontSize * 0.7).clamp(
-                                                      8,
-                                                      10,
-                                                    ) *
-                                                    textScaleFactor, // Reduced from 10,12 to 8,10
-                                              ),
-                                            ),
-                                            backgroundColor:
-                                                Colors.grey.shade200,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: screenWidth * 0.02,
-                                            ),
-                                          ),
-                                          Chip(
-                                            label: Text(
-                                              'PANELES',
-                                              style: TextStyle(
-                                                fontSize:
-                                                    (baseFontSize * 0.7).clamp(
-                                                      8,
-                                                      10,
-                                                    ) *
-                                                    textScaleFactor, // Reduced from 10,12 to 8,10
-                                              ),
-                                            ),
-                                            backgroundColor:
-                                                Colors.grey.shade200,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: screenWidth * 0.02,
-                                            ),
-                                          ),
-                                          Chip(
-                                            label: Text(
-                                              'SEGURIDAD',
-                                              style: TextStyle(
-                                                fontSize:
-                                                    (baseFontSize * 0.7).clamp(
-                                                      8,
-                                                      10,
-                                                    ) *
-                                                    textScaleFactor, // Reduced from 10,12 to 8,10
-                                              ),
-                                            ),
-                                            backgroundColor:
-                                                Colors.grey.shade200,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: screenWidth * 0.02,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: screenHeight * 0.01),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.location_on,
-                                            size: (screenWidth * 0.035).clamp(
-                                              10,
-                                              14,
-                                            ), // Reduced from 12,16 to 10,14
-                                            color: Colors.black54,
-                                          ),
-                                          SizedBox(width: screenWidth * 0.01),
-                                          Text(
-                                            'Ave Bush - La Paz',
-                                            style: TextStyle(
-                                              fontSize:
-                                                  (baseFontSize * 0.8).clamp(
-                                                    10,
-                                                    12,
-                                                  ) *
-                                                  textScaleFactor, // Reduced from 12,14 to 10,12
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: screenHeight * 0.01),
-                                      Row(
-                                        children: [
-                                          CircleAvatar(
-                                            radius: (screenWidth * 0.045).clamp(
-                                              12,
-                                              16,
-                                            ), // Reduced from 14,18 to 12,16
-                                            backgroundColor: Colors.grey,
-                                            child: Icon(
-                                              Icons.person,
-                                              size: (screenWidth * 0.035).clamp(
-                                                10,
-                                                14,
-                                              ), // Reduced from 12,16 to 10,14
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          SizedBox(width: screenWidth * 0.02),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Mario Urioste',
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      (baseFontSize * 1.0)
-                                                          .clamp(10, 14) *
-                                                      textScaleFactor, // Reduced from 12,16 to 10,14
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.star,
-                                                    size: (screenWidth * 0.035)
-                                                        .clamp(
-                                                          10,
-                                                          14,
-                                                        ), // Reduced from 12,16 to 10,14
-                                                    color: Colors.yellow,
-                                                  ),
-                                                  SizedBox(
-                                                    width: screenWidth * 0.01,
-                                                  ),
-                                                  Text(
-                                                    '4.3',
-                                                    style: TextStyle(
-                                                      fontSize:
-                                                          (baseFontSize * 0.8)
-                                                              .clamp(10, 12) *
-                                                          textScaleFactor, // Reduced from 12,14 to 10,12
-                                                      color: Colors.black54,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
                         SizedBox(height: screenHeight * 0.02),
-                        // Recommended Clients
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -637,7 +443,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               style: TextStyle(
                                 fontSize:
                                     (baseFontSize * 1.1).clamp(12, 16) *
-                                    textScaleFactor, // Reduced from 14,18 to 12,16
+                                    textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -656,7 +462,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                   color: const Color(0xFF22c55e),
                                   fontSize:
                                       (baseFontSize * 0.8).clamp(10, 12) *
-                                      textScaleFactor, // Reduced from 12,14 to 10,12
+                                      textScaleFactor,
                                 ),
                               ),
                             ),
@@ -698,7 +504,6 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           ),
                         ),
                         SizedBox(height: screenHeight * 0.02),
-                        // Recent Reviews
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -707,7 +512,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               style: TextStyle(
                                 fontSize:
                                     (baseFontSize * 1.1).clamp(12, 16) *
-                                    textScaleFactor, // Reduced from 14,18 to 12,16
+                                    textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -726,7 +531,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                   color: const Color(0xFF22c55e),
                                   fontSize:
                                       (baseFontSize * 0.8).clamp(10, 12) *
-                                      textScaleFactor, // Reduced from 12,14 to 10,12
+                                      textScaleFactor,
                                 ),
                               ),
                             ),
@@ -782,6 +587,192 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     );
   }
 
+  Widget _buildJobCard({
+    required BuildContext context,
+    required int requestId,
+    required String timeAgo,
+    required String title,
+    required String budget,
+    required String location,
+    required String workerName,
+    required double workerRating,
+    required List<String> tags,
+    required double screenWidth,
+    required double screenHeight,
+    required double textScaleFactor,
+    required double baseFontSize,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        try {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => JobDetailScreen(requestId: requestId),
+            ),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error navigating to JobDetailScreen: $e')),
+          );
+        }
+      },
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(screenWidth * 0.03),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: (screenHeight * 0.2).clamp(120, 180),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(screenWidth * 0.03),
+                ),
+                color: Colors.grey.shade300,
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(screenWidth * 0.04),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        timeAgo,
+                        style: TextStyle(
+                          fontSize:
+                              (baseFontSize * 0.7).clamp(8, 10) *
+                              textScaleFactor,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      Text(
+                        budget,
+                        style: TextStyle(
+                          fontSize:
+                              (baseFontSize * 1.0).clamp(10, 14) *
+                              textScaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize:
+                          (baseFontSize * 1.2).clamp(12, 16) * textScaleFactor,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Wrap(
+                    spacing: screenWidth * 0.02,
+                    children: tags
+                        .map(
+                          (tag) => Chip(
+                            label: Text(
+                              tag,
+                              style: TextStyle(
+                                fontSize:
+                                    (baseFontSize * 0.7).clamp(8, 10) *
+                                    textScaleFactor,
+                              ),
+                            ),
+                            backgroundColor: Colors.grey.shade200,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: screenWidth * 0.02,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: (screenWidth * 0.035).clamp(10, 14),
+                        color: Colors.black54,
+                      ),
+                      SizedBox(width: screenWidth * 0.01),
+                      Text(
+                        location,
+                        style: TextStyle(
+                          fontSize:
+                              (baseFontSize * 0.8).clamp(10, 12) *
+                              textScaleFactor,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.01),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: (screenWidth * 0.045).clamp(12, 16),
+                        backgroundColor: Colors.grey,
+                        child: Icon(
+                          Icons.person,
+                          size: (screenWidth * 0.035).clamp(10, 14),
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(width: screenWidth * 0.02),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            workerName,
+                            style: TextStyle(
+                              fontSize:
+                                  (baseFontSize * 1.0).clamp(10, 14) *
+                                  textScaleFactor,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.star,
+                                size: (screenWidth * 0.035).clamp(10, 14),
+                                color: Colors.yellow,
+                              ),
+                              SizedBox(width: screenWidth * 0.01),
+                              Text(
+                                workerRating.toString(),
+                                style: TextStyle(
+                                  fontSize:
+                                      (baseFontSize * 0.8).clamp(10, 12) *
+                                      textScaleFactor,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildClientCard({
     required BuildContext context,
     required String name,
@@ -796,17 +787,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       child: Column(
         children: [
           CircleAvatar(
-            radius: (screenWidth * 0.07).clamp(
-              22,
-              32,
-            ), // Reduced from 24,36 to 22,32
+            radius: (screenWidth * 0.07).clamp(22, 32),
             backgroundColor: Colors.grey,
             child: Icon(
               Icons.person,
-              size: (screenWidth * 0.05).clamp(
-                18,
-                26,
-              ), // Reduced from 20,30 to 18,26
+              size: (screenWidth * 0.05).clamp(18, 26),
               color: Colors.white,
             ),
           ),
@@ -814,9 +799,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
           Text(
             name,
             style: TextStyle(
-              fontSize:
-                  (baseFontSize * 1.0).clamp(10, 14) *
-                  textScaleFactor, // Reduced from 12,16 to 10,14
+              fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
@@ -827,10 +810,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
             children: [
               Icon(
                 Icons.star,
-                size: (screenWidth * 0.035).clamp(
-                  10,
-                  14,
-                ), // Reduced from 12,16 to 10,14
+                size: (screenWidth * 0.035).clamp(10, 14),
                 color: Colors.yellow,
               ),
               SizedBox(width: screenWidth * 0.01),
@@ -838,8 +818,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 rating.toString(),
                 style: TextStyle(
                   fontSize:
-                      (baseFontSize * 0.8).clamp(10, 12) *
-                      textScaleFactor, // Reduced from 12,14 to 10,12
+                      (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                   color: Colors.black54,
                 ),
               ),
@@ -875,17 +854,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
             Row(
               children: [
                 CircleAvatar(
-                  radius: (screenWidth * 0.045).clamp(
-                    12,
-                    16,
-                  ), // Reduced from 14,18 to 12,16
+                  radius: (screenWidth * 0.045).clamp(12, 16),
                   backgroundColor: Colors.grey,
                   child: Icon(
                     Icons.person,
-                    size: (screenWidth * 0.035).clamp(
-                      10,
-                      14,
-                    ), // Reduced from 12,16 to 10,14
+                    size: (screenWidth * 0.035).clamp(10, 14),
                     color: Colors.white,
                   ),
                 ),
@@ -898,7 +871,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       style: TextStyle(
                         fontSize:
                             (baseFontSize * 1.0).clamp(10, 14) *
-                            textScaleFactor, // Reduced from 12,16 to 10,14
+                            textScaleFactor,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
@@ -907,10 +880,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       children: [
                         Icon(
                           Icons.star,
-                          size: (screenWidth * 0.035).clamp(
-                            10,
-                            14,
-                          ), // Reduced from 12,16 to 10,14
+                          size: (screenWidth * 0.035).clamp(10, 14),
                           color: Colors.yellow,
                         ),
                         SizedBox(width: screenWidth * 0.01),
@@ -919,7 +889,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           style: TextStyle(
                             fontSize:
                                 (baseFontSize * 0.8).clamp(10, 12) *
-                                textScaleFactor, // Reduced from 12,14 to 10,12
+                                textScaleFactor,
                             color: Colors.black54,
                           ),
                         ),
@@ -932,8 +902,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   timeAgo,
                   style: TextStyle(
                     fontSize:
-                        (baseFontSize * 0.7).clamp(8, 10) *
-                        textScaleFactor, // Reduced from 10,12 to 8,10
+                        (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
                     color: Colors.black54,
                   ),
                 ),
@@ -943,9 +912,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
             Text(
               comment,
               style: TextStyle(
-                fontSize:
-                    (baseFontSize * 0.8).clamp(10, 12) *
-                    textScaleFactor, // Reduced from 12,14 to 10,12
+                fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                 color: Colors.black54,
               ),
             ),
@@ -953,5 +920,18 @@ class _HomeScreenContentState extends State<HomeScreenContent>
         ),
       ),
     );
+  }
+
+  String _formatTimeAgo(String createdAt) {
+    final now = DateTime.now();
+    final created = DateTime.parse(createdAt);
+    final difference = now.difference(created);
+    if (difference.inDays > 0) {
+      return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+    } else {
+      return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+    }
   }
 }

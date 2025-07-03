@@ -1,104 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/client/contratado_screen.dart';
-import 'package:chambea/services/api_service.dart';
+import 'package:chambea/screens/client/propuestas_screen.dart';
+import 'package:chambea/blocs/client/proposals_bloc.dart';
+import 'package:chambea/blocs/client/proposals_event.dart';
+import 'package:chambea/blocs/client/proposals_state.dart';
 
-class BandejaScreen extends StatefulWidget {
-  @override
-  _BandejaScreenState createState() => _BandejaScreenState();
-}
-
-class _BandejaScreenState extends State<BandejaScreen> {
-  List<dynamic> _serviceRequests = [];
-  bool _isLoading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchServiceRequests();
-  }
-
-  Future<void> _fetchServiceRequests() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final response = await ApiService.get('/api/service-requests');
-      setState(() {
-        _serviceRequests = response['data'] ?? [];
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = e.toString();
-      });
-    }
-  }
-
+class BandejaScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Bandeja'),
-        actions: [
-          TextButton(
+    return BlocProvider(
+      create: (context) => ProposalsBloc()..add(FetchServiceRequests()),
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.green),
+          ),
+          title: const Text('Bandeja'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.green),
+              ),
             ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Lista de propuestas'),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(child: Text('Error: $_error'))
-                : _serviceRequests.isEmpty
-                ? const Center(child: Text('No hay propuestas disponibles'))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _serviceRequests.length,
-                    itemBuilder: (context, index) {
-                      final request = _serviceRequests[index];
-                      return _buildJobCard(
-                        context,
-                        request['proposals']?.isEmpty ?? true
-                            ? 'Pendiente'
-                            : 'Propuesta Recibida',
-                        '${request['category'] ?? 'Servicio'} - ${request['subcategory'] ?? 'General'}',
-                        request['location'] ?? 'Sin ubicación',
-                        request['budget'] != null &&
-                                double.tryParse(request['budget'].toString()) !=
-                                    null
-                            ? 'BOB: ${request['budget']}'
-                            : 'BOB: No especificado',
-                        request['is_time_undefined'] == 1
-                            ? 'Horario flexible'
-                            : request['start_time'] ?? 'Sin horario',
-                        'No especificado',
-                        'Usuario ${request['created_by'] ?? 'Desconocido'}',
-                        0.0,
-                        request['id'],
+          ],
+        ),
+        body: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Lista de propuestas'),
+            ),
+            Expanded(
+              child: BlocBuilder<ProposalsBloc, ProposalsState>(
+                builder: (context, state) {
+                  if (state is ProposalsLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (state is ProposalsError) {
+                    return Center(child: Text('Error: ${state.message}'));
+                  } else if (state is ProposalsLoaded) {
+                    if (state.proposals.isEmpty) {
+                      return const Center(
+                        child: Text('No hay propuestas disponibles'),
                       );
-                    },
-                  ),
-          ),
-        ],
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: state.proposals.length,
+                      itemBuilder: (context, index) {
+                        final request = state.proposals[index];
+                        final proposals = List<Map<String, dynamic>>.from(
+                          request['proposals'] ?? [],
+                        );
+                        return _buildJobCard(
+                          context,
+                          proposals.isEmpty
+                              ? 'Pendiente'
+                              : 'Propuesta Recibida',
+                          '${request['category'] ?? 'Servicio'} - ${request['subcategory'] ?? 'General'}',
+                          request['location'] ?? 'Sin ubicación',
+                          request['budget'] != null &&
+                                  double.tryParse(
+                                        request['budget'].toString(),
+                                      ) !=
+                                      null
+                              ? 'BOB: ${request['budget']}'
+                              : 'BOB: No especificado',
+                          request['is_time_undefined'] == 1
+                              ? 'Horario flexible'
+                              : request['start_time'] ?? 'Sin horario',
+                          'No especificado',
+                          'Usuario ${request['created_by'] ?? 'Desconocido'}',
+                          0.0,
+                          request['id'],
+                          request['subcategory'] ?? 'General',
+                          proposals,
+                        );
+                      },
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -114,6 +103,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
     String client,
     double rating,
     int requestId,
+    String subcategory,
+    List<Map<String, dynamic>> proposals,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -203,27 +194,50 @@ class _BandejaScreenState extends State<BandejaScreen> {
             Row(
               children: [
                 Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    onPressed: proposals.isEmpty
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PropuestasScreen(
+                                  requestId: requestId,
+                                  subcategory: subcategory,
+                                ),
+                              ),
+                            );
+                          },
+                    child: Text('Propuestas (${proposals.length})'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.green),
                       foregroundColor: Colors.green,
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    onPressed: () async {
-                      try {
-                        await ApiService.post(
-                          '/api/service-requests/$requestId/reject',
-                          {},
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Propuesta rechazada')),
-                        );
-                        _fetchServiceRequests();
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error al rechazar: $e')),
-                        );
-                      }
+                    onPressed: () {
+                      context.read<ProposalsBloc>().add(
+                        RejectServiceRequest(requestId),
+                      );
                     },
                     child: const Text('Rechazar'),
                   ),
@@ -235,6 +249,9 @@ class _BandejaScreenState extends State<BandejaScreen> {
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                     onPressed: () {
                       Navigator.push(
