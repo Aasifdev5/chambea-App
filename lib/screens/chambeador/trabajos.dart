@@ -1,9 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/start_service_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-class TrabajosContent extends StatelessWidget {
+class TrabajosContent extends StatefulWidget {
   const TrabajosContent({super.key});
+
+  @override
+  _TrabajosContentState createState() => _TrabajosContentState();
+}
+
+class _TrabajosContentState extends State<TrabajosContent> {
+  Future<List<Job>> fetchJobs() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('Usuario no autenticado');
+
+      final token = await user.getIdToken();
+      final response = await http.get(
+        Uri.parse(
+          'https://chambea.lat/api/service-requests?worker_id=${user.uid}',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body)['data'] as List;
+        return data.map((json) => Job.fromJson(json)).toList();
+      } else {
+        String errorMessage;
+        switch (response.statusCode) {
+          case 401:
+            errorMessage =
+                'Sesión expirada. Por favor, inicia sesión nuevamente.';
+            break;
+          case 403:
+            errorMessage = 'No tienes permiso para ver estos trabajos.';
+            break;
+          case 404:
+            errorMessage = 'No se encontraron trabajos.';
+            break;
+          default:
+            errorMessage = 'Error al cargar trabajos: ${response.body}';
+        }
+        print('Error fetching jobs: ${response.statusCode} - ${response.body}');
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      print('Exception in fetchJobs: $e');
+      throw Exception('Error al conectar con el servidor: $e');
+    }
+  }
+
+  void refreshJobs() {
+    setState(() {}); // Trigger rebuild to refresh job list
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,66 +82,103 @@ class TrabajosContent extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: DefaultTabController(
-        length: 3,
-        child: SafeArea(
-          child: Column(
-            children: [
-              const TabBar(
-                labelColor: Colors.black,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: Colors.black,
-                tabs: [
-                  Tab(text: 'Pendiente'),
-                  Tab(text: 'En curso'),
-                  Tab(text: 'Completado'),
+      body: FutureBuilder<List<Job>>(
+        future: fetchJobs(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(fontSize: 16, color: Colors.red),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => refreshJobs(),
+                    child: const Text('Reintentar'),
+                  ),
                 ],
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    TrabajosPendientes(
-                      jobs:
-                          mockJobs
+            );
+          }
+          final jobs = snapshot.data ?? [];
+          return DefaultTabController(
+            length: 3,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  const TabBar(
+                    labelColor: Colors.black,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: Colors.black,
+                    tabs: [
+                      Tab(text: 'Pendiente'),
+                      Tab(text: 'En curso'),
+                      Tab(text: 'Completado'),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        JobList(
+                          jobs: jobs
                               .where((job) => job.status == 'Pendiente')
                               .toList(),
-                    ),
-                    TrabajosEnCurso(
-                      jobs:
-                          mockJobs
+                          onRefresh: refreshJobs,
+                          emptyMessage: 'No hay trabajos pendientes',
+                        ),
+                        JobList(
+                          jobs: jobs
                               .where((job) => job.status == 'En curso')
                               .toList(),
-                    ),
-                    TrabajosCompletados(
-                      jobs:
-                          mockJobs
+                          onRefresh: refreshJobs,
+                          emptyMessage: 'No hay trabajos en curso',
+                        ),
+                        JobList(
+                          jobs: jobs
                               .where((job) => job.status == 'Completado')
                               .toList(),
+                          onRefresh: refreshJobs,
+                          emptyMessage: 'No hay trabajos completados',
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class TrabajosPendientes extends StatelessWidget {
+class JobList extends StatelessWidget {
   final List<Job> jobs;
+  final VoidCallback onRefresh;
+  final String emptyMessage;
 
-  const TrabajosPendientes({super.key, required this.jobs});
+  const JobList({
+    super.key,
+    required this.jobs,
+    required this.onRefresh,
+    required this.emptyMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    print('TrabajosPendientes jobs: ${jobs.map((job) => job.title).toList()}');
+    print('JobList jobs: ${jobs.map((job) => job.title).toList()}');
     if (jobs.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No hay trabajos pendientes',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
+          emptyMessage,
+          style: const TextStyle(fontSize: 16, color: Colors.grey),
         ),
       );
     }
@@ -99,77 +193,7 @@ class TrabajosPendientes extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class TrabajosEnCurso extends StatelessWidget {
-  final List<Job> jobs;
-
-  const TrabajosEnCurso({super.key, required this.jobs});
-
-  @override
-  Widget build(BuildContext context) {
-    print('TrabajosEnCurso jobs: ${jobs.map((job) => job.title).toList()}');
-    if (jobs.isEmpty) {
-      return const Center(
-        child: Text(
-          'No hay trabajos en curso',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: jobs.length,
-      itemBuilder: (context, index) {
-        final job = jobs[index];
-        return TrabajoCard(
-          job: job,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class TrabajosCompletados extends StatelessWidget {
-  final List<Job> jobs;
-
-  const TrabajosCompletados({super.key, required this.jobs});
-
-  @override
-  Widget build(BuildContext context) {
-    print('TrabajosCompletados jobs: ${jobs.map((job) => job.title).toList()}');
-    if (jobs.isEmpty) {
-      return const Center(
-        child: Text(
-          'No hay trabajos completados',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: jobs.length,
-      itemBuilder: (context, index) {
-        final job = jobs[index];
-        return TrabajoCard(
-          job: job,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
-            );
+            ).then((_) => onRefresh());
           },
         );
       },
@@ -211,7 +235,6 @@ class TrabajoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status pill
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -228,25 +251,18 @@ class TrabajoCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-
-            // Job title
             Text(
               job.title,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
-
-            // Tags
             Wrap(
               spacing: 8,
-              children:
-                  job.categories
-                      .map((category) => _TagChip(label: category))
-                      .toList(),
+              children: job.categories
+                  .map((category) => _TagChip(label: category))
+                  .toList(),
             ),
             const SizedBox(height: 12),
-
-            // Metadata rows
             Row(
               children: [
                 const Icon(
@@ -255,25 +271,33 @@ class TrabajoCard extends StatelessWidget {
                   color: Colors.grey,
                 ),
                 const SizedBox(width: 4),
-                Text(job.location, style: const TextStyle(fontSize: 13)),
+                Expanded(
+                  child: Text(
+                    job.location,
+                    style: const TextStyle(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 const SizedBox(width: 10),
                 const Icon(Icons.today_outlined, size: 18, color: Colors.grey),
                 const SizedBox(width: 4),
                 Text(job.timeAgo, style: const TextStyle(fontSize: 13)),
-                const SizedBox(width: 10),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
                 const Icon(
                   Icons.access_time_outlined,
                   size: 18,
                   color: Colors.grey,
                 ),
                 const SizedBox(width: 4),
-                const Text('16:00', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            Row(
-              children: [
+                Text(
+                  job.startTime ?? 'No especificado',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(width: 10),
                 const Icon(
                   Icons.attach_money_outlined,
                   size: 18,
@@ -281,19 +305,24 @@ class TrabajoCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(job.priceRange, style: const TextStyle(fontSize: 13)),
-                const SizedBox(width: 10),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
                 const Icon(
                   Icons.payments_outlined,
                   size: 18,
                   color: Colors.grey,
                 ),
                 const SizedBox(width: 4),
-                const Text('Efectivo', style: TextStyle(fontSize: 13)),
+                Text(
+                  job.paymentMethod ?? 'No especificado',
+                  style: const TextStyle(fontSize: 13),
+                ),
               ],
             ),
             const SizedBox(height: 14),
-
-            // Worker info
             Row(
               children: [
                 const CircleAvatar(
@@ -302,14 +331,17 @@ class TrabajoCard extends StatelessWidget {
                   child: Icon(Icons.person, size: 16, color: Colors.white),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  job.clientName,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    job.clientName ?? 'Usuario Desconocido',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 const Icon(Icons.star, color: Colors.amber, size: 16),
                 Text(
-                  job.clientRating.toString(),
+                  (job.clientRating ?? 0.0).toStringAsFixed(1),
                   style: const TextStyle(fontSize: 13),
                 ),
               ],

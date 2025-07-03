@@ -4,8 +4,9 @@ import 'package:chambea/screens/client/contratado_screen.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/blocs/client/proposals_state.dart';
+import 'package:chambea/services/fcm_service.dart';
 
-class PropuestasScreen extends StatelessWidget {
+class PropuestasScreen extends StatefulWidget {
   final int requestId;
   final String subcategory;
 
@@ -16,9 +17,23 @@ class PropuestasScreen extends StatelessWidget {
   });
 
   @override
+  _PropuestasScreenState createState() => _PropuestasScreenState();
+}
+
+class _PropuestasScreenState extends State<PropuestasScreen> {
+  @override
+  void initState() {
+    super.initState();
+    FcmService.initialize(
+      context,
+    ); // Initialize FCM for foreground notifications
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ProposalsBloc()..add(FetchProposals(requestId)),
+      create: (context) =>
+          ProposalsBloc()..add(FetchProposals(widget.requestId)),
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -28,7 +43,7 @@ class PropuestasScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            'Propuestas - $subcategory',
+            'Propuestas - ${widget.subcategory}',
             style: const TextStyle(
               color: Colors.black,
               fontSize: 20,
@@ -127,7 +142,7 @@ class PropuestasScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '$subcategory - Propuesta #${proposal['id']}',
+                              '${widget.subcategory} - Propuesta #${proposal['id']}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -252,7 +267,7 @@ class PropuestasScreen extends StatelessWidget {
                                       context.read<ProposalsBloc>().add(
                                         RejectProposal(
                                           proposal['id'],
-                                          requestId,
+                                          widget.requestId,
                                         ),
                                       );
                                     },
@@ -284,7 +299,7 @@ class PropuestasScreen extends StatelessWidget {
                                         MaterialPageRoute(
                                           builder: (context) =>
                                               ContratadoScreen(
-                                                requestId: requestId,
+                                                requestId: widget.requestId,
                                                 proposalId: proposal['id'],
                                               ),
                                         ),

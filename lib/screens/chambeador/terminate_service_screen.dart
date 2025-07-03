@@ -2,11 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/review_service_screen.dart';
 import 'package:slide_to_act/slide_to_act.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class TerminateServiceScreen extends StatelessWidget {
   final Job job;
 
   const TerminateServiceScreen({super.key, required this.job});
+
+  Future<void> _completeService(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      return;
+    }
+
+    try {
+      final token = await user.getIdToken();
+      final response = await http.post(
+        Uri.parse(
+          'https://chambea.lat/api/service-requests/${job.id}/complete',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final updatedJob = Job.fromJson(json.decode(response.body)['data']);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Servicio completado exitosamente')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ReviewServiceScreen(job: updatedJob),
+          ),
+        );
+      } else {
+        final error =
+            json.decode(response.body)['message'] ?? 'Error desconocido';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al completar servicio: $error')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,23 +79,25 @@ class TerminateServiceScreen extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
-        // Added SingleChildScrollView to prevent overflow
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              // Top image or banner
               Container(
                 height: 180,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   color: Colors.grey.shade300,
+                  image: job.image != null
+                      ? DecorationImage(
+                          image: NetworkImage(job.image!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Title & Price
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -70,8 +122,6 @@ class TerminateServiceScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Location
               Row(
                 children: [
                   const Icon(
@@ -87,8 +137,6 @@ class TerminateServiceScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Client Info
               Row(
                 children: [
                   const CircleAvatar(
@@ -101,7 +149,7 @@ class TerminateServiceScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        job.clientName,
+                        job.clientName ?? 'Usuario Desconocido',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -113,7 +161,7 @@ class TerminateServiceScreen extends StatelessWidget {
                           const Icon(Icons.star, size: 16, color: Colors.amber),
                           const SizedBox(width: 4),
                           Text(
-                            job.clientRating.toString(),
+                            (job.clientRating ?? 0.0).toStringAsFixed(1),
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.black54,
@@ -126,8 +174,6 @@ class TerminateServiceScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 20),
-
-              // Proposal Message
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -137,7 +183,7 @@ class TerminateServiceScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Hola ${job.clientName}, soy Andrés Villamontes, técnico eléctrico con 5 años de experiencia. '
+                'Hola ${job.clientName ?? 'Usuario Desconocido'}, soy ${job.workerName ?? 'Andrés Villamontes'}, técnico eléctrico con 5 años de experiencia. '
                 'Puedo estar en ${job.location} hoy a las 18:00 como pediste. '
                 'El trabajo incluye materiales de primera calidad y garantía por 6 meses.',
                 style: TextStyle(
@@ -147,8 +193,6 @@ class TerminateServiceScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Detail Rows
               _buildDetailRow(
                 Icons.calendar_today,
                 'Disponibilidad',
@@ -160,7 +204,7 @@ class TerminateServiceScreen extends StatelessWidget {
               _buildDetailRow(
                 Icons.attach_money,
                 'Forma de pago',
-                '50% adelanto, 50% al finalizar',
+                job.paymentMethod ?? '50% adelanto, 50% al finalizar',
               ),
               const Divider(height: 24),
               _buildDetailRow(
@@ -168,11 +212,7 @@ class TerminateServiceScreen extends StatelessWidget {
                 'Propuesta enviada',
                 job.timeAgo,
               ),
-
-              const SizedBox(
-                height: 20,
-              ), // Replaced Spacer with SizedBox to avoid overflow
-              // Slide to Terminate Button
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: SlideAction(
@@ -190,17 +230,10 @@ class TerminateServiceScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
-                  onSubmit: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ReviewServiceScreen(job: job),
-                      ),
-                    );
-                  },
+                  onSubmit: () => _completeService(context),
                 ),
               ),
-              const SizedBox(height: 16), // Padding at the bottom
+              const SizedBox(height: 16),
             ],
           ),
         ),

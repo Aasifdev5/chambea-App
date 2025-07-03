@@ -1,112 +1,145 @@
-import 'package:flutter/material.dart';
-
 class Job {
-  final String id;
-  final String title;
-  final String timeAgo;
-  final String priceRange;
-  final List<String> categories;
+  final int id;
+  final String category;
+  final String subcategory;
   final String location;
-  final String clientName;
-  final double clientRating;
+  final String? locationDetails;
+  final double? budget;
+  final String? startTime;
+  final String? endTime;
+  final bool isTimeUndefined;
+  final String? date;
+  final String? paymentMethod;
+  final String? description;
+  final String? image;
+  final String? clientName;
+  final double? clientRating;
+  final String? workerName;
+  final double? workerRating;
+  final List<Map<String, dynamic>> proposals;
   final String status;
-  final String workerName;
-  final String? workerImageUrl;
+  final String title;
+  final List<String> categories;
+  final String priceRange;
+  final String timeAgo;
 
-  const Job({
+  Job({
     required this.id,
-    required this.title,
-    required this.timeAgo,
-    required this.priceRange,
-    required this.categories,
+    required this.category,
+    required this.subcategory,
     required this.location,
-    required this.clientName,
-    required this.clientRating,
+    this.locationDetails,
+    this.budget,
+    this.startTime,
+    this.endTime,
+    required this.isTimeUndefined,
+    this.date,
+    this.paymentMethod,
+    this.description,
+    this.image,
+    this.clientName,
+    this.clientRating,
+    this.workerName,
+    this.workerRating,
+    required this.proposals,
     required this.status,
-    required this.workerName,
-    this.workerImageUrl,
+    required this.title,
+    required this.categories,
+    required this.priceRange,
+    required this.timeAgo,
   });
 
+  factory Job.fromJson(Map<String, dynamic> json) {
+    return Job(
+      id: json['id'] ?? 0,
+      category: json['category'] ?? 'Servicio',
+      subcategory: json['subcategory'] ?? 'General',
+      location: json['location'] ?? 'Sin ubicación',
+      locationDetails: json['location_details'],
+      budget: json['budget'] != null
+          ? double.tryParse(json['budget'].toString())
+          : null,
+      startTime: json['start_time'],
+      endTime: json['end_time'],
+      isTimeUndefined: json['is_time_undefined'] == true,
+      date: json['date'],
+      paymentMethod: json['payment_method'],
+      description: json['description'],
+      image: json['image'],
+      clientName: json['client_name'] ?? 'Usuario Desconocido',
+      clientRating: json['client_rating'] != null
+          ? double.tryParse(json['client_rating'].toString())
+          : 0.0,
+      workerName: json['proposals'] != null && json['proposals'].isNotEmpty
+          ? json['proposals'][0]['worker_name']
+          : null,
+      workerRating: json['proposals'] != null && json['proposals'].isNotEmpty
+          ? double.tryParse(json['proposals'][0]['worker_rating'].toString())
+          : null,
+      proposals: List<Map<String, dynamic>>.from(json['proposals'] ?? []),
+      status: json['status'] ?? 'Pendiente',
+      title:
+          json['title'] ??
+          '${json['category'] ?? 'Servicio'} - ${json['subcategory'] ?? 'General'}',
+      categories: List<String>.from(
+        json['categories'] ??
+            [json['category'] ?? 'Servicio', json['subcategory'] ?? 'General'],
+      ),
+      priceRange:
+          json['price_range'] ?? 'BOB ${json['budget'] ?? 'No especificado'}',
+      timeAgo: json['time_ago'] ?? 'Hace desconocido',
+    );
+  }
+
   Job copyWith({
-    String? id,
-    String? title,
-    String? timeAgo,
-    String? priceRange,
-    List<String>? categories,
+    int? id,
+    String? category,
+    String? subcategory,
     String? location,
+    String? locationDetails,
+    double? budget,
+    String? startTime,
+    String? endTime,
+    bool? isTimeUndefined,
+    String? date,
+    String? paymentMethod,
+    String? description,
+    String? image,
     String? clientName,
     double? clientRating,
-    String? status,
     String? workerName,
-    String? workerImageUrl,
+    double? workerRating,
+    List<Map<String, dynamic>>? proposals,
+    String? status,
+    String? title,
+    List<String>? categories,
+    String? priceRange,
+    String? timeAgo,
   }) {
     return Job(
       id: id ?? this.id,
-      title: title ?? this.title,
-      timeAgo: timeAgo ?? this.timeAgo,
-      priceRange: priceRange ?? this.priceRange,
-      categories: categories ?? this.categories,
+      category: category ?? this.category,
+      subcategory: subcategory ?? this.subcategory,
       location: location ?? this.location,
+      locationDetails: locationDetails ?? this.locationDetails,
+      budget: budget ?? this.budget,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      isTimeUndefined: isTimeUndefined ?? this.isTimeUndefined,
+      date: date ?? this.date,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      description: description ?? this.description,
+      image: image ?? this.image,
       clientName: clientName ?? this.clientName,
       clientRating: clientRating ?? this.clientRating,
-      status: status ?? this.status,
       workerName: workerName ?? this.workerName,
-      workerImageUrl: workerImageUrl ?? this.workerImageUrl,
+      workerRating: workerRating ?? this.workerRating,
+      proposals: proposals ?? this.proposals,
+      status: status ?? this.status,
+      title: title ?? this.title,
+      categories: categories ?? this.categories,
+      priceRange: priceRange ?? this.priceRange,
+      timeAgo: timeAgo ?? this.timeAgo,
     );
   }
 }
-
-final List<Job> mockJobs = [
-  const Job(
-    id: '1',
-    title: 'Instalaciones de luces LED',
-    timeAgo: 'Hace 2 horas',
-    priceRange: 'BOB 80 - 150/Hora',
-    categories: ['ILUMINACIÓN', 'PANELES', 'SEGURIDAD'],
-    location: 'Ave Bush - La Paz',
-    clientName: 'Mario Urioste',
-    clientRating: 4.3,
-    status: 'Pendiente',
-    workerName: 'Andrés Villamontes',
-    workerImageUrl: 'https://randomuser.me/api/portraits/men/1.jpg',
-  ),
-  const Job(
-    id: '2',
-    title: 'Reparar lavabo',
-    timeAgo: 'Hace 1 día',
-    priceRange: '\$300',
-    categories: ['PLOMERÍA'],
-    location: 'CDMX, México',
-    clientName: 'Mario Urioste',
-    clientRating: 4.3,
-    status: 'Pendiente',
-    workerName: 'Carlos Rivera',
-    workerImageUrl: 'https://randomuser.me/api/portraits/men/2.jpg',
-  ),
-  const Job(
-    id: '3',
-    title: 'Pintar departamento',
-    timeAgo: 'Hace 3 horas',
-    priceRange: 'BOB 100 - 200/Hora',
-    categories: ['PINTURA'],
-    location: 'Guadalajara, México',
-    clientName: 'Rosa Elena Pérez',
-    clientRating: 4.1,
-    status: 'En curso',
-    workerName: 'Luis Gómez',
-    workerImageUrl: 'https://randomuser.me/api/portraits/men/3.jpg',
-  ),
-  const Job(
-    id: '4',
-    title: 'Instalación de muebles de cocina',
-    timeAgo: 'Hace 1 día',
-    priceRange: 'BOB 150 - 250/Hora',
-    categories: ['MUEBLES', 'CARPINTERÍA'],
-    location: 'Ciudad de México, México',
-    clientName: 'Carlos Mendoza',
-    clientRating: 4.7,
-    status: 'Completado',
-    workerName: 'Javier Torres',
-    workerImageUrl: 'https://randomuser.me/api/portraits/men/7.jpg',
-  ),
-];

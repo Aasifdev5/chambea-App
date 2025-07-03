@@ -3,13 +3,15 @@ import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/terminate_service_screen.dart';
 import 'package:chambea/screens/chambeador/review_service_screen.dart';
 import 'package:slide_to_act/slide_to_act.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class StartServiceScreen extends StatelessWidget {
   final Job job;
 
   const StartServiceScreen({super.key, required this.job});
 
-  // Method to get status color based on job status
   Color getStatusColor() {
     switch (job.status) {
       case 'Pendiente':
@@ -23,16 +25,82 @@ class StartServiceScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _acceptAndStartService(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      return;
+    }
+
+    try {
+      final token = await user.getIdToken();
+      // Step 1: Accept the contract
+      final acceptResponse = await http.post(
+        Uri.parse('https://chambea.lat/api/service-requests/${job.id}/accept'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (acceptResponse.statusCode != 200) {
+        final error =
+            json.decode(acceptResponse.body)['message'] ?? 'Error desconocido';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al aceptar contrato: $error')),
+        );
+        return;
+      }
+
+      // Step 2: Start the service
+      final startResponse = await http.post(
+        Uri.parse('https://chambea.lat/api/service-requests/${job.id}/start'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (startResponse.statusCode == 200) {
+        final updatedJob = Job.fromJson(
+          json.decode(startResponse.body)['data'],
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Servicio iniciado exitosamente')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TerminateServiceScreen(job: updatedJob),
+          ),
+        );
+      } else {
+        final error =
+            json.decode(startResponse.body)['message'] ?? 'Error desconocido';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al iniciar servicio: $error')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Hardcode missing fields to match the image
-    const String date = 'Hoy';
-    const String time = '16:00';
-    const String paymentType = 'Efectivo';
-    const String budget = 'BOB: 180';
+    final String date = job.date ?? 'Hoy';
+    final String time = job.startTime ?? '16:00';
+    final String paymentType = job.paymentMethod ?? 'Efectivo';
+    final String budget = job.priceRange;
     const String estimatedTime = '1 día';
     const String availability = 'Inmediato';
-    const String proposalSent = 'Hace 5 horas';
+    final String proposalSent = job.timeAgo;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -67,10 +135,9 @@ class StartServiceScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status label aligned to the right
               Row(
                 children: [
-                  const Spacer(), // Pushes the status label to the right
+                  const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -81,7 +148,7 @@ class StartServiceScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      job.status, // Dynamically display the job status
+                      job.status,
                       style: TextStyle(
                         color: getStatusColor(),
                         fontWeight: FontWeight.w600,
@@ -92,8 +159,6 @@ class StartServiceScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Job Title & Tags
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -170,7 +235,7 @@ class StartServiceScreen extends StatelessWidget {
                           color: Colors.grey,
                         ),
                         const SizedBox(width: 4),
-                        Text('$budget / Hora'),
+                        Text(budget),
                         const Spacer(),
                         const Icon(
                           Icons.attach_money,
@@ -195,14 +260,14 @@ class StartServiceScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          job.clientName,
+                          job.clientName ?? 'Usuario Desconocido',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(width: 8),
                         const Icon(Icons.star, size: 16, color: Colors.amber),
                         const SizedBox(width: 2),
                         Text(
-                          job.clientRating.toString(),
+                          (job.clientRating ?? 0.0).toStringAsFixed(1),
                           style: const TextStyle(fontSize: 14),
                         ),
                       ],
@@ -210,10 +275,7 @@ class StartServiceScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // Proposal Section
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -234,7 +296,7 @@ class StartServiceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Hola ${job.clientName}, soy ${job.workerName}, técnico eléctrico. '
+                      'Hola ${job.clientName ?? 'Usuario Desconocido'}, soy ${job.workerName ?? 'Trabajador'}, técnico eléctrico. '
                       'Puedo estar en ${job.location} hoy a las 18:00 como pediste.',
                       style: TextStyle(
                         fontSize: 14,
@@ -245,10 +307,7 @@ class StartServiceScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // Details table-style
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -257,20 +316,17 @@ class StartServiceScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildInfoRow('Disponibilidad', availability),
+                    _buildInfoRow('Disponibilidad', 'Inmediato'),
                     _buildDivider(),
                     _buildInfoRow('Presupuesto', budget),
                     _buildDivider(),
-                    _buildInfoRow('Tiempo estimado', estimatedTime),
+                    _buildInfoRow('Tiempo estimado', '1 día'),
                     _buildDivider(),
                     _buildInfoRow('Propuesta enviada', proposalSent),
                   ],
                 ),
               ),
-
               const SizedBox(height: 30),
-
-              // Conditional SlideAction Buttons
               if (job.status == 'Pendiente') ...[
                 SlideAction(
                   borderRadius: 12,
@@ -287,15 +343,7 @@ class StartServiceScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
-                  onSubmit: () {
-                    final updatedJob = job.copyWith(status: 'En curso');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TerminateServiceScreen(job: updatedJob),
-                      ),
-                    );
-                  },
+                  onSubmit: () => _acceptAndStartService(context),
                 ),
               ] else if (job.status == 'En curso') ...[
                 SlideAction(
@@ -317,7 +365,7 @@ class StartServiceScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ReviewServiceScreen(job: job),
+                        builder: (_) => TerminateServiceScreen(job: job),
                       ),
                     );
                   },

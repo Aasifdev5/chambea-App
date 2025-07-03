@@ -5,8 +5,22 @@ import 'package:chambea/screens/client/propuestas_screen.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/blocs/client/proposals_state.dart';
+import 'package:chambea/services/fcm_service.dart';
 
-class BandejaScreen extends StatelessWidget {
+class BandejaScreen extends StatefulWidget {
+  @override
+  _BandejaScreenState createState() => _BandejaScreenState();
+}
+
+class _BandejaScreenState extends State<BandejaScreen> {
+  @override
+  void initState() {
+    super.initState();
+    FcmService.initialize(
+      context,
+    ); // Initialize FCM for foreground notifications
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -55,6 +69,9 @@ class BandejaScreen extends StatelessWidget {
                         final proposals = List<Map<String, dynamic>>.from(
                           request['proposals'] ?? [],
                         );
+                        final workerId = proposals.isNotEmpty
+                            ? proposals[0]['worker_id']
+                            : null;
                         return _buildJobCard(
                           context,
                           proposals.isEmpty
@@ -78,6 +95,7 @@ class BandejaScreen extends StatelessWidget {
                           request['id'],
                           request['subcategory'] ?? 'General',
                           proposals,
+                          workerId,
                         );
                       },
                     );
@@ -105,6 +123,7 @@ class BandejaScreen extends StatelessWidget {
     int requestId,
     String subcategory,
     List<Map<String, dynamic>> proposals,
+    int? workerId,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -253,15 +272,19 @@ class BandejaScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              ContratadoScreen(requestId: requestId),
-                        ),
-                      );
-                    },
+                    onPressed: workerId == null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ContratadoScreen(
+                                  requestId: requestId,
+                                  workerId: workerId,
+                                ),
+                              ),
+                            );
+                          },
                     child: const Text('Contratar'),
                   ),
                 ),

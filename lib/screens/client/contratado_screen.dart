@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/chat_detail_screen.dart';
 import 'package:chambea/services/api_service.dart';
+import 'package:chambea/services/fcm_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class ContratadoScreen extends StatefulWidget {
   final int requestId;
   final int? proposalId;
+  final int? workerId;
 
-  const ContratadoScreen({required this.requestId, this.proposalId, super.key});
+  const ContratadoScreen({
+    required this.requestId,
+    this.proposalId,
+    this.workerId,
+    super.key,
+  });
 
   @override
   _ContratadoScreenState createState() => _ContratadoScreenState();
@@ -19,11 +29,21 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
   String? _workerName;
   String? _workerRole;
   double? _workerRating;
+  TextEditingController _budgetController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    FcmService.initialize(
+      context,
+    ); // Initialize FCM for foreground notifications
     _fetchServiceRequest();
+  }
+
+  @override
+  void dispose() {
+    _budgetController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchServiceRequest() async {
@@ -37,35 +57,71 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         '/api/service-requests/${widget.requestId}',
       );
       final data = Map<String, dynamic>.from(response['data'] ?? {});
-      String workerName = 'Usuario ${data['created_by'] ?? 'Desconocido'}';
+      String workerName = data['client_name'] ?? 'Usuario Desconocido';
       String workerRole = data['subcategory'] ?? 'Trabajador';
-      double workerRating = 0.0;
+      double workerRating = data['client_rating']?.toDouble() ?? 0.0;
 
-      // Fetch worker details based on proposalId if provided
-      if (widget.proposalId != null) {
+      if (widget.proposalId != null || widget.workerId != null) {
         final proposals = List<Map<String, dynamic>>.from(
           data['proposals'] ?? [],
         );
-        final selectedProposal = proposals.firstWhere(
-          (proposal) => proposal['id'] == widget.proposalId,
-          orElse: () => {},
-        );
-        if (selectedProposal.isNotEmpty) {
+        int? targetWorkerId;
+        Map<String, dynamic> selectedProposal = {};
+
+        if (widget.proposalId != null) {
+          selectedProposal = proposals.firstWhere(
+            (proposal) => proposal['id'] == widget.proposalId,
+            orElse: () => {},
+          );
+          targetWorkerId = selectedProposal.isNotEmpty
+              ? selectedProposal['worker_id']
+              : null;
+        } else {
+          targetWorkerId = widget.workerId;
+        }
+
+        if (targetWorkerId != null) {
           try {
-            final userResponse = await ApiService.get(
-              '/api/users/${selectedProposal['worker_id']}',
+            final user = FirebaseAuth.instance.currentUser;
+            if (user == null) throw Exception('Usuario no autenticado');
+            final token = await user.getIdToken();
+            final userResponse = await http.get(
+              Uri.parse('https://chambea.lat/api/profile'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
             );
-            final user = userResponse['data'] ?? {};
-            workerName = user['name'] ?? workerName;
-            workerRole = selectedProposal['worker_role'] ?? workerRole;
-            workerRating = (user['rating'] ?? 0.0).toDouble();
+
+            if (userResponse.statusCode == 200) {
+              final userData = json.decode(userResponse.body)['data'];
+              workerName = userData['name'] ?? workerName;
+              workerRole = userData['account_type'] ?? workerRole;
+              workerRating =
+                  0.0; // No rating field in /api/profile, default to 0.0
+            } else {
+              print(
+                'Error fetching profile: ${userResponse.statusCode} - ${userResponse.body}',
+              );
+              if (selectedProposal.isNotEmpty) {
+                workerName =
+                    selectedProposal['worker_name'] ??
+                    'Usuario $targetWorkerId';
+                workerRole = selectedProposal['worker_role'] ?? workerRole;
+                workerRating =
+                    selectedProposal['worker_rating']?.toDouble() ?? 0.0;
+              }
+            }
           } catch (e) {
-            workerName =
-                selectedProposal['worker_name'] ??
-                'Usuario ${selectedProposal['worker_id']}';
-            workerRole = selectedProposal['worker_role'] ?? workerRole;
-            workerRating = (selectedProposal['worker_rating'] ?? 0.0)
-                .toDouble();
+            print('Error fetching worker profile: $e');
+            if (selectedProposal.isNotEmpty) {
+              workerName =
+                  selectedProposal['worker_name'] ?? 'Usuario $targetWorkerId';
+              workerRole = selectedProposal['worker_role'] ?? workerRole;
+              workerRating =
+                  selectedProposal['worker_rating']?.toDouble() ?? 0.0;
+            }
           }
         }
       }
@@ -78,10 +134,68 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      print('Error fetching service request: $e');
       setState(() {
         _isLoading = false;
         _error = e.toString();
       });
+    }
+  }
+
+  Future<void> _hireWorker() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      return;
+    }
+
+    final budget = double.tryParse(_budgetController.text);
+    if (budget == null || budget <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingrese un presupuesto válido')),
+      );
+      return;
+    }
+
+    try {
+      final token = await user.getIdToken();
+      final url = Uri.parse(
+        'https://chambea.lat/api/service-requests/${widget.requestId}/hire',
+      );
+      final body = {
+        'agreed_budget': budget,
+        if (widget.proposalId != null) 'proposal_id': widget.proposalId,
+        if (widget.workerId != null) 'worker_id': widget.workerId,
+      };
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(body),
+      );
+
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Contrato creado exitosamente')),
+        );
+        Navigator.pop(context);
+      } else {
+        final error =
+            json.decode(response.body)['message'] ?? 'Error desconocido';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $error')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -110,7 +224,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
           ? Center(child: Text('Error: $_error'))
           : _serviceRequest == null
           ? const Center(child: Text('No se encontraron detalles'))
-          : Padding(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -134,9 +248,9 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.star, color: const Color(0xFFFFC107)),
+                          const Icon(Icons.star, color: Color(0xFFFFC107)),
                           const SizedBox(width: 4),
-                          Text((_workerRating ?? 0.0).toString()),
+                          Text((_workerRating ?? 0.0).toStringAsFixed(1)),
                         ],
                       ),
                     ),
@@ -169,18 +283,43 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                           _serviceRequest!['budget'].toString(),
                                         ) !=
                                         null
-                                ? 'BOB: ${_serviceRequest!['budget']}'
-                                : 'BOB: No especificado',
+                                ? 'BOB ${_serviceRequest!['budget']}'
+                                : 'BOB No especificado',
                           ),
                           _buildDetailRow(
                             'Categoría',
-                            '${_serviceRequest!['category'] ?? 'Servicio'} - ${_serviceRequest!['subcategory'] ?? 'General'}',
+                            _serviceRequest!['title'] ??
+                                '${_serviceRequest!['category'] ?? 'Servicio'} - ${_serviceRequest!['subcategory'] ?? 'General'}',
+                          ),
+                          _buildDetailRow(
+                            'Descripción',
+                            _serviceRequest!['description'] ??
+                                'Sin descripción',
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _budgetController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Presupuesto acordado (BOB)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    onPressed: _hireWorker,
+                    child: const Text('Confirmar Contratación'),
+                  ),
+                  const SizedBox(height: 8),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
@@ -206,6 +345,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Volver al inicio'),
                   ),
+                  const SizedBox(height: 16), // Extra padding to prevent cutoff
                 ],
               ),
             ),

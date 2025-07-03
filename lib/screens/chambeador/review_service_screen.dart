@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
-import 'package:chambea/models/review.dart';
 import 'package:chambea/screens/chambeador/trabajos.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ReviewServiceScreen extends StatefulWidget {
   final Job job;
@@ -15,6 +17,53 @@ class ReviewServiceScreen extends StatefulWidget {
 class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   double _rating = 0;
   final TextEditingController _commentController = TextEditingController();
+  String? _clientName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchClientName();
+  }
+
+  Future<void> _fetchClientName() async {
+    if (widget.job.clientName == null ||
+        widget.job.clientName == 'Usuario Desconocido') {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return;
+        final token = await user.getIdToken();
+        final response = await http.get(
+          Uri.parse('https://chambea.lat/api/profile'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body)['data'];
+          setState(() {
+            _clientName = data['name'] ?? 'Usuario Desconocido';
+          });
+        } else {
+          print('Error fetching profile: ${response.body}');
+          setState(() {
+            _clientName = 'Usuario Desconocido';
+          });
+        }
+      } catch (e) {
+        print('Error fetching client name: $e');
+        setState(() {
+          _clientName = 'Usuario Desconocido';
+        });
+      }
+    } else {
+      setState(() {
+        _clientName = widget.job.clientName;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -22,29 +71,53 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
     super.dispose();
   }
 
-  void _submitReview() {
-    // In a real app, save the review to a backend or local storage
-    final review = Review(
-      id: DateTime.now().toString(),
-      clientName: widget.job.clientName,
-      rating: _rating,
-      timeAgo: 'Ahora',
-      comment: _commentController.text.isEmpty
-          ? 'No comment provided'
-          : _commentController.text,
-    );
-    mockReviews.add(review); // Add to mock data for now
+  Future<void> _submitReview() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      return;
+    }
 
-    // Navigate back to TrabajosContent
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const TrabajosContent()),
-    );
+    try {
+      final token = await user.getIdToken();
+      final response = await http.post(
+        Uri.parse('https://chambea.lat/api/reviews'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'service_request_id': widget.job.id,
+          'rating': _rating,
+          'comment': _commentController.text.isEmpty
+              ? 'No comment provided'
+              : _commentController.text,
+        }),
+      );
 
-    // Show a success message
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Reseña enviada con éxito')));
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reseña enviada con éxito')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const TrabajosContent()),
+        );
+      } else {
+        final error =
+            json.decode(response.body)['message'] ?? 'Error desconocido';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $error')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   @override
@@ -71,9 +144,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Califica al cliente',
-              style: TextStyle(
+            Text(
+              'Califica al cliente ${_clientName ?? 'Usuario Desconocido'}',
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
@@ -89,7 +162,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  widget.job.clientName,
+                  _clientName ?? 'Usuario Desconocido',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -133,9 +206,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _rating == 0
-                    ? null // Disable button if no rating is selected
-                    : _submitReview,
+                onPressed: _rating == 0 ? null : _submitReview,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 16),
