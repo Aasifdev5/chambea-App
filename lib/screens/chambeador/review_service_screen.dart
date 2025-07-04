@@ -91,7 +91,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
       return;
     }
 
-    if (widget.job.id == 0 || widget.job.workerId == null) {
+    if (widget.job.id == 0 ||
+        widget.job.workerId == null ||
+        widget.job.clientId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error: Datos del trabajo inválidos')),
       );
@@ -107,6 +109,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
       final payload = {
         'service_request_id': widget.job.id,
         'worker_id': widget.job.workerId,
+        'client_id': widget.job.clientId, // Added client_id
         'rating': _rating,
         'comment': _commentController.text.isEmpty
             ? 'No comment provided'
@@ -128,7 +131,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Reseña enviada con éxito')),
         );
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const TrabajosContent()),
         );
@@ -159,6 +162,20 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Check for invalid job data
+    if (widget.job.id == 0 ||
+        widget.job.workerId == null ||
+        widget.job.clientId == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: const Center(
+          child: Text(
+            'Error: Datos del trabajo incompletos. Por favor, intenta de nuevo.',
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -241,6 +258,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
                       ),
+
                       filled: true,
                       fillColor: Colors.grey.shade100,
                     ),

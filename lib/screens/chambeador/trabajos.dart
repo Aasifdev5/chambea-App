@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/start_service_screen.dart';
-import 'package:chambea/screens/chambeador/terminate_service_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -20,9 +19,16 @@ class _TrabajosContentState extends State<TrabajosContent> {
       if (user == null) throw Exception('Usuario no autenticado');
 
       final token = await user.getIdToken();
-      print('Fetching jobs for worker_id: ${user.uid}');
+      final firebaseUid = user.uid;
+
+      final url = Uri.parse(
+        'https://chambea.lat/api/service-requests/worker-jobs?firebase_uid=$firebaseUid',
+      );
+
+      print('DEBUG: Fetching jobs from $url');
+
       final response = await http.get(
-        Uri.parse('https://chambea.lat/api/service-requests/worker-jobs'),
+        url,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -30,27 +36,30 @@ class _TrabajosContentState extends State<TrabajosContent> {
         },
       );
 
-      print('Fetch Jobs Response: ${response.statusCode} - ${response.body}');
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'] as List;
-        final jobs = data.map((json) => Job.fromJson(json)).toList();
+      print('DEBUG: Response ${response.statusCode} - ${response.body}');
 
-        // Validate that jobs belong to the authenticated worker
-        final validJobs = jobs
-            .where((job) => job.workerId == user.uid)
-            .toList();
-        if (validJobs.length != jobs.length) {
-          print(
-            'Warning: Found ${jobs.length - validJobs.length} jobs not assigned to worker ${user.uid}',
-          );
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+
+        if (jsonData['status'] == 'success' && jsonData['data'] is List) {
+          final data = jsonData['data'] as List;
+
+          print('DEBUG: Jobs fetched successfully, total: ${data.length}');
+          return data.map((jobJson) => Job.fromJson(jobJson)).toList();
+        } else {
+          final message =
+              jsonData['message'] ?? 'Error desconocido del servidor';
+          print('DEBUG: Error in response: $message');
+          throw Exception(message);
         }
-        return validJobs;
       } else {
         String errorMessage;
         switch (response.statusCode) {
+          case 400:
+            errorMessage = 'UID de Firebase no proporcionado.';
+            break;
           case 401:
-            errorMessage =
-                'Sesión expirada. Por favor, inicia sesión nuevamente.';
+            errorMessage = 'Usuario no encontrado o sesión expirada.';
             break;
           case 403:
             errorMessage = 'No tienes permiso para ver estos trabajos.';
@@ -59,13 +68,14 @@ class _TrabajosContentState extends State<TrabajosContent> {
             errorMessage = 'No se encontraron trabajos.';
             break;
           default:
-            errorMessage = 'Error al cargar trabajos: ${response.body}';
+            errorMessage = 'Error inesperado: ${response.body}';
         }
-        print('Error fetching jobs: ${response.statusCode} - ${response.body}');
+
+        print('DEBUG: HTTP error $errorMessage');
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('Exception in fetchJobs: $e');
+      print('DEBUG: Exception in fetchJobs: $e');
       throw Exception('Error al conectar con el servidor: $e');
     }
   }
@@ -185,9 +195,7 @@ class JobList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print(
-      'JobList jobs: ${jobs.map((job) => "${job.title} (WorkerID: ${job.workerId})").toList()}',
-    );
+    print('JobList jobs: ${jobs.map((job) => job.title).toList()}');
     if (jobs.isEmpty) {
       return Center(
         child: Text(
@@ -204,13 +212,9 @@ class JobList extends StatelessWidget {
         return TrabajoCard(
           job: job,
           onTap: () {
-            // Navigate to appropriate screen based on job status
-            final destination = job.status == 'Pendiente'
-                ? StartServiceScreen(job: job)
-                : TerminateServiceScreen(job: job);
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => destination),
+              MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
             ).then((_) => onRefresh());
           },
         );
