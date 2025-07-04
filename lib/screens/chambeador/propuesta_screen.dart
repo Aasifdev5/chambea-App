@@ -7,6 +7,7 @@ import 'package:chambea/blocs/chambeador/job_detail_state.dart';
 import 'package:chambea/blocs/chambeador/proposal_bloc.dart';
 import 'package:chambea/blocs/chambeador/proposal_event.dart';
 import 'package:chambea/blocs/chambeador/proposal_state.dart';
+import 'package:chambea/models/job.dart';
 
 class PropuestaScreen extends StatefulWidget {
   final int requestId;
@@ -40,11 +41,11 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          leading: BackButton(color: Colors.black87),
+          leading: const BackButton(color: Colors.black87),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
+              child: const Text(
                 'Cancelar',
                 style: TextStyle(color: Colors.green, fontSize: 16),
               ),
@@ -52,7 +53,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
           ],
         ),
         body: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -88,7 +89,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(
                     _errorMessage!,
-                    style: TextStyle(color: Colors.red, fontSize: 12),
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ),
               _buildDropdownField(
@@ -110,13 +111,12 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
               _buildTextField(
                 label: 'Presupuesto*',
                 hint: 'Introducir el presupuesto',
-                keyboardType:
-                    TextInputType.text, // Changed to text to match API
+                keyboardType: TextInputType.text,
                 onChanged: (val) => setState(() => _budget = val),
               ),
               const SizedBox(height: 16),
               _buildTextField(
-                label: 'Tiempo para cumplir con el trabajo',
+                label: 'Tiempo para cumplir con el trabajo*',
                 hint: 'Ejemplo: 2 días o 3 días',
                 onChanged: (val) => setState(() => _timeToComplete = val),
               ),
@@ -124,10 +124,26 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
               BlocConsumer<ProposalBloc, ProposalState>(
                 listener: (context, state) {
                   if (state is ProposalSuccess) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => ContratadoScreen()),
-                    );
+                    final jobState = context.read<JobDetailBloc>().state;
+                    if (jobState is JobDetailLoaded) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ContratadoScreen(
+                            job: jobState.job,
+                            proposedBudget: _budget,
+                            availability: _availability,
+                            timeToComplete: _timeToComplete,
+                            proposalMessage: _proposalDetails,
+                          ),
+                        ),
+                      );
+                    } else {
+                      setState(() {
+                        _errorMessage =
+                            'No se pudo cargar la información del trabajo';
+                      });
+                    }
                   } else if (state is ProposalError) {
                     setState(() {
                       _errorMessage = state.message;
@@ -182,32 +198,35 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
     );
   }
 
-  Widget _buildJobCard(Map<String, dynamic> job) {
+  Widget _buildJobCard(Job job) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Text(
-                _formatTimeAgo(job['created_at']),
-                style: TextStyle(fontSize: 12, color: Colors.black54),
+                _formatTimeAgo(job.timeAgo),
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
-              Spacer(),
+              const Spacer(),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green.shade100,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Consultar',
+                  job.status,
                   style: TextStyle(fontSize: 12, color: Colors.green.shade800),
                 ),
               ),
@@ -215,8 +234,8 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
-            style: TextStyle(
+            job.title,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
@@ -226,75 +245,71 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 4,
-            children: [
-              _buildChip(job['category']?.toUpperCase() ?? 'SERVICIO'),
-              _buildChip(job['subcategory']?.toUpperCase() ?? 'GENERAL'),
-            ],
+            children: job.categories
+                .map((category) => _buildChip(category.toUpperCase()))
+                .toList(),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.calendar_today, size: 16, color: Colors.black54),
-              SizedBox(width: 4),
+              const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
+              const SizedBox(width: 4),
               Text(
-                job['is_time_undefined'] == 1
-                    ? '${job['date'] ?? 'Hoy'} · Flexible'
-                    : '${job['date'] ?? 'Hoy'} · ${job['start_time'] ?? 'Sin horario'}',
-                style: TextStyle(color: Colors.black54),
+                job.isTimeUndefined
+                    ? '${job.date ?? 'Hoy'} · Flexible'
+                    : '${job.date ?? 'Hoy'} · ${job.startTime ?? 'Sin horario'}',
+                style: const TextStyle(color: Colors.black54),
               ),
-              Spacer(),
+              const Spacer(),
               Text(
-                job['budget'] != null &&
-                        double.tryParse(job['budget'].toString()) != null
-                    ? 'BOB: ${job['budget']}/Hora'
-                    : 'BOB: No especificado',
-                style: TextStyle(fontWeight: FontWeight.w500),
+                job.budget != null
+                    ? 'BOB ${job.budget!.toStringAsFixed(2)}/Hora'
+                    : 'BOB No especificado',
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.location_on, size: 16, color: Colors.black54),
-              SizedBox(width: 4),
+              const Icon(Icons.location_on, size: 16, color: Colors.black54),
+              const SizedBox(width: 4),
               Text(
-                '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
-                style: TextStyle(color: Colors.black54),
+                '${job.location}${job.locationDetails != null ? ', ${job.locationDetails}' : ''}',
+                style: const TextStyle(color: Colors.black54),
               ),
-              Spacer(),
-              Icon(Icons.payment, size: 16, color: Colors.black54),
-              SizedBox(width: 4),
+              const Spacer(),
+              const Icon(Icons.payment, size: 16, color: Colors.black54),
+              const SizedBox(width: 4),
               Text(
-                job['payment_method'] ?? 'No especificado',
-                style: TextStyle(color: Colors.black54),
+                job.paymentMethod ?? 'No especificado',
+                style: const TextStyle(color: Colors.black54),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 18,
-                backgroundImage: AssetImage(
-                  'assets/user.png',
-                ), // Replace with user API image
+                backgroundImage: AssetImage('assets/user.png'),
               ),
               const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Usuario ${job['created_by'] ?? 'Desconocido'}',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    job.clientName ?? 'Usuario Desconocido',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Row(
                     children: [
-                      Icon(Icons.star, color: Colors.orange, size: 16),
-                      SizedBox(width: 4),
+                      const Icon(Icons.star, color: Colors.orange, size: 16),
+                      const SizedBox(width: 4),
                       Text(
-                        '0.0',
-                        style: TextStyle(color: Colors.black54),
-                      ), // Replace with user API rating
+                        job.clientRating?.toStringAsFixed(1) ?? '0.0',
+                        style: const TextStyle(color: Colors.black54),
+                      ),
                     ],
                   ),
                 ],
@@ -308,7 +323,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
 
   Widget _buildChip(String label) {
     return Chip(
-      label: Text(label, style: TextStyle(fontSize: 12)),
+      label: Text(label, style: const TextStyle(fontSize: 12)),
       backgroundColor: Colors.grey.shade200,
     );
   }
@@ -322,7 +337,10 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 14, color: Colors.black87)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+        ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: value,
@@ -348,7 +366,10 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 14, color: Colors.black87)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+        ),
         const SizedBox(height: 8),
         TextField(
           maxLength: maxLength,
@@ -364,17 +385,10 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
     );
   }
 
-  String _formatTimeAgo(String? createdAt) {
-    if (createdAt == null) return 'Hace un momento';
-    final now = DateTime.now();
-    final created = DateTime.parse(createdAt);
-    final difference = now.difference(created);
-    if (difference.inDays > 0) {
-      return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
-    } else if (difference.inHours > 0) {
-      return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
-    } else {
-      return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+  String _formatTimeAgo(String? timeAgo) {
+    if (timeAgo != null && timeAgo.isNotEmpty) {
+      return timeAgo;
     }
+    return 'Hace un momento';
   }
 }

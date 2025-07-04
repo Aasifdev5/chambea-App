@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:chambea/screens/chambeador/trabajos.dart'; // Make sure to import your destination screen
+import 'package:chambea/models/job.dart';
+import 'package:chambea/screens/chambeador/trabajos.dart';
 
 class ContratadoScreen extends StatelessWidget {
-  const ContratadoScreen({super.key});
+  final Job job;
+  final String proposedBudget;
+  final String availability;
+  final String timeToComplete;
+  final String proposalMessage;
+
+  const ContratadoScreen({
+    super.key,
+    required this.job,
+    required this.proposedBudget,
+    required this.availability,
+    required this.timeToComplete,
+    required this.proposalMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +29,6 @@ class ContratadoScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 32),
-
               const Text(
                 'Tu propuesta ha sido enviada',
                 style: TextStyle(
@@ -25,14 +38,11 @@ class ContratadoScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-
               const Text(
                 'Te enviaremos una notificación cuando tu propuesta ha sido aprobada.',
                 style: TextStyle(fontSize: 15, color: Colors.black54),
               ),
               const SizedBox(height: 28),
-
-              // Card Matching Screenshot
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFFE9FCEF),
@@ -41,7 +51,6 @@ class ContratadoScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Full-width green header
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -52,10 +61,10 @@ class ContratadoScreen extends StatelessWidget {
                           topRight: Radius.circular(12),
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'Disponibilidad inmediata',
-                          style: TextStyle(
+                          availability,
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF00C569),
@@ -63,7 +72,6 @@ class ContratadoScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -72,19 +80,18 @@ class ContratadoScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Date and Checkmark
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
+                            children: [
                               Text(
-                                'Martes, 3 de diciembre',
-                                style: TextStyle(
+                                job.date ?? 'Fecha no especificada',
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.black87,
                                 ),
                               ),
-                              Icon(
+                              const Icon(
                                 Icons.check_circle,
                                 color: Color(0xFF00C569),
                                 size: 20,
@@ -92,19 +99,17 @@ class ContratadoScreen extends StatelessWidget {
                             ],
                           ),
                           const Divider(height: 24, color: Colors.black12),
-
-                          // Price
                           Row(
-                            children: const [
-                              Icon(
-                                Icons.access_time,
+                            children: [
+                              const Icon(
+                                Icons.attach_money,
                                 size: 18,
                                 color: Colors.black54,
                               ),
-                              SizedBox(width: 6),
+                              const SizedBox(width: 6),
                               Text(
-                                'BOB: 180',
-                                style: TextStyle(
+                                'BOB: $proposedBudget',
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.black,
@@ -113,30 +118,25 @@ class ContratadoScreen extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 10),
-
-                          // Message Text
-                          const Text(
-                            'Hola Mario, soy Andrés Villamontes, técnico eléctrico. '
-                            'Puedo estar en Villa Fátima hoy a las 18:00 como pediste.',
-                            style: TextStyle(
+                          Text(
+                            proposalMessage,
+                            style: const TextStyle(
                               fontSize: 14,
                               color: Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 10),
-
-                          // Duration
                           Row(
-                            children: const [
-                              Icon(
+                            children: [
+                              const Icon(
                                 Icons.calendar_today_outlined,
                                 size: 16,
                                 color: Colors.black54,
                               ),
-                              SizedBox(width: 6),
+                              const SizedBox(width: 6),
                               Text(
-                                '1 día',
-                                style: TextStyle(
+                                timeToComplete,
+                                style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.black87,
                                 ),
@@ -149,10 +149,7 @@ class ContratadoScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const Spacer(),
-
-              // Bottom "Entendido" button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

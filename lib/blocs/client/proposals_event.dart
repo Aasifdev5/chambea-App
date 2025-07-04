@@ -31,8 +31,25 @@ class RejectProposal extends ProposalsEvent {
   final int proposalId;
   final int requestId;
 
-  const RejectProposal(this.proposalId, this.requestId);
+  const RejectProposal(this.proposalId, {required this.requestId});
 
   @override
   List<Object> get props => [proposalId, requestId];
+}
+
+class HireWorker extends ProposalsEvent {
+  final int requestId;
+  final int? proposalId;
+  final int? workerId;
+  final double budget;
+
+  const HireWorker({
+    required this.requestId,
+    this.proposalId,
+    this.workerId,
+    required this.budget,
+  });
+
+  @override
+  List<Object> get props => [requestId, budget];
 }

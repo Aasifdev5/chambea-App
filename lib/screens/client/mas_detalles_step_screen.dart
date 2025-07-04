@@ -97,7 +97,7 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Solicitud enviada con éxito')),
         );
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => BandejaScreen()),
         );

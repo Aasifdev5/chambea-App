@@ -15,6 +15,7 @@ import 'package:chambea/screens/client/home.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/blocs/client/client_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
+import 'package:chambea/blocs/client/proposals_bloc.dart'; // Added import
 import 'dart:io';
 
 void main() async {
@@ -143,6 +144,12 @@ class ChambeaApp extends StatelessWidget {
           create: (context) {
             print('DEBUG: Creating ChambeadorBloc');
             return ChambeadorBloc();
+          },
+        ),
+        BlocProvider(
+          create: (context) {
+            print('DEBUG: Creating ProposalsBloc');
+            return ProposalsBloc();
           },
         ),
       ],

@@ -14,8 +14,10 @@ class Job {
   final String? image;
   final String? clientName;
   final double? clientRating;
+  final int? workerId;
   final String? workerName;
   final double? workerRating;
+  final int? clientId;
   final List<Map<String, dynamic>> proposals;
   final String status;
   final String title;
@@ -39,8 +41,10 @@ class Job {
     this.image,
     this.clientName,
     this.clientRating,
+    this.workerId,
     this.workerName,
     this.workerRating,
+    this.clientId,
     required this.proposals,
     required this.status,
     required this.title,
@@ -50,45 +54,116 @@ class Job {
   });
 
   factory Job.fromJson(Map<String, dynamic> json) {
+    final proposals = json['proposals'] != null
+        ? List<Map<String, dynamic>>.from(json['proposals'])
+        : <Map<String, dynamic>>[];
+
+    Map<String, dynamic>? selectedProposal;
+    if (json['proposal_id'] != null) {
+      selectedProposal = proposals.firstWhere(
+        (proposal) => proposal['id'] == json['proposal_id'],
+        orElse: () => {},
+      );
+    }
+
     return Job(
-      id: json['id'] ?? 0,
-      category: json['category'] ?? 'Servicio',
-      subcategory: json['subcategory'] ?? 'General',
-      location: json['location'] ?? 'Sin ubicación',
-      locationDetails: json['location_details'],
+      id: json['id'] is int ? json['id'] : 0,
+      category: json['category']?.toString() ?? 'Servicio',
+      subcategory: json['subcategory']?.toString() ?? 'General',
+      location: json['location']?.toString() ?? 'Sin ubicación',
+      locationDetails: json['location_details']?.toString(),
       budget: json['budget'] != null
-          ? double.tryParse(json['budget'].toString())
+          ? double.tryParse(json['budget'].toString()) ?? 0.0
           : null,
-      startTime: json['start_time'],
-      endTime: json['end_time'],
+      startTime: json['start_time']?.toString(),
+      endTime: json['end_time']?.toString(),
       isTimeUndefined: json['is_time_undefined'] == true,
-      date: json['date'],
-      paymentMethod: json['payment_method'],
-      description: json['description'],
-      image: json['image'],
-      clientName: json['client_name'] ?? 'Usuario Desconocido',
+      date: json['date']?.toString(),
+      paymentMethod: json['payment_method']?.toString(),
+      description: json['description']?.toString(),
+      image: json['image']?.toString(),
+      clientName: json['client_name']?.toString() ?? 'Usuario Desconocido',
       clientRating: json['client_rating'] != null
-          ? double.tryParse(json['client_rating'].toString())
+          ? double.tryParse(json['client_rating'].toString()) ?? 0.0
           : 0.0,
-      workerName: json['proposals'] != null && json['proposals'].isNotEmpty
-          ? json['proposals'][0]['worker_name']
+      workerId: json['worker_id'] is int
+          ? json['worker_id']
+          : selectedProposal != null && selectedProposal.isNotEmpty
+          ? selectedProposal['worker_id'] is int
+                ? selectedProposal['worker_id']
+                : null
           : null,
-      workerRating: json['proposals'] != null && json['proposals'].isNotEmpty
-          ? double.tryParse(json['proposals'][0]['worker_rating'].toString())
+      workerName:
+          json['worker_name']?.toString() ??
+          (selectedProposal != null && selectedProposal.isNotEmpty
+              ? selectedProposal['worker_name']?.toString()
+              : null),
+      workerRating: json['worker_rating'] != null
+          ? double.tryParse(json['worker_rating'].toString()) ?? 0.0
+          : (selectedProposal != null &&
+                    selectedProposal.isNotEmpty &&
+                    selectedProposal['worker_rating'] != null
+                ? double.tryParse(
+                        selectedProposal['worker_rating'].toString(),
+                      ) ??
+                      0.0
+                : null),
+      clientId: json['created_by'] is int
+          ? json['created_by']
+          : json['client_id'] is int
+          ? json['client_id']
           : null,
-      proposals: List<Map<String, dynamic>>.from(json['proposals'] ?? []),
-      status: json['status'] ?? 'Pendiente',
+      proposals: proposals,
+      status: json['status']?.toString() ?? 'Pendiente',
       title:
-          json['title'] ??
-          '${json['category'] ?? 'Servicio'} - ${json['subcategory'] ?? 'General'}',
-      categories: List<String>.from(
-        json['categories'] ??
-            [json['category'] ?? 'Servicio', json['subcategory'] ?? 'General'],
-      ),
+          json['title']?.toString() ??
+          '${json['category']?.toString() ?? 'Servicio'} - ${json['subcategory']?.toString() ?? 'General'}',
+      categories:
+          json['categories'] != null &&
+              json['categories'] is List &&
+              (json['categories'] as List).isNotEmpty
+          ? List<String>.from(json['categories'].map((e) => e.toString()))
+          : [
+              json['category']?.toString() ?? 'Servicio',
+              json['subcategory']?.toString() ?? 'General',
+            ],
       priceRange:
-          json['price_range'] ?? 'BOB ${json['budget'] ?? 'No especificado'}',
-      timeAgo: json['time_ago'] ?? 'Hace desconocido',
+          json['price_range']?.toString() ??
+          (json['budget'] != null
+              ? 'BOB ${json['budget'].toString()}'
+              : 'BOB No especificado'),
+      timeAgo: json['time_ago']?.toString() ?? 'Hace desconocido',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'category': category,
+      'subcategory': subcategory,
+      'location': location,
+      'location_details': locationDetails,
+      'budget': budget,
+      'start_time': startTime,
+      'end_time': endTime,
+      'is_time_undefined': isTimeUndefined,
+      'date': date,
+      'payment_method': paymentMethod,
+      'description': description,
+      'image': image,
+      'client_name': clientName,
+      'client_rating': clientRating,
+      'worker_id': workerId,
+      'worker_name': workerName,
+      'worker_rating': workerRating,
+      'client_id': clientId,
+      'proposals': proposals,
+      'status': status,
+      'title': title,
+      'categories': categories,
+      'price_range': priceRange,
+      'time_ago': timeAgo,
+    };
   }
 
   Job copyWith({
@@ -107,8 +182,10 @@ class Job {
     String? image,
     String? clientName,
     double? clientRating,
+    int? workerId,
     String? workerName,
     double? workerRating,
+    int? clientId,
     List<Map<String, dynamic>>? proposals,
     String? status,
     String? title,
@@ -132,8 +209,10 @@ class Job {
       image: image ?? this.image,
       clientName: clientName ?? this.clientName,
       clientRating: clientRating ?? this.clientRating,
+      workerId: workerId ?? this.workerId,
       workerName: workerName ?? this.workerName,
       workerRating: workerRating ?? this.workerRating,
+      clientId: clientId ?? this.clientId,
       proposals: proposals ?? this.proposals,
       status: status ?? this.status,
       title: title ?? this.title,

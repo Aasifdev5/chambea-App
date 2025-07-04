@@ -24,9 +24,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
   @override
   void initState() {
     super.initState();
-    FcmService.initialize(
-      context,
-    ); // Initialize FCM for foreground notifications
+    FcmService.initialize(context); // Initialize FCM for notifications
   }
 
   @override
@@ -113,19 +111,49 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                   decoration: BoxDecoration(
                                     color: proposal['status'] == 'pending'
                                         ? Colors.yellow.shade100
-                                        : Colors.green.shade100,
+                                        : proposal['status'] == 'accepted'
+                                        ? Colors
+                                              .blue
+                                              .shade100 // Changed for hired badge
+                                        : Colors.red.shade100,
                                     borderRadius: BorderRadius.circular(4),
+                                    border: proposal['status'] == 'accepted'
+                                        ? Border.all(
+                                            color: Colors.blue.shade700,
+                                            width: 1.5,
+                                          )
+                                        : null,
                                   ),
-                                  child: Text(
-                                    proposal['status'] == 'pending'
-                                        ? 'Pendiente'
-                                        : 'En revisión',
-                                    style: TextStyle(
-                                      color: proposal['status'] == 'pending'
-                                          ? Colors.yellow.shade800
-                                          : Colors.green.shade800,
-                                      fontSize: 12,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      if (proposal['status'] == 'accepted')
+                                        const Icon(
+                                          Icons.check_circle,
+                                          size: 16,
+                                          color: Colors.blue,
+                                        ),
+                                      if (proposal['status'] == 'accepted')
+                                        const SizedBox(width: 4),
+                                      Text(
+                                        proposal['status'] == 'pending'
+                                            ? 'Pendiente'
+                                            : proposal['status'] == 'accepted'
+                                            ? 'Contratado'
+                                            : 'Rechazada',
+                                        style: TextStyle(
+                                          color: proposal['status'] == 'pending'
+                                              ? Colors.yellow.shade800
+                                              : proposal['status'] == 'accepted'
+                                              ? Colors.blue.shade800
+                                              : Colors.red.shade800,
+                                          fontSize: 12,
+                                          fontWeight:
+                                              proposal['status'] == 'accepted'
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 Text(
@@ -263,14 +291,16 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                     ),
-                                    onPressed: () {
-                                      context.read<ProposalsBloc>().add(
-                                        RejectProposal(
-                                          proposal['id'],
-                                          widget.requestId,
-                                        ),
-                                      );
-                                    },
+                                    onPressed: proposal['status'] == 'accepted'
+                                        ? null
+                                        : () {
+                                            context.read<ProposalsBloc>().add(
+                                              RejectProposal(
+                                                proposal['id'],
+                                                requestId: widget.requestId,
+                                              ),
+                                            );
+                                          },
                                     child: const Text(
                                       'Rechazar',
                                       style: TextStyle(
@@ -293,18 +323,24 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                     ),
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              ContratadoScreen(
-                                                requestId: widget.requestId,
-                                                proposalId: proposal['id'],
+                                    onPressed: proposal['status'] == 'accepted'
+                                        ? null
+                                        : () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    ContratadoScreen(
+                                                      requestId:
+                                                          widget.requestId,
+                                                      proposalId:
+                                                          proposal['id'],
+                                                      workerId:
+                                                          proposal['worker_id'],
+                                                    ),
                                               ),
-                                        ),
-                                      );
-                                    },
+                                            );
+                                          },
                                     child: const Text(
                                       'Contratar',
                                       style: TextStyle(

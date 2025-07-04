@@ -6,6 +6,7 @@ import 'package:chambea/screens/chambeador/chat_detail_screen.dart';
 import 'package:chambea/blocs/chambeador/job_detail_bloc.dart';
 import 'package:chambea/blocs/chambeador/job_detail_event.dart';
 import 'package:chambea/blocs/chambeador/job_detail_state.dart';
+import 'package:chambea/models/job.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final int requestId;
@@ -25,8 +26,8 @@ class JobDetailScreen extends StatelessWidget {
                 ImageProvider image = const AssetImage(
                   'assets/images/led_installation.jpg',
                 );
-                if (state is JobDetailLoaded && state.job['image'] != null) {
-                  image = NetworkImage(state.job['image']);
+                if (state is JobDetailLoaded && state.job.image != null) {
+                  image = NetworkImage(state.job.image!);
                 }
                 return Positioned(
                   top: 0,
@@ -119,7 +120,7 @@ class JobDetailScreen extends StatelessWidget {
                           children: [
                             // Title
                             Text(
-                              '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
+                              job.title,
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w700,
@@ -130,8 +131,7 @@ class JobDetailScreen extends StatelessWidget {
                             const SizedBox(height: 12),
                             // Description
                             Text(
-                              job['description'] ??
-                                  'Sin descripción disponible',
+                              job.description ?? 'Sin descripción disponible',
                               style: const TextStyle(
                                 fontSize: 15,
                                 color: Colors.black54,
@@ -143,46 +143,28 @@ class JobDetailScreen extends StatelessWidget {
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: [
-                                Chip(
-                                  label: Text(
-                                    job['category']?.toUpperCase() ??
-                                        'SERVICIO',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black54,
+                              children: job.categories
+                                  .map(
+                                    (category) => Chip(
+                                      label: Text(
+                                        category.toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                      backgroundColor: Colors.grey.shade200,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
                                     ),
-                                  ),
-                                  backgroundColor: Colors.grey.shade200,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                Chip(
-                                  label: Text(
-                                    job['subcategory']?.toUpperCase() ??
-                                        'GENERAL',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                  backgroundColor: Colors.grey.shade200,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                              ],
+                                  )
+                                  .toList(),
                             ),
                             const SizedBox(height: 20),
                             // Worker Info
@@ -204,7 +186,7 @@ class JobDetailScreen extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
+                                        '${job.location}${job.locationDetails != null ? ', ${job.locationDetails}' : ''}',
                                         style: const TextStyle(
                                           fontSize: 14,
                                           color: Colors.black54,
@@ -213,8 +195,9 @@ class JobDetailScreen extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        job['worker_name'] ??
-                                            'Usuario ${job['created_by'] ?? 'Desconocido'}',
+                                        job.workerName ??
+                                            job.clientName ??
+                                            'Usuario Desconocido',
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
@@ -231,8 +214,8 @@ class JobDetailScreen extends StatelessWidget {
                                       children: [
                                         RatingBarIndicator(
                                           rating:
-                                              job['worker_rating']
-                                                  ?.toDouble() ??
+                                              job.workerRating?.toDouble() ??
+                                              job.clientRating?.toDouble() ??
                                               0.0,
                                           itemBuilder: (context, index) =>
                                               const Icon(
@@ -245,8 +228,10 @@ class JobDetailScreen extends StatelessWidget {
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
-                                          job['worker_rating']?.toString() ??
-                                              '0.0',
+                                          (job.workerRating ??
+                                                  job.clientRating ??
+                                                  0.0)
+                                              .toStringAsFixed(1),
                                           style: const TextStyle(
                                             fontSize: 14,
                                             color: Colors.black54,
@@ -257,12 +242,8 @@ class JobDetailScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      job['budget'] != null &&
-                                              double.tryParse(
-                                                    job['budget'].toString(),
-                                                  ) !=
-                                                  null
-                                          ? 'BOB ${job['budget']}/Hora'
+                                      job.budget != null
+                                          ? 'BOB ${job.budget!.toStringAsFixed(2)}/Hora'
                                           : 'BOB No especificado',
                                       style: const TextStyle(
                                         fontSize: 14,
@@ -283,7 +264,7 @@ class JobDetailScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                'Forma de pago: ${job['payment_method'] ?? 'No especificado'}',
+                                'Forma de pago: ${job.paymentMethod ?? 'No especificado'}',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   color: Colors.black54,

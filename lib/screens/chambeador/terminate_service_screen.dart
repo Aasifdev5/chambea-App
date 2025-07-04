@@ -12,6 +12,14 @@ class TerminateServiceScreen extends StatelessWidget {
   const TerminateServiceScreen({super.key, required this.job});
 
   Future<void> _completeService(BuildContext context) async {
+    // Validate job ID before making the API call
+    if (job.id == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: ID del servicio inválido')),
+      );
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(
@@ -22,6 +30,8 @@ class TerminateServiceScreen extends StatelessWidget {
 
     try {
       final token = await user.getIdToken();
+      // Log the request details
+      print('Sending complete service request for Job ID: ${job.id}');
       final response = await http.post(
         Uri.parse(
           'https://chambea.lat/api/service-requests/${job.id}/complete',
@@ -33,25 +43,46 @@ class TerminateServiceScreen extends StatelessWidget {
         },
       );
 
+      print(
+        'Complete Service Response: ${response.statusCode} - ${response.body}',
+      );
+      final responseData = json.decode(response.body);
       if (response.statusCode == 200) {
-        final updatedJob = Job.fromJson(json.decode(response.body)['data']);
+        if (responseData['data'] == null) {
+          throw Exception('API response does not contain "data" field');
+        }
+
+        final updatedJob = Job.fromJson(responseData['data']);
+        print(
+          'Updated Job: ID=${updatedJob.id}, WorkerID=${updatedJob.workerId}, ClientID=${updatedJob.clientId}',
+        );
+
+        // Validate required fields before navigating
+        if (updatedJob.id == 0 ||
+            updatedJob.workerId == null ||
+            updatedJob.clientId == null) {
+          throw Exception(
+            'Invalid job data: Missing ID, workerId, or clientId',
+          );
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Servicio completado exitosamente')),
         );
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ReviewServiceScreen(job: updatedJob),
           ),
         );
       } else {
-        final error =
-            json.decode(response.body)['message'] ?? 'Error desconocido';
+        final error = responseData['message'] ?? 'Error desconocido';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al completar servicio: $error')),
         );
       }
     } catch (e) {
+      print('Error completing service: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));

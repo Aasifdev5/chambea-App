@@ -1,7 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/chat_detail_screen.dart';
+import 'package:chambea/services/api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:chambea/services/fcm_service.dart';
 
-class ChatsScreen extends StatelessWidget {
+class ChatsScreen extends StatefulWidget {
+  const ChatsScreen({super.key});
+
+  @override
+  _ChatsScreenState createState() => _ChatsScreenState();
+}
+
+class _ChatsScreenState extends State<ChatsScreen> {
+  List<Map<String, dynamic>> _chats = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    FcmService.initialize(context);
+    _fetchChats();
+  }
+
+  Future<void> _fetchChats() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Debe iniciar sesión';
+        });
+        return;
+      }
+
+      final response = await ApiService.get('/api/chats');
+      final chats = List<Map<String, dynamic>>.from(response['data'] ?? []);
+      setState(() {
+        _chats = chats;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching chats: $e');
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -11,45 +63,32 @@ class ChatsScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ChatDetailScreen()),
-              );
+              // Implement search functionality if needed
             },
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildChatItem(context, 'Julio César Suárez', 'Ok', '10:01 AM'),
-          _buildChatItem(
-            context,
-            'Pedro Castillo',
-            'Perfecto, gracias',
-            '10:32 AM',
-          ),
-          _buildChatItem(
-            context,
-            'Julio César Suárez',
-            'Terminó de Imperio hasta las 1pm',
-            '11:01 AM',
-          ),
-          _buildChatItem(context, 'Julio César Suárez', 'Gracias', 'Ayer'),
-          _buildChatItem(
-            context,
-            'Julio César Suárez',
-            'Para cuándo sería??',
-            'Ayer',
-          ),
-          _buildChatItem(
-            context,
-            'Mario Urioste',
-            'Ok, nos vemos mañana entonces',
-            'Ayer',
-          ),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text('Error: $_error'))
+          : _chats.isEmpty
+          ? const Center(child: Text('No hay chats disponibles'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _chats.length,
+              itemBuilder: (context, index) {
+                final chat = _chats[index];
+                return _buildChatItem(
+                  context,
+                  chat['worker_name'] ?? 'Usuario ${chat['worker_id']}',
+                  chat['last_message'] ?? 'Sin mensajes',
+                  chat['last_message_time']?.toString() ?? 'Desconocido',
+                  chat['worker_id'],
+                  chat['service_request_id'],
+                );
+              },
+            ),
     );
   }
 
@@ -58,6 +97,8 @@ class ChatsScreen extends StatelessWidget {
     String name,
     String message,
     String time,
+    int workerId,
+    int requestId,
   ) {
     return ListTile(
       leading: CircleAvatar(
@@ -70,7 +111,10 @@ class ChatsScreen extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => ChatDetailScreen()),
+          MaterialPageRoute(
+            builder: (context) =>
+                ChatDetailScreen(workerId: workerId, requestId: requestId),
+          ),
         );
       },
     );

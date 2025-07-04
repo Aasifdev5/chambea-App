@@ -16,9 +16,7 @@ class _BandejaScreenState extends State<BandejaScreen> {
   @override
   void initState() {
     super.initState();
-    FcmService.initialize(
-      context,
-    ); // Initialize FCM for foreground notifications
+    FcmService.initialize(context); // Initialize FCM for notifications
   }
 
   @override
@@ -74,9 +72,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
                             : null;
                         return _buildJobCard(
                           context,
-                          proposals.isEmpty
-                              ? 'Pendiente'
-                              : 'Propuesta Recibida',
+                          request['status'] ??
+                              'Pendiente', // Use backend status
                           '${request['category'] ?? 'Servicio'} - ${request['subcategory'] ?? 'General'}',
                           request['location'] ?? 'Sin ubicación',
                           request['budget'] != null &&
@@ -143,6 +140,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
                   decoration: BoxDecoration(
                     color: status == 'Pendiente'
                         ? Colors.yellow.shade100
+                        : status == 'En curso'
+                        ? Colors.blue.shade100
                         : Colors.green.shade100,
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -151,6 +150,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
                     style: TextStyle(
                       color: status == 'Pendiente'
                           ? Colors.yellow.shade800
+                          : status == 'En curso'
+                          ? Colors.blue.shade800
                           : Colors.green.shade800,
                       fontSize: 12,
                     ),

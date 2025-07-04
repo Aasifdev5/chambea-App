@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/start_service_screen.dart';
+import 'package:chambea/screens/chambeador/terminate_service_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -19,10 +20,9 @@ class _TrabajosContentState extends State<TrabajosContent> {
       if (user == null) throw Exception('Usuario no autenticado');
 
       final token = await user.getIdToken();
+      print('Fetching jobs for worker_id: ${user.uid}');
       final response = await http.get(
-        Uri.parse(
-          'https://chambea.lat/api/service-requests?worker_id=${user.uid}',
-        ),
+        Uri.parse('https://chambea.lat/api/service-requests/worker-jobs'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -30,9 +30,21 @@ class _TrabajosContentState extends State<TrabajosContent> {
         },
       );
 
+      print('Fetch Jobs Response: ${response.statusCode} - ${response.body}');
       if (response.statusCode == 200) {
         final data = json.decode(response.body)['data'] as List;
-        return data.map((json) => Job.fromJson(json)).toList();
+        final jobs = data.map((json) => Job.fromJson(json)).toList();
+
+        // Validate that jobs belong to the authenticated worker
+        final validJobs = jobs
+            .where((job) => job.workerId == user.uid)
+            .toList();
+        if (validJobs.length != jobs.length) {
+          print(
+            'Warning: Found ${jobs.length - validJobs.length} jobs not assigned to worker ${user.uid}',
+          );
+        }
+        return validJobs;
       } else {
         String errorMessage;
         switch (response.statusCode) {
@@ -173,7 +185,9 @@ class JobList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('JobList jobs: ${jobs.map((job) => job.title).toList()}');
+    print(
+      'JobList jobs: ${jobs.map((job) => "${job.title} (WorkerID: ${job.workerId})").toList()}',
+    );
     if (jobs.isEmpty) {
       return Center(
         child: Text(
@@ -190,9 +204,13 @@ class JobList extends StatelessWidget {
         return TrabajoCard(
           job: job,
           onTap: () {
+            // Navigate to appropriate screen based on job status
+            final destination = job.status == 'Pendiente'
+                ? StartServiceScreen(job: job)
+                : TerminateServiceScreen(job: job);
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
+              MaterialPageRoute(builder: (_) => destination),
             ).then((_) => onRefresh());
           },
         );

@@ -1,17 +1,18 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:chambea/blocs/client/proposals_bloc.dart';
+import 'package:chambea/blocs/client/proposals_event.dart';
+import 'package:chambea/screens/client/contratado_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class FcmService {
-  static Future<void> initialize(BuildContext? context) async {
-    await Firebase.initializeApp();
+  static Future<void> initialize(BuildContext context) async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-    // Request notification permissions
-    NotificationSettings settings = await messaging.requestPermission(
+    await messaging.requestPermission(
       alert: true,
       announcement: false,
       badge: true,
@@ -21,69 +22,71 @@ class FcmService {
       sound: true,
     );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('User granted notification permission');
-    } else {
-      print('Notification permission denied');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final token = await messaging.getToken();
+      if (token != null) {
+        try {
+          final idToken = await user.getIdToken();
+          await http.post(
+            Uri.parse('https://chambea.lat/api/update-fcm-token'),
+            headers: {
+              'Authorization': 'Bearer $idToken',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: json.encode({'fcm_token': token}),
+          );
+        } catch (e) {
+          print('Error updating FCM token: $e');
+        }
+      }
     }
 
-    // Get and update FCM token
-    String? token = await messaging.getToken();
-    if (token != null) {
-      await _updateFcmToken(token);
-    }
-
-    // Handle token refresh
-    messaging.onTokenRefresh.listen((newToken) async {
-      await _updateFcmToken(newToken);
-    });
-
-    // Handle foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Received foreground message: ${message.notification?.title}');
-      if (context != null) {
+      final notification = message.notification;
+      final data = message.data;
+      if (notification != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '${message.notification?.title ?? 'Notificación'}: ${message.notification?.body ?? ''}',
-            ),
+            content: Text('${notification.title}: ${notification.body}'),
           ),
         );
       }
+      _handleNotificationData(context, data);
     });
 
-    // Handle background messages
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  }
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _handleNotificationData(context, message.data);
+    });
 
-  static Future<void> _updateFcmToken(String token) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      print('No authenticated user for FCM token update');
-      return;
-    }
-
-    final idToken = await user.getIdToken();
-    final response = await http.post(
-      Uri.parse('https://chambea.lat/api/update-fcm-token'),
-      headers: {
-        'Authorization': 'Bearer $idToken',
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({'fcm_token': token}),
-    );
-
-    if (response.statusCode == 200) {
-      print('FCM token updated successfully');
-    } else {
-      print('Failed to update FCM token: ${response.body}');
+    final initialMessage = await messaging.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationData(context, initialMessage.data);
     }
   }
 
-  static Future<void> _firebaseMessagingBackgroundHandler(
-    RemoteMessage message,
-  ) async {
-    await Firebase.initializeApp();
-    print('Handling a background message: ${message.messageId}');
+  static void _handleNotificationData(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) {
+    final type = data['type'];
+    final requestId = int.tryParse(data['service_request_id'] ?? '');
+    final workerId = int.tryParse(data['worker_id'] ?? '');
+
+    if (requestId != null) {
+      if (type == 'contract_accepted' || type == 'service_started') {
+        context.read<ProposalsBloc>().add(FetchServiceRequests());
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                ContratadoScreen(requestId: requestId, workerId: workerId),
+          ),
+        );
+      } else if (type == 'new_message') {
+        context.read<ProposalsBloc>().add(FetchProposals(requestId));
+      }
+    }
   }
 }

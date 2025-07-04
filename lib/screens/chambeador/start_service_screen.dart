@@ -72,7 +72,7 @@ class StartServiceScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Servicio iniciado exitosamente')),
         );
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => TerminateServiceScreen(job: updatedJob),

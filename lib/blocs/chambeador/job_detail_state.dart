@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:chambea/models/job.dart';
 
 class JobDetailState extends Equatable {
   const JobDetailState();
@@ -12,7 +13,7 @@ class JobDetailInitial extends JobDetailState {}
 class JobDetailLoading extends JobDetailState {}
 
 class JobDetailLoaded extends JobDetailState {
-  final Map<String, dynamic> job;
+  final Job job;
 
   const JobDetailLoaded(this.job);
 
