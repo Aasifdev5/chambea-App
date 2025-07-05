@@ -3,6 +3,8 @@ import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/start_service_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:chambea/services/api_service.dart';
+import 'package:logger/logger.dart';
 import 'dart:convert';
 
 class TrabajosContent extends StatefulWidget {
@@ -13,69 +15,33 @@ class TrabajosContent extends StatefulWidget {
 }
 
 class _TrabajosContentState extends State<TrabajosContent> {
+  final logger = Logger();
+
   Future<List<Job>> fetchJobs() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Usuario no autenticado');
 
-      final token = await user.getIdToken();
       final firebaseUid = user.uid;
 
-      final url = Uri.parse(
-        'https://chambea.lat/api/service-requests/worker-jobs?firebase_uid=$firebaseUid',
-      );
+      final endpoint = '/api/service-requests/worker-jobs/$firebaseUid';
 
-      print('DEBUG: Fetching jobs from $url');
+      final response = await ApiService.get(endpoint);
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      );
-
-      print('DEBUG: Response ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-
-        if (jsonData['status'] == 'success' && jsonData['data'] is List) {
-          final data = jsonData['data'] as List;
-
-          print('DEBUG: Jobs fetched successfully, total: ${data.length}');
-          return data.map((jobJson) => Job.fromJson(jobJson)).toList();
-        } else {
-          final message =
-              jsonData['message'] ?? 'Error desconocido del servidor';
-          print('DEBUG: Error in response: $message');
-          throw Exception(message);
-        }
-      } else {
-        String errorMessage;
-        switch (response.statusCode) {
-          case 400:
-            errorMessage = 'UID de Firebase no proporcionado.';
-            break;
-          case 401:
-            errorMessage = 'Usuario no encontrado o sesión expirada.';
-            break;
-          case 403:
-            errorMessage = 'No tienes permiso para ver estos trabajos.';
-            break;
-          case 404:
-            errorMessage = 'No se encontraron trabajos.';
-            break;
-          default:
-            errorMessage = 'Error inesperado: ${response.body}';
-        }
-
-        print('DEBUG: HTTP error $errorMessage');
-        throw Exception(errorMessage);
+      if (response['status'] != 'success') {
+        throw Exception(
+          response['message'] ?? 'Error desconocido del servidor',
+        );
       }
+      if (response['data'] == null || response['data'] is! List) {
+        throw Exception('Formato de datos inválido del servidor');
+      }
+
+      final data = response['data'] as List;
+      logger.d('✅ Jobs fetched successfully, total: ${data.length}');
+      return data.map((jobJson) => Job.fromJson(jobJson)).toList();
     } catch (e) {
-      print('DEBUG: Exception in fetchJobs: $e');
+      logger.e('⛔ Exception in fetchJobs: $e');
       throw Exception('Error al conectar con el servidor: $e');
     }
   }
