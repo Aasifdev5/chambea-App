@@ -12,10 +12,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'firebase_options.dart';
 import 'package:chambea/screens/client/home.dart';
+import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/blocs/client/client_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
-import 'package:chambea/blocs/client/proposals_bloc.dart'; // Added import
+import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'dart:io';
 
 void main() async {
@@ -35,7 +36,7 @@ class ApiService {
 
   static Future<Map<String, String>> getHeaders() async {
     final user = FirebaseAuth.instance.currentUser;
-    String? token = await user?.getIdToken();
+    String? token = await user?.getIdToken(true); // Force refresh token
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -53,6 +54,9 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: headers,
     );
+    print(
+      'DEBUG: GET $endpoint response: ${response.statusCode} ${response.body}',
+    );
     if (response.statusCode == 200) {
       return json.decode(response.body);
     }
@@ -68,6 +72,9 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: headers,
       body: json.encode(body),
+    );
+    print(
+      'DEBUG: POST $endpoint response: ${response.statusCode} ${response.body}',
     );
     return {
       'statusCode': response.statusCode,
@@ -127,7 +134,41 @@ class ChambeaApp extends StatelessWidget {
 
   Future<Widget> _getInitialScreen() async {
     final isLoggedIn = await ApiService.isLoggedIn();
-    return isLoggedIn ? const ProfileSelectionScreen() : const SplashScreen();
+    if (!isLoggedIn) {
+      print('DEBUG: User not logged in, redirecting to SplashScreen');
+      return const SplashScreen();
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('DEBUG: No authenticated user, redirecting to SplashScreen');
+        return const SplashScreen();
+      }
+
+      final response = await ApiService.get('/api/account-type/${user.uid}');
+      print('DEBUG: Fetch account type response: $response');
+      if (response['status'] == 'success') {
+        final accountType = response['data']['account_type'] ?? '';
+        if (accountType == 'Client') {
+          print('DEBUG: User is Client, redirecting to ClientHomeScreen');
+          return const ClientHomeScreen();
+        } else if (accountType == 'Chambeador') {
+          print('DEBUG: User is Chambeador, redirecting to HomeScreen');
+          return const HomeScreen();
+        }
+      }
+      print(
+        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
+      );
+      return const ProfileSelectionScreen();
+    } catch (e) {
+      print('DEBUG: Error fetching account type: $e');
+      if (e.toString().contains('404')) {
+        print('DEBUG: Profile not found, likely a new user');
+      }
+      return const ProfileSelectionScreen();
+    }
   }
 
   @override
@@ -574,7 +615,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await _auth.signInWithCredential(credential);
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -617,7 +658,7 @@ class _LoginScreenState extends State<LoginScreen> {
         verificationCompleted: (PhoneAuthCredential credential) async {
           await _auth.signInWithCredential(credential);
           if (mounted) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -908,7 +949,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
       );
       await _auth.signInWithCredential(credential);
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -930,7 +971,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         verificationCompleted: (PhoneAuthCredential credential) async {
           await _auth.signInWithCredential(credential);
           if (mounted) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1108,6 +1149,38 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 class ActiveServiceScreen extends StatelessWidget {
   const ActiveServiceScreen({super.key});
 
+  Future<Widget> _getNextScreen() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('DEBUG: No authenticated user, redirecting to SplashScreen');
+        return const SplashScreen();
+      }
+
+      final response = await ApiService.get('/account-type/${user.uid}');
+      print(
+        'DEBUG: ActiveServiceScreen fetch account type response: $response',
+      );
+      if (response['status'] == 'success') {
+        final accountType = response['data']['account_type'] ?? '';
+        if (accountType == 'Client') {
+          print('DEBUG: User is Client, redirecting to ClientHomeScreen');
+          return const ClientHomeScreen();
+        } else if (accountType == 'Chambeador') {
+          print('DEBUG: User is Chambeador, redirecting to HomeScreen');
+          return const HomeScreen();
+        }
+      }
+      print(
+        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
+      );
+      return const ProfileSelectionScreen();
+    } catch (e) {
+      print('DEBUG: Error fetching account type in ActiveServiceScreen: $e');
+      return const ProfileSelectionScreen();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -1162,13 +1235,14 @@ class ActiveServiceScreen extends StatelessWidget {
                     ),
                     elevation: 8,
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ProfileSelectionScreen(),
-                      ),
-                    );
+                  onPressed: () async {
+                    final nextScreen = await _getNextScreen();
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => nextScreen),
+                      );
+                    }
                   },
                   child: Text(
                     'Activar los servicios locales',
@@ -1180,13 +1254,14 @@ class ActiveServiceScreen extends StatelessWidget {
                 ),
                 SizedBox(height: screenHeight * 0.03),
                 TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ProfileSelectionScreen(),
-                      ),
-                    );
+                  onPressed: () async {
+                    final nextScreen = await _getNextScreen();
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => nextScreen),
+                      );
+                    }
                   },
                   child: Text(
                     'Omitir',
@@ -1226,59 +1301,55 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
       _isLoading = true;
     });
     try {
-      final response = await ApiService.get('/api/account-type');
-      print('DEBUG: Fetch account type response: $response');
-      if (response['status'] == 'success') {
-        final accountType = response['data']['account_type'] ?? 'Client';
-        if (accountType == 'Client' && _selectedProfile == 'Cliente') {
-          print('DEBUG: User is Client, redirecting to ClientHomeScreen');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('No authenticated user found');
+      }
+      print(
+        'DEBUG: Current user: ${user.uid}, selectedProfile: $_selectedProfile',
+      );
+
+      final response = await ApiService.post('/account-type/${user.uid}', {
+        'account_type': _selectedProfile,
+      });
+      print('DEBUG: Save account type response: $response');
+
+      if (response['statusCode'] == 200 &&
+          response['body']['status'] == 'success') {
+        if (_selectedProfile == 'Client') {
+          print('DEBUG: User selected Client, redirecting to ClientHomeScreen');
           if (mounted) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
             );
           }
         } else if (_selectedProfile == 'Chambeador') {
           print(
-            'DEBUG: User selected Chambeador, navigating to ChambeadorRegisterScreen',
+            'DEBUG: User selected Chambeador, redirecting to ChambeadorRegisterScreen',
           );
           if (mounted) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
             );
           }
-        } else {
-          print(
-            'DEBUG: User selected Cliente but account_type is $accountType, navigating to PerfilScreen',
-          );
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PerfilScreen()),
-            );
-          }
         }
       } else {
-        throw Exception('Unexpected response status: ${response['status']}');
+        throw Exception(
+          'Failed to save profile type: ${response['statusCode']}',
+        );
       }
     } catch (e) {
-      print('DEBUG: Fetch account type error: $e');
+      print('DEBUG: Error saving profile type: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al verificar el tipo de cuenta: $e')),
+          SnackBar(content: Text('Error al guardar el tipo de cuenta: $e')),
         );
-        if (_selectedProfile == 'Chambeador') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
-          );
-        } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PerfilScreen()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+        );
       }
     } finally {
       if (mounted) {
