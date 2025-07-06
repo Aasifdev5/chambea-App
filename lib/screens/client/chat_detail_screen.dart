@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:chambea/services/api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:chambea/services/api_service.dart';
 
 class ChatDetailScreen extends StatefulWidget {
-  final int workerId;
+  final String workerId; // Changed to String for Firebase UID
   final int requestId;
 
   const ChatDetailScreen({
@@ -19,42 +17,57 @@ class ChatDetailScreen extends StatefulWidget {
 }
 
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  List<Map<String, dynamic>> _messages = [];
+  String? _chatId;
+  String? _workerName;
   bool _isLoading = true;
   String? _error;
-  String? _workerName;
 
   @override
   void initState() {
     super.initState();
-    _fetchMessages();
-    _fetchWorkerName();
+    _initializeChat();
   }
 
-  @override
-  void dispose() {
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetchMessages() async {
+  Future<void> _initializeChat() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      final response = await ApiService.get(
-        '/api/chats/${widget.requestId}/${widget.workerId}',
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Fetch worker details
+      final userResponse = await ApiService.get(
+        '/api/users/${widget.workerId}',
       );
-      final messages = List<Map<String, dynamic>>.from(response['data'] ?? []);
+      if (userResponse['status'] == 'error') {
+        throw Exception(userResponse['message'] ?? 'User not found');
+      }
+      final workerData = userResponse['data'] ?? {};
+      if (workerData['account_type'] != 'Chambeador') {
+        throw Exception('Worker is not a Chambeador');
+      }
+
+      // Initialize chat
+      final chatResponse = await ApiService.post('/api/chats/initialize', {
+        'request_id': widget.requestId,
+        'worker_id': widget.workerId,
+        'account_type': 'Client',
+      });
+      if (chatResponse['status'] == 'error') {
+        throw Exception(chatResponse['message'] ?? 'Failed to initialize chat');
+      }
+
       setState(() {
-        _messages = messages;
+        _chatId = chatResponse['data']['chat_id'];
+        _workerName = workerData['name'] ?? 'Usuario ${widget.workerId}';
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching messages: $e');
       setState(() {
         _isLoading = false;
         _error = e.toString();
@@ -62,157 +75,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  Future<void> _fetchWorkerName() async {
-    try {
-      final response = await ApiService.get('/api/users/${widget.workerId}');
-      final userData = response['data'] ?? {};
-      setState(() {
-        _workerName = userData['name'] ?? 'Usuario ${widget.workerId}';
-      });
-    } catch (e) {
-      print('Error fetching worker name: $e');
-      setState(() {
-        _workerName = 'Usuario ${widget.workerId}';
-      });
-    }
-  }
-
-  Future<void> _sendMessage() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
-      return;
-    }
-
-    final message = _messageController.text.trim();
-    if (message.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Ingrese un mensaje')));
-      return;
-    }
-
-    try {
-      final response = await ApiService.post(
-        '/api/chats/${widget.requestId}/${widget.workerId}',
-        {'message': message, 'sender_id': user.uid},
-      );
-
-      _messageController.clear();
-      _fetchMessages(); // Refresh message list
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Mensaje enviado')));
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text(_workerName ?? 'Chat'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.grey.shade300,
-              child: const Icon(Icons.person, color: Colors.white),
-            ),
-            const SizedBox(width: 8),
-            Text(_workerName ?? 'Cargando...'),
-          ],
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(child: Text('Error: $_error'))
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isSender =
-                          message['sender_id'] ==
-                          FirebaseAuth.instance.currentUser?.uid;
-                      return Align(
-                        alignment: isSender
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isSender
-                                ? Colors.green.shade100
-                                : Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: isSender
-                                ? CrossAxisAlignment.end
-                                : CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                message['message'] ?? '',
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                message['created_at']?.toString() ??
-                                    'Desconocido',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          decoration: InputDecoration(
-                            hintText: 'Escribe un mensaje...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.send, color: Colors.green),
-                        onPressed: _sendMessage,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          : Center(child: Text('Chat with ${_workerName ?? widget.workerId}')),
     );
   }
 }

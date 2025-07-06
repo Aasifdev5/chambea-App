@@ -5,6 +5,7 @@ import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/screens/client/contratado_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:chambea/services/api_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -69,23 +70,28 @@ class FcmService {
   static void _handleNotificationData(
     BuildContext context,
     Map<String, dynamic> data,
-  ) {
+  ) async {
     final type = data['type'];
     final requestId = int.tryParse(data['service_request_id'] ?? '');
     final workerId = int.tryParse(data['worker_id'] ?? '');
+    final accountType = await ApiService.getAccountType();
 
-    if (requestId != null) {
+    if (requestId != null && workerId != null) {
       if (type == 'contract_accepted' || type == 'service_started') {
-        context.read<ProposalsBloc>().add(FetchServiceRequests());
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                ContratadoScreen(requestId: requestId, workerId: workerId),
-          ),
-        );
+        if (accountType == 'Client') {
+          context.read<ProposalsBloc>().add(FetchServiceRequests());
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  ContratadoScreen(requestId: requestId, workerId: workerId),
+            ),
+          );
+        }
       } else if (type == 'new_message') {
-        context.read<ProposalsBloc>().add(FetchProposals(requestId));
+        if (accountType == 'Client' || accountType == 'Chambeador') {
+          context.read<ProposalsBloc>().add(FetchProposals(requestId));
+        }
       }
     }
   }

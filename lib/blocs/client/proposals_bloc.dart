@@ -1,5 +1,6 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:bloc/bloc.dart';
 import 'package:chambea/services/api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'proposals_event.dart';
 import 'proposals_state.dart';
 
@@ -29,7 +30,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         }
       }
 
-      // Batch fetch worker data
+      // Batch fetch worker data using Firebase UIDs
       final workerData = await _fetchWorkerData(workerIds);
       for (var request in requests) {
         for (var proposal in (request['proposals'] ?? [])) {
@@ -38,6 +39,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           proposal['worker_name'] = user['name'] ?? 'Usuario $workerId';
           proposal['worker_rating'] = user['rating']?.toDouble() ?? 0.0;
           proposal['worker_image'] = user['image'];
+          proposal['worker_firebase_uid'] = user['uid'];
         }
       }
       emit(ProposalsLoaded({'requests': requests}, requests));
@@ -68,7 +70,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         }
       }
 
-      // Batch fetch worker data
+      // Batch fetch worker data using Firebase UIDs
       final workerData = await _fetchWorkerData(workerIds);
       for (var proposal in proposals) {
         final workerId = proposal['worker_id'];
@@ -76,6 +78,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         proposal['worker_name'] = user['name'] ?? 'Usuario $workerId';
         proposal['worker_rating'] = user['rating']?.toDouble() ?? 0.0;
         proposal['worker_image'] = user['image'];
+        proposal['worker_firebase_uid'] = user['uid'];
       }
       emit(ProposalsLoaded(serviceRequest, proposals));
     } catch (e) {
@@ -125,12 +128,59 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     HireWorker event,
     Emitter<ProposalsState> emit,
   ) async {
+    emit(ProposalsLoading());
     try {
+      String? workerFirebaseUid = event.workerId;
+      if (workerFirebaseUid == null && event.proposalId != null) {
+        // Fetch proposal to get worker_id if not provided
+        final response = await ApiService.get(
+          '/api/service-requests/${event.requestId}',
+        );
+        final proposals = List<Map<String, dynamic>>.from(
+          response['data']['proposals'] ?? [],
+        );
+        final proposal = proposals.firstWhere(
+          (p) => p['id'] == event.proposalId,
+          orElse: () => {},
+        );
+        final numericWorkerId = proposal['worker_id'];
+        if (numericWorkerId != null) {
+          final uidResponse = await ApiService.get(
+            '/api/users/map-id-to-uid/$numericWorkerId',
+          );
+          workerFirebaseUid = uidResponse['data']['uid'];
+        }
+      }
+
+      if (workerFirebaseUid == null) {
+        throw Exception('Worker ID not provided and could not be resolved');
+      }
+
+      // Verify worker is a Chambeador
+      final accountTypeResponse = await ApiService.get(
+        '/api/account-type/$workerFirebaseUid',
+      );
+      if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
+        throw Exception('Selected worker is not a Chambeador');
+      }
+
+      // Hire worker
       await ApiService.post('/api/service-requests/${event.requestId}/hire', {
         'agreed_budget': event.budget,
         if (event.proposalId != null) 'proposal_id': event.proposalId,
-        if (event.workerId != null) 'worker_id': event.workerId,
+        'worker_id': workerFirebaseUid,
       });
+
+      // Initialize chat
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await ApiService.post('/api/chats/initialize', {
+          'request_id': event.requestId,
+          'worker_id': workerFirebaseUid,
+          'account_type': 'Client',
+        });
+      }
+
       emit(ProposalsActionSuccess('Contrato creado exitosamente'));
       add(FetchServiceRequests());
     } catch (e) {
@@ -146,10 +196,45 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     final workerData = <int, Map<String, dynamic>>{};
     for (var workerId in workerIds) {
       try {
-        final userResponse = await ApiService.get('/api/users/$workerId');
-        workerData[workerId] = userResponse['data'] ?? {};
+        // Map numeric ID to Firebase UID
+        final uidResponse = await ApiService.get(
+          '/api/users/map-id-to-uid/$workerId',
+        );
+        final workerFirebaseUid = uidResponse['data']['uid'];
+        if (workerFirebaseUid != null) {
+          // Fetch worker profile
+          final userResponse = await ApiService.get(
+            '/api/users/$workerFirebaseUid',
+          );
+          final userData = userResponse['data'] ?? {};
+          // Verify account_type
+          if (userData['account_type'] == 'Chambeador') {
+            workerData[workerId] = {
+              'uid': workerFirebaseUid,
+              'name': userData['name'] ?? 'Usuario $workerId',
+              'rating': userData['rating']?.toDouble() ?? 0.0,
+              'image': userData['image'],
+            };
+          } else {
+            workerData[workerId] = {
+              'uid': workerFirebaseUid,
+              'name': 'Usuario $workerId',
+              'rating': 0.0,
+              'image': null,
+            };
+          }
+        } else {
+          workerData[workerId] = {
+            'uid': null,
+            'name': 'Usuario $workerId',
+            'rating': 0.0,
+            'image': null,
+          };
+        }
       } catch (e) {
+        print('Error fetching worker data for ID $workerId: $e');
         workerData[workerId] = {
+          'uid': null,
           'name': 'Usuario $workerId',
           'rating': 0.0,
           'image': null,

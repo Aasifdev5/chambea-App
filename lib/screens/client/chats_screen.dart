@@ -15,12 +15,28 @@ class _ChatsScreenState extends State<ChatsScreen> {
   List<Map<String, dynamic>> _chats = [];
   bool _isLoading = true;
   String? _error;
+  String? _accountType;
 
   @override
   void initState() {
     super.initState();
     FcmService.initialize(context);
+    _fetchAccountType();
     _fetchChats();
+  }
+
+  Future<void> _fetchAccountType() async {
+    try {
+      final accountType = await ApiService.getAccountType();
+      setState(() {
+        _accountType = accountType;
+      });
+    } catch (e) {
+      print('Error fetching account type: $e');
+      setState(() {
+        _accountType = 'unknown';
+      });
+    }
   }
 
   Future<void> _fetchChats() async {
@@ -39,10 +55,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
         return;
       }
 
-      final response = await ApiService.get('/api/chats');
-      final chats = List<Map<String, dynamic>>.from(response['data'] ?? []);
+      final chats = await ApiService.getChats();
+      final filteredChats = chats.where((chat) {
+        if (_accountType == 'Client') {
+          return chat['client_id'] == user.uid;
+        } else if (_accountType == 'Chambeador') {
+          return chat['worker_id'] == user.uid;
+        }
+        return false;
+      }).toList();
+
       setState(() {
-        _chats = chats;
+        _chats = filteredChats;
         _isLoading = false;
       });
     } catch (e) {
@@ -58,15 +82,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chats'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // Implement search functionality if needed
-            },
-          ),
-        ],
+        title: Text('Chats (${_accountType ?? "Cargando..."})'),
+        actions: [IconButton(icon: const Icon(Icons.search), onPressed: () {})],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -79,44 +96,44 @@ class _ChatsScreenState extends State<ChatsScreen> {
               itemCount: _chats.length,
               itemBuilder: (context, index) {
                 final chat = _chats[index];
-                return _buildChatItem(
-                  context,
-                  chat['worker_name'] ?? 'Usuario ${chat['worker_id']}',
-                  chat['last_message'] ?? 'Sin mensajes',
-                  chat['last_message_time']?.toString() ?? 'Desconocido',
-                  chat['worker_id'],
-                  chat['service_request_id'],
+                final workerId = chat['worker_id'] ?? '';
+                final requestId =
+                    int.tryParse(chat['request_id']?.toString() ?? '0') ?? 0;
+                final workerName = chat['worker_account_type'] == 'Chambeador'
+                    ? (chat['worker_name'] ?? 'Usuario $workerId')
+                    : 'Usuario Desconocido';
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.grey.shade300,
+                    child: const Icon(Icons.person, color: Colors.white),
+                  ),
+                  title: Text(workerName),
+                  subtitle: Text(chat['last_message'] ?? 'Sin mensajes'),
+                  trailing: Text(
+                    chat['updated_at']?.toString() ?? 'Desconocido',
+                  ),
+                  onTap: () {
+                    if (workerId.isNotEmpty && requestId != 0) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatDetailScreen(
+                            workerId: workerId,
+                            requestId: requestId,
+                          ),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Error: Datos de chat inválidos'),
+                        ),
+                      );
+                    }
+                  },
                 );
               },
             ),
-    );
-  }
-
-  Widget _buildChatItem(
-    BuildContext context,
-    String name,
-    String message,
-    String time,
-    int workerId,
-    int requestId,
-  ) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.grey.shade300,
-        child: const Icon(Icons.person, color: Colors.white),
-      ),
-      title: Text(name),
-      subtitle: Text(message),
-      trailing: Text(time),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                ChatDetailScreen(workerId: workerId, requestId: requestId),
-          ),
-        );
-      },
     );
   }
 }

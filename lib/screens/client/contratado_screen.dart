@@ -31,6 +31,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
   String? _workerName;
   String? _workerRole;
   double? _workerRating;
+  String? _workerFirebaseUid;
   TextEditingController _budgetController = TextEditingController();
   List<Map<String, dynamic>> _proposals = [];
 
@@ -57,51 +58,107 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
       final response = await ApiService.get(
         '/api/service-requests/${widget.requestId}',
       );
+      print('DEBUG: Full service request response: $response');
       final data = Map<String, dynamic>.from(response['data'] ?? {});
       String workerName = 'Usuario Desconocido';
       String workerRole = data['subcategory'] ?? 'Trabajador';
       double workerRating = 0.0;
+      String? workerFirebaseUid;
       List<Map<String, dynamic>> proposals = List<Map<String, dynamic>>.from(
         data['proposals'] ?? [],
       );
 
-      if (widget.proposalId != null || widget.workerId != null) {
-        Map<String, dynamic> selectedProposal = {};
+      // Prioritize worker_firebase_uid from widget.workerId
+      if (widget.workerId != null) {
+        try {
+          final uidResponse = await ApiService.get(
+            '/api/users/map-id-to-uid/${widget.workerId}',
+          );
+          print(
+            'DEBUG: Map ID to UID response for workerId ${widget.workerId}: $uidResponse',
+          );
+          workerFirebaseUid = uidResponse['data']['uid'];
+          if (workerFirebaseUid != null) {
+            final userResponse = await ApiService.get(
+              '/api/users/$workerFirebaseUid',
+            );
+            print('DEBUG: User response for $workerFirebaseUid: $userResponse');
+            if (userResponse['status'] == 'success') {
+              final userData = userResponse['data'] ?? {};
+              workerName = userData['name'] ?? 'Usuario $workerFirebaseUid';
+              workerRole = userData['account_type'] == 'Chambeador'
+                  ? data['subcategory'] ?? 'Trabajador'
+                  : 'Trabajador';
+              workerRating = userData['rating']?.toDouble() ?? 0.0;
+            } else {
+              print('User API returned error: ${userResponse['message']}');
+            }
+          } else {
+            print('Failed to map worker_id ${widget.workerId} to Firebase UID');
+          }
+        } catch (e) {
+          print(
+            'Error fetching worker profile for workerId ${widget.workerId}: $e',
+          );
+        }
+      }
+
+      // Fallback to proposal or service request
+      if (workerFirebaseUid == null) {
         if (widget.proposalId != null) {
-          selectedProposal = proposals.firstWhere(
+          final selectedProposal = proposals.firstWhere(
             (proposal) => proposal['id'] == widget.proposalId,
             orElse: () => {},
           );
-        }
-
-        final targetWorkerId = widget.proposalId != null
-            ? selectedProposal.isNotEmpty
-                  ? selectedProposal['worker_id']
-                  : widget.workerId
-            : widget.workerId;
-
-        if (targetWorkerId != null) {
+          workerFirebaseUid = selectedProposal['worker_firebase_uid'];
+          workerName = selectedProposal['worker_name'] ?? 'Usuario Desconocido';
+          workerRole =
+              selectedProposal['worker_role'] ??
+              data['subcategory'] ??
+              'Trabajador';
+          workerRating = selectedProposal['worker_rating']?.toDouble() ?? 0.0;
+        } else if (data['worker_firebase_uid'] != null &&
+            data['worker_id'] != null) {
+          workerFirebaseUid = data['worker_firebase_uid'];
           try {
-            final userResponse = await ApiService.get('/api/profile');
-            if (userResponse['status'] == 'error') {
-              throw Exception(userResponse['message'] ?? 'User not found');
-            }
-            final userData = userResponse['data'] ?? {};
-            workerName = userData['name'] ?? 'Usuario $targetWorkerId';
-            workerRole = data['subcategory'] ?? 'Trabajador';
-            workerRating = userData['rating']?.toDouble() ?? 0.0;
-          } catch (e) {
-            print('Error fetching worker profile: $e');
-            if (selectedProposal.isNotEmpty) {
-              workerName =
-                  selectedProposal['worker_name'] ?? 'Usuario $targetWorkerId';
-              workerRole = data['subcategory'] ?? 'Trabajador';
-              workerRating =
-                  selectedProposal['worker_rating']?.toDouble() ?? 0.0;
+            final userResponse = await ApiService.get(
+              '/api/users/$workerFirebaseUid',
+            );
+            print('DEBUG: User response for $workerFirebaseUid: $userResponse');
+            if (userResponse['status'] == 'success') {
+              final userData = userResponse['data'] ?? {};
+              workerName = userData['name'] ?? 'Usuario $workerFirebaseUid';
+              workerRole = userData['account_type'] == 'Chambeador'
+                  ? data['subcategory'] ?? 'Trabajador'
+                  : 'Trabajador';
+              workerRating = userData['rating']?.toDouble() ?? 0.0;
             } else {
-              workerName = 'Usuario $targetWorkerId';
+              print('User API returned error: ${userResponse['message']}');
             }
+          } catch (e) {
+            print('Error fetching worker from service request: $e');
           }
+        }
+      }
+
+      // Verify worker account type
+      if (workerFirebaseUid != null) {
+        try {
+          final accountTypeResponse = await ApiService.get(
+            '/api/account-type/$workerFirebaseUid',
+          );
+          print(
+            'DEBUG: Account type response for $workerFirebaseUid: $accountTypeResponse',
+          );
+          if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
+            print(
+              'Worker is not a Chambeador: ${accountTypeResponse['data']['account_type']}',
+            );
+            workerFirebaseUid = null;
+          }
+        } catch (e) {
+          print('Error verifying account type: $e');
+          workerFirebaseUid = null;
         }
       }
 
@@ -110,6 +167,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         _workerName = workerName;
         _workerRole = workerRole;
         _workerRating = workerRating;
+        _workerFirebaseUid = workerFirebaseUid;
         _proposals = proposals;
         _isLoading = false;
       });
@@ -142,11 +200,29 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
       return;
     }
 
+    String? workerFirebaseUid;
+    if (workerId != null) {
+      try {
+        final uidResponse = await ApiService.get(
+          '/api/users/map-id-to-uid/$workerId',
+        );
+        workerFirebaseUid = uidResponse['data']['uid'] ?? null;
+        if (workerFirebaseUid == null) {
+          throw Exception('Failed to map worker ID to Firebase UID');
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        return;
+      }
+    }
+
     context.read<ProposalsBloc>().add(
       HireWorker(
         requestId: widget.requestId,
         proposalId: proposalId ?? widget.proposalId,
-        workerId: workerId ?? widget.workerId,
+        workerId: workerFirebaseUid ?? _workerFirebaseUid,
         budget: budget,
       ),
     );
@@ -154,8 +230,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -179,7 +253,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(state.message)));
-            _fetchServiceRequest(); // Refresh to update status and worker
+            _fetchServiceRequest();
           } else if (state is ProposalsError) {
             ScaffoldMessenger.of(
               context,
@@ -197,7 +271,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Status Badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -208,7 +281,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                             ? Colors.green.shade100
                             : _serviceRequest!['status'] == 'En curso'
                             ? Colors.blue.shade100
-                            : _serviceRequest!['status'] == 'completed'
+                            : _serviceRequest!['status'] == 'Completado'
                             ? Colors.purple.shade100
                             : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
@@ -217,7 +290,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                               ? Colors.green.shade700
                               : _serviceRequest!['status'] == 'En curso'
                               ? Colors.blue.shade700
-                              : _serviceRequest!['status'] == 'completed'
+                              : _serviceRequest!['status'] == 'Completado'
                               ? Colors.purple.shade700
                               : Colors.grey.shade700,
                           width: 1.5,
@@ -231,7 +304,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                 ? Icons.check_circle
                                 : _serviceRequest!['status'] == 'En curso'
                                 ? Icons.play_circle
-                                : _serviceRequest!['status'] == 'completed'
+                                : _serviceRequest!['status'] == 'Completado'
                                 ? Icons.done_all
                                 : Icons.hourglass_empty,
                             size: 18,
@@ -239,7 +312,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                 ? Colors.green.shade800
                                 : _serviceRequest!['status'] == 'En curso'
                                 ? Colors.blue.shade800
-                                : _serviceRequest!['status'] == 'completed'
+                                : _serviceRequest!['status'] == 'Completado'
                                 ? Colors.purple.shade800
                                 : Colors.grey.shade800,
                           ),
@@ -249,15 +322,15 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                 ? 'Contratado'
                                 : _serviceRequest!['status'] == 'En curso'
                                 ? 'En curso'
-                                : _serviceRequest!['status'] == 'completed'
+                                : _serviceRequest!['status'] == 'Completado'
                                 ? 'Completado'
-                                : _serviceRequest!['status'] ?? 'Pendiente',
+                                : 'Pendiente',
                             style: TextStyle(
                               color: _serviceRequest!['status'] == 'accepted'
                                   ? Colors.green.shade800
                                   : _serviceRequest!['status'] == 'En curso'
                                   ? Colors.blue.shade800
-                                  : _serviceRequest!['status'] == 'completed'
+                                  : _serviceRequest!['status'] == 'Completado'
                                   ? Colors.purple.shade800
                                   : Colors.grey.shade800,
                               fontSize: 14,
@@ -275,7 +348,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      _serviceRequest!['status'] == 'completed'
+                      _serviceRequest!['status'] == 'Completado'
                           ? '¡Servicio completado con éxito!'
                           : 'Gracias por elegir nuestro servicio y confiar en nuestro trabajador para ayudarte a realizar su trabajo',
                       textAlign: TextAlign.center,
@@ -301,9 +374,8 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Proposals List (only for pending status)
                     if (_serviceRequest!['status'] == null ||
-                        _serviceRequest!['status'] == 'pending')
+                        _serviceRequest!['status'] == 'Pendiente')
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -337,7 +409,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                                 'Usuario ${proposal['worker_id']}',
                                           ),
                                           subtitle: Text(
-                                            'Presupuesto: BOB ${proposal['budget'] ?? 'No especificado'}',
+                                            'Presupuesto: BOB ${proposal['proposed_budget'] ?? 'No especificado'}',
                                           ),
                                           trailing: isSelected
                                               ? const Text(
@@ -491,7 +563,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                     const SizedBox(height: 16),
                     if (_serviceRequest!['status'] != 'accepted' &&
                         _serviceRequest!['status'] != 'En curso' &&
-                        _serviceRequest!['status'] != 'completed')
+                        _serviceRequest!['status'] != 'Completado')
                       TextField(
                         controller: _budgetController,
                         keyboardType: TextInputType.number,
@@ -503,7 +575,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                     const SizedBox(height: 16),
                     if (_serviceRequest!['status'] != 'accepted' &&
                         _serviceRequest!['status'] != 'En curso' &&
-                        _serviceRequest!['status'] != 'completed')
+                        _serviceRequest!['status'] != 'Completado')
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
@@ -518,24 +590,30 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                     const SizedBox(height: 8),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: _workerFirebaseUid == null
+                            ? Colors.grey
+                            : Colors.green,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(double.infinity, 50),
                       ),
-                      onPressed: widget.workerId == null
+                      onPressed: _workerFirebaseUid == null
                           ? null
                           : () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => ChatDetailScreen(
-                                    workerId: widget.workerId!,
+                                    workerId: _workerFirebaseUid!,
                                     requestId: widget.requestId,
                                   ),
                                 ),
                               );
                             },
-                      child: const Text('Ir al chat'),
+                      child: Text(
+                        _workerFirebaseUid == null
+                            ? 'Seleccione un trabajador para chatear'
+                            : 'Ir al chat',
+                      ),
                     ),
                     const SizedBox(height: 8),
                     ElevatedButton(

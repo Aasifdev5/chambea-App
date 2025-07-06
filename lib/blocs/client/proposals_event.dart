@@ -40,7 +40,7 @@ class RejectProposal extends ProposalsEvent {
 class HireWorker extends ProposalsEvent {
   final int requestId;
   final int? proposalId;
-  final int? workerId;
+  final String? workerId;
   final double budget;
 
   const HireWorker({
@@ -51,5 +51,10 @@ class HireWorker extends ProposalsEvent {
   });
 
   @override
-  List<Object> get props => [requestId, budget];
+  List<Object> get props => [
+    requestId,
+    proposalId ?? 0, // Default to 0 if null
+    workerId ?? '', // Default to empty string if null
+    budget,
+  ];
 }

@@ -17,6 +17,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/blocs/client/client_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 
 void main() async {
@@ -25,7 +27,8 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.playIntegrity,
+    androidProvider: AndroidProvider
+        .debug, // Use debug for testing, revert to playIntegrity for production
   );
 
   runApp(const ChambeaApp());
@@ -36,12 +39,22 @@ class ApiService {
 
   static Future<Map<String, String>> getHeaders() async {
     final user = FirebaseAuth.instance.currentUser;
-    String? token = await user?.getIdToken(true); // Force refresh token
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
+    if (user == null) {
+      print('DEBUG: No authenticated user in getHeaders');
+      return {'Content-Type': 'application/json', 'Accept': 'application/json'};
+    }
+    try {
+      String? token = await user.getIdToken(true); // Force refresh token
+      print('DEBUG: Firebase ID token: ${token != null ? 'Valid' : 'Null'}');
+      return {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+    } catch (e) {
+      print('DEBUG: Error fetching Firebase ID token: $e');
+      return {'Content-Type': 'application/json', 'Accept': 'application/json'};
+    }
   }
 
   static Future<bool> isLoggedIn() async {
@@ -49,37 +62,49 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> get(String endpoint) async {
-    final headers = await getHeaders();
-    final response = await http.get(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: headers,
-    );
-    print(
-      'DEBUG: GET $endpoint response: ${response.statusCode} ${response.body}',
-    );
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
+    try {
+      final headers = await getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: headers,
+      );
+      print(
+        'DEBUG: GET $endpoint response: ${response.statusCode} ${response.body}',
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      throw Exception(
+        'Failed to load data: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      print('DEBUG: GET $endpoint failed with error: $e');
+      rethrow;
     }
-    throw Exception('Failed to load data: ${response.statusCode}');
   }
 
   static Future<Map<String, dynamic>> post(
     String endpoint,
     Map<String, dynamic> body,
   ) async {
-    final headers = await getHeaders();
-    final response = await http.post(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: headers,
-      body: json.encode(body),
-    );
-    print(
-      'DEBUG: POST $endpoint response: ${response.statusCode} ${response.body}',
-    );
-    return {
-      'statusCode': response.statusCode,
-      'body': json.decode(response.body),
-    };
+    try {
+      final headers = await getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: headers,
+        body: json.encode(body),
+      );
+      print(
+        'DEBUG: POST $endpoint response: ${response.statusCode} ${response.body}',
+      );
+      return {
+        'statusCode': response.statusCode,
+        'body': json.decode(response.body),
+      };
+    } catch (e) {
+      print('DEBUG: POST $endpoint failed with error: $e');
+      rethrow;
+    }
   }
 
   static Future<Map<String, dynamic>> put(
@@ -92,6 +117,9 @@ class ApiService {
       headers: headers,
       body: json.encode(body),
     );
+    print(
+      'DEBUG: PUT $endpoint response: ${response.statusCode} ${response.body}',
+    );
     return {
       'statusCode': response.statusCode,
       'body': json.decode(response.body),
@@ -103,6 +131,9 @@ class ApiService {
     final response = await http.delete(
       Uri.parse('$baseUrl$endpoint'),
       headers: headers,
+    );
+    print(
+      'DEBUG: DELETE $endpoint response: ${response.statusCode} ${response.body}',
     );
     return {
       'statusCode': response.statusCode,
@@ -122,10 +153,15 @@ class ApiService {
     request.files.add(await http.MultipartFile.fromPath(fieldName, file.path));
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
+    print(
+      'DEBUG: UPLOAD $endpoint response: ${response.statusCode} ${response.body}',
+    );
     if (response.statusCode == 200) {
       return json.decode(response.body);
     }
-    throw Exception('Failed to upload file: ${response.statusCode}');
+    throw Exception(
+      'Failed to upload file: ${response.statusCode} - ${response.body}',
+    );
   }
 }
 
@@ -149,7 +185,8 @@ class ChambeaApp extends StatelessWidget {
       final response = await ApiService.get('/api/account-type/${user.uid}');
       print('DEBUG: Fetch account type response: $response');
       if (response['status'] == 'success') {
-        final accountType = response['data']['account_type'] ?? '';
+        final accountType = response['data']['account_type']?.toString() ?? '';
+        print('DEBUG: Account type received: $accountType');
         if (accountType == 'Client') {
           print('DEBUG: User is Client, redirecting to ClientHomeScreen');
           return const ClientHomeScreen();
@@ -158,15 +195,47 @@ class ChambeaApp extends StatelessWidget {
           return const HomeScreen();
         }
       }
+
+      // Check local storage as a fallback
+      final prefs = await SharedPreferences.getInstance();
+      final accountType = await prefs.getString('account_type');
+      print('DEBUG: Local account type: $accountType');
+      if (accountType == 'Client') {
+        print(
+          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
+        );
+        return const ClientHomeScreen();
+      } else if (accountType == 'Chambeador') {
+        print(
+          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
+        );
+        return const HomeScreen();
+      }
+
       print(
         'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
       );
       return const ProfileSelectionScreen();
     } catch (e) {
       print('DEBUG: Error fetching account type: $e');
-      if (e.toString().contains('404')) {
-        print('DEBUG: Profile not found, likely a new user');
+      // Check local storage as a fallback
+      final prefs = await SharedPreferences.getInstance();
+      final accountType = await prefs.getString('account_type');
+      print('DEBUG: Local account type on error: $accountType');
+      if (accountType == 'Client') {
+        print(
+          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
+        );
+        return const ClientHomeScreen();
+      } else if (accountType == 'Chambeador') {
+        print(
+          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
+        );
+        return const HomeScreen();
       }
+      print(
+        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
+      );
       return const ProfileSelectionScreen();
     }
   }
@@ -217,6 +286,7 @@ class ChambeaApp extends StatelessWidget {
                 body: Center(child: CircularProgressIndicator()),
               );
             } else if (snapshot.hasError) {
+              print('DEBUG: Error in _getInitialScreen: ${snapshot.error}');
               return const Scaffold(
                 body: Center(
                   child: Text('Error al cargar la pantalla inicial'),
@@ -264,10 +334,12 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     Timer(const Duration(seconds: 3), () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
-      );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
+        );
+      }
     });
   }
 
@@ -603,8 +675,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signInWithGoogle() async {
     try {
+      print('DEBUG: Starting Google Sign-In');
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
+      if (googleUser == null) {
+        print('DEBUG: Google Sign-In cancelled');
+        return;
+      }
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
@@ -614,6 +690,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       await _auth.signInWithCredential(credential);
+      print(
+        'DEBUG: Google Sign-In successful, navigating to ActiveServiceScreen',
+      );
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -621,6 +700,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
+      print('DEBUG: Error in Google Sign-In: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -632,7 +712,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _startPhoneAuth() async {
     try {
       final phoneNumber = _phoneNumber.phoneNumber;
+      print('DEBUG: Starting phone auth for number: $phoneNumber');
       if (phoneNumber == null || phoneNumber.isEmpty) {
+        print('DEBUG: Phone number is empty');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Por favor, ingresa un número de teléfono'),
@@ -643,6 +725,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final isValid = _validatePhoneNumber(phoneNumber);
       if (!isValid) {
+        print('DEBUG: Invalid phone number: $phoneNumber');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -656,8 +739,12 @@ class _LoginScreenState extends State<LoginScreen> {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
+          print('DEBUG: Auto-verification completed: $credential');
           await _auth.signInWithCredential(credential);
           if (mounted) {
+            print(
+              'DEBUG: Navigating to ActiveServiceScreen after auto-verification',
+            );
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
@@ -665,6 +752,7 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         },
         verificationFailed: (FirebaseAuthException e) {
+          print('DEBUG: Phone verification failed: ${e.message}');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -674,6 +762,7 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         },
         codeSent: (String verificationId, int? resendToken) {
+          print('DEBUG: OTP code sent, verificationId: $verificationId');
           if (mounted) {
             Navigator.push(
               context,
@@ -686,9 +775,12 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
         },
-        codeAutoRetrievalTimeout: (String verificationId) {},
+        codeAutoRetrievalTimeout: (String verificationId) {
+          print('DEBUG: Code auto-retrieval timeout: $verificationId');
+        },
       );
     } catch (e) {
+      print('DEBUG: Error in phone auth: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al enviar el código: $e')),
@@ -899,6 +991,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   @override
   void initState() {
     super.initState();
+    print('DEBUG: OTPScreen initState - Starting to listen for SMS code');
     listenForCode();
     _startResendTimer();
   }
@@ -920,7 +1013,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 
   @override
   void codeUpdated() {
+    print('DEBUG: codeUpdated called with code: $code');
     if (code != null && code!.length == 6) {
+      print('DEBUG: Valid OTP received: $code');
       setState(() {
         _otp = code!;
         for (int i = 0; i < 6; i++) {
@@ -928,12 +1023,20 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         }
       });
       _verifyOtp();
+    } else {
+      print('DEBUG: Invalid or null OTP received: $code');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Código OTP inválido: $code')));
+      }
     }
   }
 
   Future<void> _verifyOtp() async {
     _otp = _otpControllers.map((controller) => controller.text).join();
     if (_otp.length != 6) {
+      print('DEBUG: OTP length invalid: $_otp');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Por favor, ingresa un código de 6 dígitos'),
@@ -943,11 +1046,15 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
     }
 
     try {
+      print('DEBUG: Verifying OTP: $_otp');
       final credential = PhoneAuthProvider.credential(
         verificationId: widget.verificationId,
         smsCode: _otp,
       );
       await _auth.signInWithCredential(credential);
+      print(
+        'DEBUG: OTP verification successful, navigating to ActiveServiceScreen',
+      );
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -955,6 +1062,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         );
       }
     } catch (e) {
+      print('DEBUG: OTP verification failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -964,13 +1072,19 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   }
 
   Future<void> _resendOtp() async {
-    if (!_canResend) return;
+    if (!_canResend) {
+      print('DEBUG: Resend not allowed yet, countdown: $_resendCountdown');
+      return;
+    }
     try {
+      print('DEBUG: Resending OTP for phone: ${widget.phoneNumber}');
       await _auth.verifyPhoneNumber(
         phoneNumber: widget.phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
+          print('DEBUG: Auto-verification completed on resend: $credential');
           await _auth.signInWithCredential(credential);
           if (mounted) {
+            print('DEBUG: Navigating to ActiveServiceScreen after resend');
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
@@ -978,6 +1092,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           }
         },
         verificationFailed: (FirebaseAuthException e) {
+          print('DEBUG: Resend verification failed: ${e.message}');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -987,8 +1102,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           }
         },
         codeSent: (String verificationId, int? resendToken) {
+          print('DEBUG: New OTP code sent, verificationId: $verificationId');
           if (mounted) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) => OTPScreen(
@@ -1007,9 +1123,14 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
             });
           }
         },
-        codeAutoRetrievalTimeout: (String verificationId) {},
+        codeAutoRetrievalTimeout: (String verificationId) {
+          print(
+            'DEBUG: Code auto-retrieval timeout for verificationId: $verificationId',
+          );
+        },
       );
     } catch (e) {
+      print('DEBUG: Error resending OTP: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al reenviar el código: $e')),
@@ -1046,7 +1167,11 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
             borderSide: BorderSide(color: Color(0xFF22c55e), width: 2),
           ),
         ),
+        textInputAction: index < 5
+            ? TextInputAction.next
+            : TextInputAction.done,
         onChanged: (value) {
+          print('DEBUG: OTP field $index changed: $value');
           if (value.isNotEmpty && index < 5) {
             FocusScope.of(context).nextFocus();
           }
@@ -1060,6 +1185,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 
   @override
   void dispose() {
+    print('DEBUG: Disposing OTPScreen, canceling SMS listener');
     cancel();
     for (var controller in _otpControllers) {
       controller.dispose();
@@ -1149,6 +1275,25 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 class ActiveServiceScreen extends StatelessWidget {
   const ActiveServiceScreen({super.key});
 
+  Future<void> requestLocationPermission(BuildContext context) async {
+    final status = await Permission.location.request();
+    print('DEBUG: Location permission status: $status');
+    if (status.isGranted) {
+      print('DEBUG: Location permission granted');
+    } else {
+      print('DEBUG: Location permission denied');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Location permission is required for full functionality',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   Future<Widget> _getNextScreen() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -1162,7 +1307,8 @@ class ActiveServiceScreen extends StatelessWidget {
         'DEBUG: ActiveServiceScreen fetch account type response: $response',
       );
       if (response['status'] == 'success') {
-        final accountType = response['data']['account_type'] ?? '';
+        final accountType = response['data']['account_type']?.toString() ?? '';
+        print('DEBUG: Account type received: $accountType');
         if (accountType == 'Client') {
           print('DEBUG: User is Client, redirecting to ClientHomeScreen');
           return const ClientHomeScreen();
@@ -1171,12 +1317,47 @@ class ActiveServiceScreen extends StatelessWidget {
           return const HomeScreen();
         }
       }
+
+      // Check local storage as a fallback
+      final prefs = await SharedPreferences.getInstance();
+      final accountType = await prefs.getString('account_type');
+      print('DEBUG: Local account type: $accountType');
+      if (accountType == 'Client') {
+        print(
+          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
+        );
+        return const ClientHomeScreen();
+      } else if (accountType == 'Chambeador') {
+        print(
+          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
+        );
+        return const HomeScreen();
+      }
+
       print(
         'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
       );
       return const ProfileSelectionScreen();
     } catch (e) {
       print('DEBUG: Error fetching account type in ActiveServiceScreen: $e');
+      // Check local storage as a fallback
+      final prefs = await SharedPreferences.getInstance();
+      final accountType = await prefs.getString('account_type');
+      print('DEBUG: Local account type on error: $accountType');
+      if (accountType == 'Client') {
+        print(
+          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
+        );
+        return const ClientHomeScreen();
+      } else if (accountType == 'Chambeador') {
+        print(
+          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
+        );
+        return const HomeScreen();
+      }
+      print(
+        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
+      );
       return const ProfileSelectionScreen();
     }
   }
@@ -1236,6 +1417,7 @@ class ActiveServiceScreen extends StatelessWidget {
                     elevation: 8,
                   ),
                   onPressed: () async {
+                    await requestLocationPermission(context);
                     final nextScreen = await _getNextScreen();
                     if (context.mounted) {
                       Navigator.pushReplacement(
@@ -1316,6 +1498,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
 
       if (response['statusCode'] == 200 &&
           response['body']['status'] == 'success') {
+        // Save account type locally
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('account_type', _selectedProfile!);
+        print('DEBUG: Saved account type locally: $_selectedProfile');
+
         if (_selectedProfile == 'Client') {
           print('DEBUG: User selected Client, redirecting to ClientHomeScreen');
           if (mounted) {
@@ -1343,13 +1530,31 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     } catch (e) {
       print('DEBUG: Error saving profile type: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al guardar el tipo de cuenta: $e')),
+        // Fallback to local storage
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('account_type', _selectedProfile!);
+        print(
+          'DEBUG: Saved account type locally due to error: $_selectedProfile',
         );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-        );
+        if (_selectedProfile == 'Client') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+          );
+        } else if (_selectedProfile == 'Chambeador') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al guardar el tipo de cuenta: $e')),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+          );
+        }
       }
     } finally {
       if (mounted) {

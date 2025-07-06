@@ -222,6 +222,41 @@ class ApiService {
     });
   }
 
+  /// Fetches the account type for the authenticated user
+  static Future<String> getAccountType() async {
+    return _retryRequest(() async {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      final headers = await _getHeaders();
+      final endpoint = '/api/account-type/${user.uid}';
+      print('DEBUG: GET request to $baseUrl$endpoint with headers: $headers');
+
+      final response = await http
+          .get(Uri.parse('$baseUrl$endpoint'), headers: headers)
+          .timeout(Duration(seconds: timeoutSeconds));
+
+      final body = _handleResponse(response, endpoint, 'GET');
+      return body['data']['account_type']?.toString() ?? 'unknown';
+    });
+  }
+
+  /// Fetches chats for the authenticated user, filtered by account type
+  static Future<List<Map<String, dynamic>>> getChats() async {
+    return _retryRequest(() async {
+      final headers = await _getHeaders();
+      print('DEBUG: GET request to $baseUrl/api/chats with headers: $headers');
+
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/chats'), headers: headers)
+          .timeout(Duration(seconds: timeoutSeconds));
+
+      final body = _handleResponse(response, '/api/chats', 'GET');
+      return List<Map<String, dynamic>>.from(body['data'] ?? []);
+    });
+  }
+
   /// Retries the request on transient errors
   static Future<T> _retryRequest<T>(Future<T> Function() request) async {
     return retry(
