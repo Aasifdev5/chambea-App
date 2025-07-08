@@ -694,7 +694,7 @@ class _LoginScreenState extends State<LoginScreen> {
         'DEBUG: Google Sign-In successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -745,7 +745,7 @@ class _LoginScreenState extends State<LoginScreen> {
             print(
               'DEBUG: Navigating to ActiveServiceScreen after auto-verification',
             );
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1056,7 +1056,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         'DEBUG: OTP verification successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -1085,7 +1085,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           await _auth.signInWithCredential(credential);
           if (mounted) {
             print('DEBUG: Navigating to ActiveServiceScreen after resend');
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1104,7 +1104,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         codeSent: (String verificationId, int? resendToken) {
           print('DEBUG: New OTP code sent, verificationId: $verificationId');
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => OTPScreen(
@@ -1420,7 +1420,7 @@ class ActiveServiceScreen extends StatelessWidget {
                     await requestLocationPermission(context);
                     final nextScreen = await _getNextScreen();
                     if (context.mounted) {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => nextScreen),
                       );
@@ -1439,7 +1439,7 @@ class ActiveServiceScreen extends StatelessWidget {
                   onPressed: () async {
                     final nextScreen = await _getNextScreen();
                     if (context.mounted) {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => nextScreen),
                       );
@@ -1506,7 +1506,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         if (_selectedProfile == 'Client') {
           print('DEBUG: User selected Client, redirecting to ClientHomeScreen');
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
             );
@@ -1516,7 +1516,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
             'DEBUG: User selected Chambeador, redirecting to ChambeadorRegisterScreen',
           );
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
             );
@@ -1537,12 +1537,12 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
           'DEBUG: Saved account type locally due to error: $_selectedProfile',
         );
         if (_selectedProfile == 'Client') {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
           );
         } else if (_selectedProfile == 'Chambeador') {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
           );
@@ -1550,7 +1550,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error al guardar el tipo de cuenta: $e')),
           );
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
           );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:chambea/screens/client/mas_detalles_step_screen.dart';
 import 'package:chambea/models/service_request.dart';
 
@@ -26,17 +27,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
   @override
   void initState() {
     super.initState();
-    _markers.add(
-      Marker(
-        markerId: const MarkerId('location'),
-        position: _selectedLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        draggable: true,
-        onDragEnd: (newPosition) {
-          _selectedLocation = newPosition;
-        },
-      ),
-    );
+    _updateMarker(_selectedLocation);
     if (widget.serviceRequest.location != null) {
       _locationController.text = widget.serviceRequest.location!;
     }
@@ -49,6 +40,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
         widget.serviceRequest.latitude!,
         widget.serviceRequest.longitude!,
       );
+      _updateMarker(_selectedLocation);
     }
   }
 
@@ -58,6 +50,47 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
     _locationController.dispose();
     _locationDetailsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _updateMarker(LatLng position) async {
+    setState(() {
+      _markers.clear();
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('location'),
+          position: position,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+          draggable: true,
+          onDragEnd: (newPosition) {
+            _selectedLocation = newPosition;
+            _updateMarker(newPosition);
+          },
+        ),
+      );
+      _selectedLocation = position;
+    });
+
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks.first;
+        String address =
+            "${place.street ?? ''}, ${place.locality ?? ''}, ${place.administrativeArea ?? ''}, ${place.country ?? ''}";
+        _locationController.text = address.trim().isEmpty
+            ? 'No address found'
+            : address;
+      } else {
+        _locationController.text = 'No address found';
+      }
+    } catch (e) {
+      _locationController.text = 'Error retrieving address';
+      print('Error in reverse geocoding: $e');
+    }
   }
 
   @override
@@ -77,7 +110,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
           children: [
             const Icon(Icons.location_on, color: Colors.black54, size: 16),
             const SizedBox(width: 4),
-            Text(
+            const Text(
               'Av. Benavides 4887',
               style: TextStyle(color: Colors.black54, fontSize: 14),
             ),
@@ -107,7 +140,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 4),
-                  Text(
+                  const Text(
                     '[*] Campo obligatorio',
                     style: TextStyle(color: Colors.red, fontSize: 12),
                   ),
@@ -127,21 +160,21 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Text(
+                  const Text(
                     'Paso 1',
                     style: TextStyle(
                       fontWeight: FontWeight.normal,
                       color: Colors.grey,
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Paso 2',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Paso 3',
                     style: TextStyle(
                       fontWeight: FontWeight.normal,
@@ -168,23 +201,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                   ),
                   markers: _markers,
                   onTap: (position) {
-                    setState(() {
-                      _markers.clear();
-                      _markers.add(
-                        Marker(
-                          markerId: const MarkerId('location'),
-                          position: position,
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueGreen,
-                          ),
-                          draggable: true,
-                          onDragEnd: (newPosition) {
-                            _selectedLocation = newPosition;
-                          },
-                        ),
-                      );
-                      _selectedLocation = position;
-                    });
+                    _updateMarker(position);
                   },
                 ),
               ),
@@ -211,7 +228,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () {
-                      // Add logic for location picker if needed
+                      // Add place picker logic if needed
                     },
                     child: const Text(
                       'Editar',
@@ -319,11 +336,7 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(
-              color: Colors.grey.shade300,
-              width: 2,
-              style: BorderStyle.solid,
-            ),
+            bottom: BorderSide(color: Colors.grey.shade300, width: 2),
           ),
         ),
       ),

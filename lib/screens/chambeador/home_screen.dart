@@ -6,6 +6,7 @@ import 'package:chambea/screens/chambeador/mas_screen.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
 import 'package:chambea/screens/chambeador/job_detail_screen.dart';
 import 'package:chambea/screens/chambeador/trabajos.dart';
+import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
 import 'package:chambea/blocs/chambeador/jobs_event.dart';
 import 'package:chambea/blocs/chambeador/jobs_state.dart';
@@ -31,22 +32,37 @@ class _HomeScreenState extends State<HomeScreen> {
     MasScreen(),
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(child: _screens[_selectedIndex]),
+      body: SafeArea(
+        child: Builder(
+          builder: (context) {
+            try {
+              return _screens[_selectedIndex];
+            } catch (e, stackTrace) {
+              print(
+                'ERROR: Failed to render screen at index $_selectedIndex: $e',
+              );
+              print(stackTrace);
+              return Center(
+                child: Text(
+                  'Error rendering screen: $e',
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                ),
+              );
+            }
+          },
+        ),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF22c55e),
         unselectedItemColor: Colors.black54,
         currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        onTap: (index) {
+          setState(() => _selectedIndex = index);
+        },
         selectedFontSize: 10,
         unselectedFontSize: 8,
         iconSize: 22,
@@ -120,6 +136,32 @@ class _HomeScreenContentState extends State<HomeScreenContent>
               backgroundColor: Colors.white,
               elevation: 2,
               actions: [
+                IconButton(
+                  icon: Icon(
+                    Icons.swap_horiz,
+                    color: Colors.black54,
+                    size: (screenWidth * 0.06).clamp(22, 28),
+                  ),
+                  tooltip: 'Cambiar a modo Cliente',
+                  onPressed: () {
+                    try {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ClientHomeScreen(),
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Error navigating to ClientHomeScreen: $e',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
                 IconButton(
                   icon: Icon(
                     Icons.search,
@@ -413,10 +455,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                         : 'BOB: No especificado',
                                     location:
                                         '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
-                                    workerName:
+                                    clientName:
+                                        job['client_name'] ??
                                         'Usuario ${job['created_by'] ?? 'Desconocido'}',
-                                    workerRating:
-                                        0.0, // Fetch from user API if available
+                                    clientId:
+                                        job['created_by']?.toString() ??
+                                        'Desconocido',
+                                    clientRating:
+                                        job['client_rating']?.toDouble() ?? 0.0,
                                     tags: [
                                       job['category']?.toUpperCase() ??
                                           'SERVICIO',
@@ -469,38 +515,43 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           ],
                         ),
                         SizedBox(height: screenHeight * 0.015),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _buildClientCard(
-                                context: context,
-                                name: 'Rosa Elena Pérez',
-                                rating: 4.1,
-                                screenWidth: screenWidth,
-                                screenHeight: screenHeight,
-                                textScaleFactor: textScaleFactor,
-                                baseFontSize: baseFontSize,
-                              ),
-                              _buildClientCard(
-                                context: context,
-                                name: 'Julio César Suarez',
-                                rating: 4.1,
-                                screenWidth: screenWidth,
-                                screenHeight: screenHeight,
-                                textScaleFactor: textScaleFactor,
-                                baseFontSize: baseFontSize,
-                              ),
-                              _buildClientCard(
-                                context: context,
-                                name: 'Pedro Castillo',
-                                rating: 4.1,
-                                screenWidth: screenWidth,
-                                screenHeight: screenHeight,
-                                textScaleFactor: textScaleFactor,
-                                baseFontSize: baseFontSize,
-                              ),
-                            ],
+                        SizedBox(
+                          height: screenHeight * 0.18,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                _buildClientCard(
+                                  context: context,
+                                  name: 'Rosa Elena Pérez',
+                                  rating: 4.1,
+                                  screenWidth: screenWidth,
+                                  screenHeight: screenHeight,
+                                  textScaleFactor: textScaleFactor,
+                                  baseFontSize: baseFontSize,
+                                ),
+                                SizedBox(width: screenWidth * 0.02),
+                                _buildClientCard(
+                                  context: context,
+                                  name: 'Julio César Suarez',
+                                  rating: 4.1,
+                                  screenWidth: screenWidth,
+                                  screenHeight: screenHeight,
+                                  textScaleFactor: textScaleFactor,
+                                  baseFontSize: baseFontSize,
+                                ),
+                                SizedBox(width: screenWidth * 0.02),
+                                _buildClientCard(
+                                  context: context,
+                                  name: 'Pedro Castillo',
+                                  rating: 4.1,
+                                  screenWidth: screenWidth,
+                                  screenHeight: screenHeight,
+                                  textScaleFactor: textScaleFactor,
+                                  baseFontSize: baseFontSize,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         SizedBox(height: screenHeight * 0.02),
@@ -594,14 +645,18 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required String title,
     required String budget,
     required String location,
-    required String workerName,
-    required double workerRating,
+    required String clientName,
+    required String clientId,
+    required double clientRating,
     required List<String> tags,
     required double screenWidth,
     required double screenHeight,
     required double textScaleFactor,
     required double baseFontSize,
   }) {
+    print(
+      'DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, Location: $location',
+    );
     return GestureDetector(
       onTap: () {
         try {
@@ -697,6 +752,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   ),
                   SizedBox(height: screenHeight * 0.01),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
                         Icons.location_on,
@@ -704,13 +760,15 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         color: Colors.black54,
                       ),
                       SizedBox(width: screenWidth * 0.01),
-                      Text(
-                        location,
-                        style: TextStyle(
-                          fontSize:
-                              (baseFontSize * 0.8).clamp(10, 12) *
-                              textScaleFactor,
-                          color: Colors.black54,
+                      Flexible(
+                        child: Text(
+                          location,
+                          style: TextStyle(
+                            fontSize:
+                                (baseFontSize * 0.8).clamp(10, 12) *
+                                textScaleFactor,
+                            color: Colors.black54,
+                          ),
                         ),
                       ),
                     ],
@@ -728,39 +786,44 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         ),
                       ),
                       SizedBox(width: screenWidth * 0.02),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            workerName,
-                            style: TextStyle(
-                              fontSize:
-                                  (baseFontSize * 1.0).clamp(10, 14) *
-                                  textScaleFactor,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              clientName,
+                              style: TextStyle(
+                                fontSize:
+                                    (baseFontSize * 1.0).clamp(10, 14) *
+                                    textScaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.star,
-                                size: (screenWidth * 0.035).clamp(10, 14),
-                                color: Colors.yellow,
-                              ),
-                              SizedBox(width: screenWidth * 0.01),
-                              Text(
-                                workerRating.toString(),
-                                style: TextStyle(
-                                  fontSize:
-                                      (baseFontSize * 0.8).clamp(10, 12) *
-                                      textScaleFactor,
-                                  color: Colors.black54,
+
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.star,
+                                  size: (screenWidth * 0.035).clamp(10, 14),
+                                  color: Colors.yellow,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                                SizedBox(width: screenWidth * 0.01),
+                                Text(
+                                  clientRating.toString(),
+                                  style: TextStyle(
+                                    fontSize:
+                                        (baseFontSize * 0.8).clamp(10, 12) *
+                                        textScaleFactor,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -782,9 +845,13 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double textScaleFactor,
     required double baseFontSize,
   }) {
-    return Container(
-      margin: EdgeInsets.only(right: screenWidth * 0.04),
+    print(
+      'DEBUG: Building client card for name: $name, width: ${(screenWidth * 0.22).clamp(90.0, 110.0)}',
+    );
+    return SizedBox(
+      width: (screenWidth * 0.22).clamp(90.0, 110.0),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
             radius: (screenWidth * 0.07).clamp(22, 32),
@@ -796,14 +863,18 @@ class _HomeScreenContentState extends State<HomeScreenContent>
             ),
           ),
           SizedBox(height: screenHeight * 0.01),
-          Text(
-            name,
-            style: TextStyle(
-              fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          Flexible(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -845,7 +916,6 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(screenWidth * 0.03),
       ),
-      elevation: 4,
       child: Padding(
         padding: EdgeInsets.all(screenWidth * 0.04),
         child: Column(
@@ -863,39 +933,43 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   ),
                 ),
                 SizedBox(width: screenWidth * 0.02),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      client,
-                      style: TextStyle(
-                        fontSize:
-                            (baseFontSize * 1.0).clamp(10, 14) *
-                            textScaleFactor,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        client,
+                        style: TextStyle(
+                          fontSize:
+                              (baseFontSize * 1.0).clamp(10, 14) *
+                              textScaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star,
-                          size: (screenWidth * 0.035).clamp(10, 14),
-                          color: Colors.yellow,
-                        ),
-                        SizedBox(width: screenWidth * 0.01),
-                        Text(
-                          rating.toString(),
-                          style: TextStyle(
-                            fontSize:
-                                (baseFontSize * 0.8).clamp(10, 12) *
-                                textScaleFactor,
-                            color: Colors.black54,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star,
+                            size: (screenWidth * 0.035).clamp(10, 14),
+                            color: Colors.yellow,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          SizedBox(width: screenWidth * 0.01),
+                          Text(
+                            rating.toString(),
+                            style: TextStyle(
+                              fontSize:
+                                  (baseFontSize * 0.8).clamp(10, 12) *
+                                  textScaleFactor,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const Spacer(),
                 Text(

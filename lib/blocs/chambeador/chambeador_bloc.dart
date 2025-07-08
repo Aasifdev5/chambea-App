@@ -47,9 +47,9 @@ class ChambeadorBloc extends Bloc<ChambeadorEvent, ChambeadorState> {
           profession: profileResponse['data']['profession'] ?? 'Plomero',
           birthDate: profileResponse['data']['birth_date'] ?? '',
           phone: profileResponse['data']['phone'] ?? '',
-          email: profileResponse['data']['email'] ?? '',
+          email: profileResponse['data']['email'],
           gender: profileResponse['data']['gender'] ?? 'Masculino',
-          address: profileResponse['data']['address'] ?? '',
+          address: profileResponse['data']['address'],
           aboutMe: profileResponse['data']['about_me'] ?? '',
           skills: List<String>.from(profileResponse['data']['skills'] ?? []),
           category: profileResponse['data']['category'] ?? '',
@@ -77,20 +77,22 @@ class ChambeadorBloc extends Bloc<ChambeadorEvent, ChambeadorState> {
   ) async {
     emit(state.copyWith(isLoading: true));
     try {
-      final response = await ApiService.post('/api/chambeador/profile', {
+      final data = {
         'name': event.name,
         'last_name': event.lastName,
         'profession': event.profession,
         'birth_date': event.birthDate,
         'phone': event.phone,
-        'email': event.email,
+        if (event.email != null) 'email': event.email,
         'gender': event.gender,
-        'address': event.address,
+        if (event.address != null) 'address': event.address,
         'about_me': event.aboutMe,
         'skills': event.skills,
         'category': event.category,
         'subcategories': event.subcategories,
-      });
+      };
+
+      final response = await ApiService.post('/api/chambeador/profile', data);
 
       print('Update Profile Response: $response');
 

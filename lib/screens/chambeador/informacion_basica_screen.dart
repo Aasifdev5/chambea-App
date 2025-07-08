@@ -22,7 +22,7 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
 
-  String _profession = 'Plomero'; // Matches API response
+  String _profession = 'Plomero';
   String _gender = 'Masculino';
 
   @override
@@ -56,20 +56,25 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
             context,
           ).showSnackBar(SnackBar(content: Text(state.error!)));
         } else if (!state.isLoading) {
-          _nameController.text = state.name;
-          _lastNameController.text = state.lastName;
-          _birthDateController.text = state.birthDate;
-          _phoneController.text = state.phone;
-          _emailController.text = state.email;
-          _addressController.text = state.address;
+          _nameController.text = state.name ?? '';
+          _lastNameController.text = state.lastName ?? '';
+          _birthDateController.text = state.birthDate ?? '';
+          _phoneController.text = state.phone ?? '';
+          _emailController.text = state.email ?? '';
+          _addressController.text = state.address ?? '';
           setState(() {
             _profession = state.profession.isNotEmpty
                 ? state.profession
                 : 'Plomero';
             _gender = state.gender.isNotEmpty ? state.gender : 'Masculino';
           });
+          if (state.name == null && state.lastName == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Por favor, completa tu perfil')),
+            );
+          }
           print(
-            'Updated controllers: name=${_nameController.text}, profession=$_profession, subcategories=${state.subcategories}',
+            'Updated controllers: name=${_nameController.text}, profession=$_profession, email=${_emailController.text}, address=${_addressController.text}',
           ); // Debug
         }
       },
@@ -78,7 +83,13 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
           appBar: AppBar(
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.black54),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  Navigator.pushReplacementNamed(context, '/home');
+                }
+              },
             ),
             title: const Text(
               'Información básica',
@@ -107,9 +118,13 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                         profession: _profession,
                         birthDate: _birthDateController.text,
                         phone: _phoneController.text,
-                        email: _emailController.text,
+                        email: _emailController.text.isNotEmpty
+                            ? _emailController.text
+                            : null,
                         gender: _gender,
-                        address: _addressController.text,
+                        address: _addressController.text.isNotEmpty
+                            ? _addressController.text
+                            : null,
                         aboutMe: state.aboutMe,
                         skills: state.skills,
                         category: state.category,
@@ -119,7 +134,7 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Cambios aplicados')),
                     );
-                    Navigator.pop(context);
+                    Navigator.pushReplacementNamed(context, '/home');
                   } else {
                     print('Form validation failed'); // Debug
                   }
@@ -278,6 +293,8 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                   date.day != day) {
                                 return 'Fecha inválida';
                               }
+                              _birthDateController.text =
+                                  '${day.toString().padLeft(2, '0')}/${month.toString().padLeft(2, '0')}/$year';
                               return null;
                             } catch (e) {
                               return 'Formato inválido';
@@ -290,13 +307,20 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                           keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
                             labelText: 'Número telefónico*',
-                            hintText: 'Número Telefónico',
+                            hintText: '+1234567890',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          validator: (value) =>
-                              value!.isEmpty ? 'Este campo es requerido' : null,
+                          validator: (value) {
+                            if (value!.isEmpty) {
+                              return 'Este campo es requerido';
+                            }
+                            if (!RegExp(r'^\+[1-9]\d{1,14}$').hasMatch(value)) {
+                              return 'Formato inválido (debe ser + seguido de 1-14 dígitos)';
+                            }
+                            return null;
+                          },
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         TextFormField(
@@ -379,9 +403,13 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                   profession: _profession,
                                   birthDate: _birthDateController.text,
                                   phone: _phoneController.text,
-                                  email: _emailController.text,
+                                  email: _emailController.text.isNotEmpty
+                                      ? _emailController.text
+                                      : null,
                                   gender: _gender,
-                                  address: _addressController.text,
+                                  address: _addressController.text.isNotEmpty
+                                      ? _addressController.text
+                                      : null,
                                   aboutMe: state.aboutMe,
                                   skills: state.skills,
                                   category: state.category,

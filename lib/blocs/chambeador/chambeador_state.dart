@@ -8,9 +8,9 @@ class ChambeadorState extends Equatable {
   final String profession;
   final String birthDate;
   final String phone;
-  final String email;
+  final String? email; // Made nullable
   final String gender;
-  final String address;
+  final String? address; // Made nullable
   final String aboutMe;
   final List<String> skills;
   final String category;
@@ -29,9 +29,9 @@ class ChambeadorState extends Equatable {
     this.profession = 'Plomero',
     this.birthDate = '',
     this.phone = '',
-    this.email = '',
+    this.email, // Nullable
     this.gender = 'Masculino',
-    this.address = '',
+    this.address, // Nullable
     this.aboutMe = '',
     this.skills = const [],
     this.category = '',

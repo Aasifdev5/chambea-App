@@ -7,7 +7,10 @@ import 'package:chambea/screens/chambeador/billetera_screen.dart';
 import 'package:chambea/screens/chambeador/configuracion_screen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/screens/client/home.dart';
-import 'package:chambea/main.dart'; // For SplashScreen
+import 'package:chambea/main.dart';
+import 'package:chambea/screens/chambeador/informacion_basica_screen.dart';
+import 'package:chambea/screens/chambeador/identity_card_screen.dart';
+import 'package:chambea/screens/chambeador/antecedentes_screen.dart';
 
 class MasScreen extends StatelessWidget {
   const MasScreen({super.key});
@@ -44,8 +47,7 @@ class MasScreen extends StatelessWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed: () =>
-              Navigator.pop(context), // Navigate back to previous screen
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Menú',
@@ -87,6 +89,60 @@ class MasScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => PerfilChambeadorScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.badge, color: Colors.green),
+              title: const Text(
+                'Tarjeta de Identidad',
+                style: TextStyle(fontSize: 16, color: Colors.black87),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: Colors.black54,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => IdentityCardScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.description, color: Colors.green),
+              title: const Text(
+                'Antecedentes',
+                style: TextStyle(fontSize: 16, color: Colors.black87),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: Colors.black54,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => AntecedentesScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info, color: Colors.green),
+              title: const Text(
+                'Información Básica',
+                style: TextStyle(fontSize: 16, color: Colors.black87),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: Colors.black54,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => InformacionBasicaScreen()),
                 );
               },
             ),

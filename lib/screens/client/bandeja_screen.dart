@@ -67,13 +67,16 @@ class _BandejaScreenState extends State<BandejaScreen> {
                         final proposals = List<Map<String, dynamic>>.from(
                           request['proposals'] ?? [],
                         );
-                        final workerId = proposals.isNotEmpty
-                            ? proposals[0]['worker_id']
-                            : null;
+                        final contract =
+                            request['contract'] as Map<String, dynamic>?;
+                        final workerId = contract != null
+                            ? contract['worker_id']
+                            : (proposals.isNotEmpty
+                                  ? proposals[0]['worker_id']
+                                  : null);
                         return _buildJobCard(
                           context,
-                          request['status'] ??
-                              'Pendiente', // Use backend status
+                          request['status'] ?? 'Pendiente',
                           '${request['category'] ?? 'Servicio'} - ${request['subcategory'] ?? 'General'}',
                           request['location'] ?? 'Sin ubicación',
                           request['budget'] != null &&
@@ -83,12 +86,12 @@ class _BandejaScreenState extends State<BandejaScreen> {
                                       null
                               ? 'BOB: ${request['budget']}'
                               : 'BOB: No especificado',
-                          request['is_time_undefined'] == 1
+                          request['is_time_undefined'] == true
                               ? 'Horario flexible'
-                              : request['start_time'] ?? 'Sin horario',
-                          'No especificado',
-                          'Usuario ${request['created_by'] ?? 'Desconocido'}',
-                          0.0,
+                              : (request['start_time'] ?? 'Sin horario'),
+                          'No especificado', // Duration not provided in API response
+                          'Usuario ${request['client_name'] ?? request['created_by'] ?? 'Desconocido'}',
+                          request['client_rating']?.toDouble() ?? 0.0,
                           request['id'],
                           request['subcategory'] ?? 'General',
                           proposals,
@@ -120,7 +123,7 @@ class _BandejaScreenState extends State<BandejaScreen> {
     int requestId,
     String subcategory,
     List<Map<String, dynamic>> proposals,
-    int? workerId,
+    dynamic workerId,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -157,7 +160,7 @@ class _BandejaScreenState extends State<BandejaScreen> {
                     ),
                   ),
                 ),
-                Text(price),
+                Flexible(child: Text(price, overflow: TextOverflow.ellipsis)),
               ],
             ),
             const SizedBox(height: 8),
@@ -170,7 +173,9 @@ class _BandejaScreenState extends State<BandejaScreen> {
               children: [
                 const Icon(Icons.location_on, size: 16, color: Colors.black54),
                 const SizedBox(width: 4),
-                Text(location),
+                Flexible(
+                  child: Text(location, overflow: TextOverflow.ellipsis),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -178,7 +183,12 @@ class _BandejaScreenState extends State<BandejaScreen> {
               children: [
                 const Icon(Icons.access_time, size: 16, color: Colors.black54),
                 const SizedBox(width: 4),
-                Text('$time ($duration)'),
+                Flexible(
+                  child: Text(
+                    '$time ($duration)',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -190,26 +200,32 @@ class _BandejaScreenState extends State<BandejaScreen> {
                   child: const Icon(Icons.person, color: Colors.white),
                 ),
                 const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(client),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star,
-                          size: 16,
-                          color: Colors.yellow.shade700,
-                        ),
-                        Text(rating.toString()),
-                      ],
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(client, overflow: TextOverflow.ellipsis),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star,
+                            size: 16,
+                            color: Colors.yellow.shade700,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(rating.toStringAsFixed(1)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('El precio de $price es mi servicio por hora'),
+            Text(
+              'El precio de $price es mi servicio por hora',
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 8),
             Row(
               children: [

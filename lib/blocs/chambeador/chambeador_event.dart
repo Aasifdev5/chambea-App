@@ -16,9 +16,9 @@ class UpdateProfileEvent extends ChambeadorEvent {
   final String profession;
   final String birthDate;
   final String phone;
-  final String email;
+  final String? email; // Made nullable
   final String gender;
-  final String address;
+  final String? address; // Made nullable
   final String aboutMe;
   final List<String> skills;
   final String category;
@@ -30,9 +30,9 @@ class UpdateProfileEvent extends ChambeadorEvent {
     required this.profession,
     required this.birthDate,
     required this.phone,
-    required this.email,
+    this.email, // Nullable
     required this.gender,
-    required this.address,
+    this.address, // Nullable
     required this.aboutMe,
     required this.skills,
     required this.category,
