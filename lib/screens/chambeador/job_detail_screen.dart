@@ -331,13 +331,29 @@ class JobDetailScreen extends StatelessWidget {
                                       ),
                                     ),
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              ChatDetailScreen(),
-                                        ),
-                                      );
+                                      if (job.clientId != null) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ChatDetailScreen(
+                                                  workerId: job.clientId!
+                                                      .toString(),
+                                                  requestId: job.id,
+                                                ),
+                                          ),
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Error: No se encontró el ID del cliente',
+                                            ),
+                                          ),
+                                        );
+                                      }
                                     },
                                     child: const Text(
                                       'Consultar',

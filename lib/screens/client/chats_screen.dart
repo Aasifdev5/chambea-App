@@ -34,7 +34,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     } catch (e) {
       print('Error fetching account type: $e');
       setState(() {
-        _accountType = 'unknown';
+        _accountType = 'Client'; // Fallback for Client
       });
     }
   }
@@ -57,12 +57,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
       final chats = await ApiService.getChats();
       final filteredChats = chats.where((chat) {
-        if (_accountType == 'Client') {
-          return chat['client_id'] == user.uid;
-        } else if (_accountType == 'Chambeador') {
-          return chat['worker_id'] == user.uid;
-        }
-        return false;
+        return chat['client_id'] == user.uid &&
+            chat['client_account_type'] == 'Client';
       }).toList();
 
       setState(() {
@@ -82,8 +78,26 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chats (${_accountType ?? "Cargando..."})'),
-        actions: [IconButton(icon: const Icon(Icons.search), onPressed: () {})],
+        title: Text('Chats (Client)'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.search, color: Colors.black54),
+            onPressed: () {
+              // Implement search functionality if needed
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Funcionalidad de búsqueda no implementada'),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

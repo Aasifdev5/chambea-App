@@ -56,7 +56,6 @@ class ProposalDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
             // Status + Price
             Row(
               children: [
@@ -90,7 +89,6 @@ class ProposalDetailScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-
             // Title
             Align(
               alignment: Alignment.centerLeft,
@@ -103,7 +101,6 @@ class ProposalDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-
             // Location
             Row(
               children: [
@@ -116,7 +113,6 @@ class ProposalDetailScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-
             // Worker Info
             Row(
               children: [
@@ -130,9 +126,9 @@ class ProposalDetailScreen extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Andrés Villamontes',
-                      style: TextStyle(
+                    Text(
+                      job.workerName ?? 'Andrés Villamontes',
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
@@ -142,7 +138,7 @@ class ProposalDetailScreen extends StatelessWidget {
                         const Icon(Icons.star, size: 16, color: Colors.amber),
                         const SizedBox(width: 4),
                         Text(
-                          '4.5',
+                          (job.workerRating ?? 4.5).toStringAsFixed(1),
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
                         const SizedBox(width: 8),
@@ -157,7 +153,6 @@ class ProposalDetailScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-
             // Proposal Details
             const Align(
               alignment: Alignment.centerLeft,
@@ -168,7 +163,7 @@ class ProposalDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Hola ${job.clientName}, soy Andrés Villamontes, técnico eléctrico con 5 años de experiencia. '
+              'Hola ${job.clientName}, soy ${job.workerName ?? 'Andrés Villamontes'}, técnico eléctrico con 5 años de experiencia. '
               'Puedo estar en ${job.location} hoy a las 18:00 como pediste. El trabajo incluye materiales de primera calidad y garantía por 6 meses.',
               style: TextStyle(
                 fontSize: 14,
@@ -177,7 +172,6 @@ class ProposalDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
             // Detail Card
             Card(
               elevation: 1,
@@ -212,41 +206,54 @@ class ProposalDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
             // Action Buttons
             if (job.status == 'Pendiente') ...[
               _primaryButton(
                 label: 'Aceptar Propuesta',
                 color: Colors.green.shade700,
-                onTap:
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StartServiceScreen(job: job),
-                      ),
-                    ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StartServiceScreen(job: job),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               _outlinedButton(
                 label: 'Enviar Mensaje',
                 color: Colors.green.shade700,
-                onTap:
-                    () => Navigator.push(
+                onTap: () {
+                  if (job.workerId != null && job.id != null) {
+                    Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => ChatDetailScreen()),
-                    ),
+                      MaterialPageRoute(
+                        builder: (_) => ChatDetailScreen(
+                          workerId: job.workerId!.toString(),
+                          requestId: job.id,
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Error: No se encontró el ID del trabajador o solicitud',
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
             ] else if (job.status == 'En curso') ...[
               _primaryButton(
                 label: 'Terminar Servicio',
                 color: Colors.red.shade600,
-                onTap:
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TerminateServiceScreen(job: job),
-                      ),
-                    ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TerminateServiceScreen(job: job),
+                  ),
+                ),
               ),
             ],
           ],

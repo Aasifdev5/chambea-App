@@ -1,15 +1,164 @@
 import 'package:flutter/material.dart';
-import 'package:chambea/screens/chambeador/buscar_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:chambea/services/api_service.dart';
+import 'package:chambea/widgets/chat_message.dart';
 
-class ChatDetailScreen extends StatelessWidget {
+class ChatDetailScreen extends StatefulWidget {
+  final String workerId;
+  final int requestId;
+
+  const ChatDetailScreen({
+    required this.workerId,
+    required this.requestId,
+    super.key,
+  });
+
+  @override
+  _ChatDetailScreenState createState() => _ChatDetailScreenState();
+}
+
+class _ChatDetailScreenState extends State<ChatDetailScreen> {
+  String? _chatId;
+  String? _workerName;
+  List<Map<String, dynamic>> _messages = [];
+  bool _isLoading = true;
+  String? _error;
+  final _messageController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeChat();
+  }
+
+  Future<void> _initializeChat() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Determine account type
+      final userResponse = await ApiService.get('/api/users/${user.uid}');
+      if (userResponse['status'] == 'error') {
+        throw Exception(userResponse['message'] ?? 'User not found');
+      }
+      final accountType = userResponse['data']['account_type'] ?? 'Chambeador';
+
+      // Fetch worker/client details
+      final otherUserResponse = await ApiService.get(
+        '/api/users/${widget.workerId}',
+      );
+      if (otherUserResponse['status'] == 'error') {
+        throw Exception(otherUserResponse['message'] ?? 'Other user not found');
+      }
+      final otherUserData = otherUserResponse['data'] ?? {};
+
+      // Initialize chat
+      final chatResponse = await ApiService.post('/api/chats/initialize', {
+        'request_id': widget.requestId,
+        'worker_id': widget.workerId,
+        'account_type': accountType,
+      });
+      if (chatResponse['status'] == 'error') {
+        throw Exception(chatResponse['message'] ?? 'Failed to initialize chat');
+      }
+
+      // Fetch messages
+      final messagesResponse = await ApiService.get(
+        '/api/chats/${chatResponse['data']['chat_id']}/messages',
+      );
+      if (messagesResponse['status'] == 'error') {
+        throw Exception(
+          messagesResponse['message'] ?? 'Failed to fetch messages',
+        );
+      }
+
+      setState(() {
+        _chatId = chatResponse['data']['chat_id'];
+        _workerName = otherUserData['name'] ?? 'Usuario ${widget.workerId}';
+        _messages = List<Map<String, dynamic>>.from(messagesResponse['data']);
+        _isLoading = false;
+      });
+
+      // Mark messages as read
+      for (var message in _messages) {
+        if (message['sender_id'] != user.uid && !message['read']) {
+          await ApiService.post('/api/chats/mark-read', {
+            'chat_id': _chatId,
+            'message_id': message['id'],
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (_messageController.text.isEmpty || _chatId == null) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final userResponse = await ApiService.get('/api/users/${user.uid}');
+      if (userResponse['status'] == 'error') {
+        throw Exception(userResponse['message'] ?? 'User not found');
+      }
+      final accountType = userResponse['data']['account_type'] ?? 'Chambeador';
+
+      final response = await ApiService.post('/api/chats/send', {
+        'chat_id': _chatId,
+        'message': _messageController.text,
+        'account_type': accountType,
+      });
+
+      if (response['status'] == 'error') {
+        throw Exception(response['message'] ?? 'Failed to send message');
+      }
+
+      setState(() {
+        _messages.add({
+          'id': response['message_id'],
+          'sender_id': user.uid,
+          'message': _messageController.text,
+          'timestamp': DateTime.now().toIso8601String(),
+          'read': false,
+          'sender_account_type': accountType,
+        });
+        _messageController.clear();
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed:
-              () => Navigator.pop(context), // Navigate back to ChatScreen
+          onPressed: () => Navigator.pop(context),
         ),
         title: Row(
           children: [
@@ -20,7 +169,7 @@ class ChatDetailScreen extends StatelessWidget {
             ),
             SizedBox(width: 8),
             Text(
-              'Mario Urioste',
+              _workerName ?? 'Chat',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -35,16 +184,16 @@ class ChatDetailScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.search, color: Colors.black54),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => BuscarScreen()),
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Funcionalidad de búsqueda no implementada'),
+                ),
               );
             },
           ),
           IconButton(
             icon: Icon(Icons.more_vert, color: Colors.black54),
             onPressed: () {
-              // Placeholder for more options (e.g., settings or info)
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text('Opciones adicionales')));
@@ -52,115 +201,64 @@ class ChatDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.all(16),
-              children: [
-                _buildChatMessage(
-                  message: 'quae ab inventore',
-                  time: '16:50',
-                  isSent: false,
-                ),
-                _buildChatMessage(
-                  message: 'quae architecto beatae vitae',
-                  time: '00:13',
-                  isSent: false,
-                ),
-                _buildChatMessage(
-                  message: 'Sed ut perspiciatis unde omnis iste',
-                  time: '00:13',
-                  isSent: false,
-                  isImage: true,
-                ),
-                _buildChatMessage(
-                  message: 'doloremque laudantium, totam rem?',
-                  time: '16:46',
-                  isSent: true,
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(8),
-            child: Row(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text('Error: $_error'))
+          : Column(
               children: [
                 Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Mensaje',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Colors.green,
-                  child: IconButton(
-                    icon: Icon(Icons.send, color: Colors.white),
-                    onPressed: () {
-                      // Placeholder for sending message
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Mensaje enviado')),
+                  child: ListView.builder(
+                    padding: EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isSent =
+                          message['sender_id'] ==
+                          FirebaseAuth.instance.currentUser?.uid;
+                      return ChatMessage(
+                        message: message['message'],
+                        time: DateTime.parse(
+                          message['timestamp'],
+                        ).toLocal().toString().substring(11, 16),
+                        isSent: isSent,
+                        isImage: false,
                       );
                     },
                   ),
                 ),
+                Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: InputDecoration(
+                            hintText: 'Mensaje',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      CircleAvatar(
+                        backgroundColor: Colors.green,
+                        child: IconButton(
+                          icon: Icon(Icons.send, color: Colors.white),
+                          onPressed: _sendMessage,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChatMessage({
-    required String message,
-    required String time,
-    required bool isSent,
-    bool isImage = false,
-  }) {
-    return Align(
-      alignment: isSent ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: EdgeInsets.symmetric(vertical: 4),
-        padding: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isSent ? Colors.green : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (isImage)
-              Container(width: 150, height: 100, color: Colors.grey.shade300)
-            else
-              Text(
-                message,
-                style: TextStyle(
-                  color: isSent ? Colors.white : Colors.black87,
-                  fontSize: 14,
-                ),
-              ),
-            SizedBox(height: 4),
-            Text(
-              time,
-              style: TextStyle(
-                color: isSent ? Colors.white70 : Colors.black54,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
