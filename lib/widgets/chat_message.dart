@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatMessage extends StatelessWidget {
   final String message;
@@ -10,7 +11,7 @@ class ChatMessage extends StatelessWidget {
     required this.message,
     required this.time,
     required this.isSent,
-    this.isImage = false,
+    required this.isImage,
     super.key,
   });
 
@@ -19,11 +20,11 @@ class ChatMessage extends StatelessWidget {
     return Align(
       alignment: isSent ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: 4),
-        padding: EdgeInsets.all(8),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isSent ? Colors.green : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8),
+          color: isSent ? Colors.green.shade100 : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: isSent
@@ -31,27 +32,20 @@ class ChatMessage extends StatelessWidget {
               : CrossAxisAlignment.start,
           children: [
             if (isImage)
-              Container(
+              CachedNetworkImage(
+                imageUrl: message,
                 width: 150,
                 height: 100,
-                color: Colors.grey.shade300,
-                child: Center(child: Text('Imagen no soportada')),
+                placeholder: (context, url) =>
+                    const CircularProgressIndicator(),
+                errorWidget: (context, url, error) => const Icon(Icons.error),
               )
             else
-              Text(
-                message,
-                style: TextStyle(
-                  color: isSent ? Colors.white : Colors.black87,
-                  fontSize: 14,
-                ),
-              ),
-            SizedBox(height: 4),
+              Text(message, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 4),
             Text(
               time,
-              style: TextStyle(
-                color: isSent ? Colors.white70 : Colors.black54,
-                fontSize: 10,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
         ),

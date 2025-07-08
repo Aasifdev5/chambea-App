@@ -28,11 +28,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Future<void> _fetchAccountType() async {
     try {
       final accountType = await ApiService.getAccountType();
+      print('DEBUG: Account type fetched: $accountType');
       setState(() {
         _accountType = accountType;
       });
     } catch (e) {
-      print('Error fetching account type: $e');
+      print('DEBUG: Error fetching account type: $e');
       setState(() {
         _accountType = 'Client'; // Fallback for Client
       });
@@ -52,24 +53,33 @@ class _ChatsScreenState extends State<ChatsScreen> {
           _isLoading = false;
           _error = 'Debe iniciar sesión';
         });
+        print('DEBUG: User not authenticated');
         return;
       }
 
       final chats = await ApiService.getChats();
+      print('DEBUG: Raw chats from API: $chats');
       final filteredChats = chats.where((chat) {
-        return chat['client_id'] == user.uid &&
+        final isClientChat =
+            chat['client_id'] == user.uid &&
             chat['client_account_type'] == 'Client';
+        print(
+          'DEBUG: Checking chat ${chat['chat_id']}: isClientChat=$isClientChat',
+        );
+        return isClientChat;
       }).toList();
+
+      print('DEBUG: Filtered chats: $filteredChats');
 
       setState(() {
         _chats = filteredChats;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching chats: $e');
+      print('DEBUG: Error fetching chats: $e');
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        _error = 'Error al cargar los chats. Por favor, intenta de nuevo.';
       });
     }
   }
@@ -89,7 +99,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
           IconButton(
             icon: Icon(Icons.search, color: Colors.black54),
             onPressed: () {
-              // Implement search functionality if needed
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Funcionalidad de búsqueda no implementada'),
@@ -124,10 +133,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   title: Text(workerName),
                   subtitle: Text(chat['last_message'] ?? 'Sin mensajes'),
                   trailing: Text(
-                    chat['updated_at']?.toString() ?? 'Desconocido',
+                    _formatTimestamp(chat['updated_at']?.toString()),
                   ),
                   onTap: () {
                     if (workerId.isNotEmpty && requestId != 0) {
+                      print(
+                        'DEBUG: Navigating to ChatDetailScreen with workerId=$workerId, requestId=$requestId',
+                      );
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -138,6 +150,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         ),
                       );
                     } else {
+                      print(
+                        'DEBUG: Invalid chat data: workerId=$workerId, requestId=$requestId',
+                      );
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Error: Datos de chat inválidos'),
@@ -149,5 +164,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
               },
             ),
     );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return 'Desconocido';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (e) {
+      return 'Desconocido';
+    }
   }
 }

@@ -19,18 +19,33 @@ import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io';
+
+Future<void> registerFcmToken() async {
+  final messaging = FirebaseMessaging.instance;
+  await messaging.requestPermission();
+  final token = await messaging.getToken();
+  if (token != null) {
+    await ApiService.post('/api/users/update-fcm-token', {'fcm_token': token});
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
   await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider
-        .debug, // Use debug for testing, revert to playIntegrity for production
+    androidProvider: AndroidProvider.debug,
   );
-
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+  await registerFcmToken();
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print('Received notification: ${message.notification?.body}');
+  });
   runApp(const ChambeaApp());
 }
 
