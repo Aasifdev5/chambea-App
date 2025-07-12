@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'firebase_options.dart';
 import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/blocs/client/client_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
@@ -24,11 +25,39 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io';
 
 Future<void> registerFcmToken() async {
-  final messaging = FirebaseMessaging.instance;
-  await messaging.requestPermission();
-  final token = await messaging.getToken();
-  if (token != null) {
-    await ApiService.post('/api/users/update-fcm-token', {'fcm_token': token});
+  try {
+    final messaging = FirebaseMessaging.instance;
+    final permission = await messaging.requestPermission();
+    if (permission.authorizationStatus != AuthorizationStatus.authorized) {
+      print('DEBUG: Notification permission denied');
+      return;
+    }
+    final token = await messaging.getToken();
+    if (token == null) {
+      print('DEBUG: FCM token is null');
+      return;
+    }
+    final response = await ApiService.post('/api/users/update-fcm-token', {
+      'fcm_token': token,
+    });
+    if (response['status'] == 'success') {
+      print('DEBUG: FCM token updated successfully');
+    } else {
+      print(
+        'DEBUG: Failed to update FCM token: ${response['message'] ?? response}',
+      );
+    }
+  } catch (e) {
+    print('DEBUG: Error registering FCM token: $e');
+    if (e.toString().contains('Method Not Allowed')) {
+      print(
+        'DEBUG: Ensure the endpoint /api/users/update-fcm-token supports POST',
+      );
+    } else if (e.toString().contains('Unauthorized')) {
+      print(
+        'DEBUG: Check Firebase ID token validity or auth.firebase middleware',
+      );
+    }
   }
 }
 
@@ -36,17 +65,35 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
+    androidProvider: kDebugMode
+        ? AndroidProvider.debug
+        : AndroidProvider.playIntegrity,
   );
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
-  await registerFcmToken();
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('Received notification: ${message.notification?.body}');
-  });
+
+  // Run the app first
   runApp(const ChambeaApp());
+
+  // Perform non-critical initialization after the first frame
+  Future.microtask(() async {
+    await registerFcmToken();
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('Received notification: ${message.notification?.body}');
+    });
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      try {
+        await ApiService.post('/api/users/update-fcm-token', {
+          'fcm_token': newToken,
+        });
+        print('DEBUG: FCM token refreshed and updated');
+      } catch (e) {
+        print('DEBUG: Error refreshing FCM token: $e');
+      }
+    });
+  });
 }
 
 class ApiService {

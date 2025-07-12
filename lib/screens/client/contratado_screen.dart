@@ -6,6 +6,7 @@ import 'package:chambea/services/fcm_service.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/blocs/client/proposals_state.dart';
+import 'package:chambea/screens/client/home.dart'; // Import HomeScreen
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ContratadoScreen extends StatefulWidget {
@@ -34,18 +35,45 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
   String? _workerFirebaseUid;
   TextEditingController _budgetController = TextEditingController();
   List<Map<String, dynamic>> _proposals = [];
+  String? _accountType;
 
   @override
   void initState() {
     super.initState();
     FcmService.initialize(context);
-    _fetchServiceRequest();
+    _checkAccountTypeAndFetch();
   }
 
-  @override
-  void dispose() {
-    _budgetController.dispose();
-    super.dispose();
+  Future<void> _checkAccountTypeAndFetch() async {
+    try {
+      final accountType = await ApiService.getAccountType();
+      setState(() {
+        _accountType = accountType;
+      });
+      if (accountType != 'Client') {
+        print(
+          'DEBUG: User is $accountType, not authorized for ContratadoScreen',
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Solo los clientes pueden acceder a esta pantalla'),
+          ),
+        );
+        // Redirect to HomeScreen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+        );
+        return;
+      }
+      await _fetchServiceRequest();
+    } catch (e) {
+      print('DEBUG: Error checking account type: $e');
+      setState(() {
+        _isLoading = false;
+        _error = 'Error al verificar el tipo de cuenta: $e';
+      });
+    }
   }
 
   Future<void> _fetchServiceRequest() async {
@@ -193,6 +221,19 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
       return;
     }
 
+    if (_accountType != 'Client') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Solo los clientes pueden contratar servicios'),
+        ),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+      );
+      return;
+    }
+
     if (budget <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingrese un presupuesto válido')),
@@ -230,6 +271,16 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If account type is not yet loaded or not Client, show loading or redirect
+    if (_accountType == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_accountType != 'Client') {
+      return const Scaffold(
+        body: Center(child: Text('Acceso denegado: Solo para clientes')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -646,5 +697,11 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _budgetController.dispose();
+    super.dispose();
   }
 }

@@ -228,7 +228,8 @@ class ProposalDetailScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatDetailScreen(
-                          workerId: job.workerId!.toString(),
+                          clientId: job.workerId!
+                              .toString(), // Fixed: Use workerId as clientId
                           requestId: job.id,
                         ),
                       ),

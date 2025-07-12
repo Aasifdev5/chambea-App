@@ -11,11 +11,11 @@ import 'package:chambea/widgets/chat_message.dart';
 import 'package:retry/retry.dart';
 
 class ChatDetailScreen extends StatefulWidget {
-  final String workerId; // Client UID for Chambeador
+  final String clientId; // Client UID
   final int requestId;
 
   const ChatDetailScreen({
-    required this.workerId,
+    required this.clientId,
     required this.requestId,
     super.key,
   });
@@ -26,7 +26,7 @@ class ChatDetailScreen extends StatefulWidget {
 
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   String? _chatId;
-  String? _workerName;
+  String? _clientName;
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
   String? _error;
@@ -52,18 +52,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
 
       print(
-        'DEBUG: Initializing chat for user ${user.uid}, requestId: ${widget.requestId}, workerId: ${widget.workerId}',
+        'DEBUG: Chambeador initializing chat for user ${user.uid}, requestId: ${widget.requestId}, clientId: ${widget.clientId}',
       );
 
-      // Determine account type with retry
+      // Verify worker account type
       final userResponse = await retry(
         () => ApiService.get('/api/users/${user.uid}'),
         maxAttempts: 3,
         delayFactor: const Duration(seconds: 1),
       );
-      print('DEBUG: User response: $userResponse');
+      print('DEBUG: Worker response: $userResponse');
       if (userResponse['status'] != 'success' || userResponse['data'] == null) {
-        throw Exception(userResponse['message'] ?? 'User not found');
+        throw Exception(userResponse['message'] ?? 'Worker not found');
       }
       final accountType =
           userResponse['data']['account_type'] as String? ?? 'Chambeador';
@@ -72,18 +72,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
 
       // Fetch client details
-      final otherUserResponse = await retry(
-        () => ApiService.get('/api/users/${widget.workerId}'),
+      final clientResponse = await retry(
+        () => ApiService.get('/api/users/${widget.clientId}'),
         maxAttempts: 3,
         delayFactor: const Duration(seconds: 1),
       );
-      print('DEBUG: Other user response: $otherUserResponse');
-      if (otherUserResponse['status'] != 'success' ||
-          otherUserResponse['data'] == null) {
-        throw Exception(otherUserResponse['message'] ?? 'Client not found');
+      print('DEBUG: Client response: $clientResponse');
+      if (clientResponse['status'] != 'success' ||
+          clientResponse['data'] == null) {
+        throw Exception(clientResponse['message'] ?? 'Client not found');
       }
-      final otherUserData = otherUserResponse['data'] as Map<String, dynamic>;
-      if (otherUserData['account_type'] != 'Client') {
+      final clientData = clientResponse['data'] as Map<String, dynamic>;
+      if (clientData['account_type'] != 'Client') {
         throw Exception('Recipient is not a Client');
       }
 
@@ -91,8 +91,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final chatResponse = await retry(
         () => ApiService.post('/api/chats/initialize', {
           'request_id': widget.requestId,
-          'worker_id': widget.workerId,
-          'account_type': accountType,
+          'worker_id': user.uid,
+          'account_type': 'Chambeador',
+          'client_id': widget.clientId,
         }),
         maxAttempts: 3,
         delayFactor: const Duration(seconds: 1),
@@ -106,21 +107,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         throw Exception('Invalid chat response structure');
       }
 
+      final expectedChatId =
+          'chat_${widget.requestId}_${widget.clientId}_${user.uid}';
+      if (chatData['chat_id'] != expectedChatId) {
+        print(
+          'DEBUG: Chambeador chat_id mismatch! Expected: $expectedChatId, Got: ${chatData['chat_id']}',
+        );
+        throw Exception(
+          'Chat ID mismatch. Please check backend initialization logic.',
+        );
+      }
+
       setState(() {
         _chatId = chatData['chat_id'] as String;
-        _workerName =
-            otherUserData['name'] as String? ?? 'Usuario ${widget.workerId}';
+        _clientName =
+            clientData['name'] as String? ?? 'Usuario ${widget.clientId}';
         _isLoading = false;
       });
 
-      print('DEBUG: Chat initialized with chat_id: $_chatId');
+      print('DEBUG: Chambeador chat initialized with chat_id: $_chatId');
       _listenForMessages();
     } catch (e) {
       setState(() {
         _isLoading = false;
         _error = 'Error: $e';
       });
-      print('DEBUG: Chat initialization failed: $e');
+      print('DEBUG: Chambeador chat initialization failed: $e');
     }
   }
 
@@ -129,7 +141,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       setState(() {
         _error = 'Chat ID not initialized';
       });
-      print('DEBUG: Cannot listen for messages, chatId is null');
+      print('DEBUG: Chambeador cannot listen for messages, chatId is null');
       return;
     }
     _messageSubscription = FirebaseFirestore.instance
@@ -143,6 +155,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             setState(() {
               _messages = snapshot.docs.map((doc) {
                 final data = doc.data();
+                print(
+                  'DEBUG: Chambeador fetched message ${doc.id}, sender: ${data['sender_id']}, account_type: ${data['sender_account_type']}',
+                );
                 return {
                   'id': doc.id,
                   'sender_id': data['sender_id'],
@@ -154,16 +169,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 };
               }).toList();
             });
-            print('DEBUG: Messages updated: ${_messages.length}');
+            print('DEBUG: Chambeador messages updated: ${_messages.length}');
             final user = FirebaseAuth.instance.currentUser;
-            if (user == null) return;
+            if (user == null) {
+              print(
+                'DEBUG: Chambeador user not authenticated in message listener',
+              );
+              return;
+            }
             for (var message in _messages) {
               if (message['sender_id'] != user.uid && !message['read']) {
                 ApiService.post('/api/chats/mark-read', {
                   'chat_id': _chatId,
                   'message_id': message['id'],
                 }).catchError((e) {
-                  print('DEBUG: Failed to mark message as read: $e');
+                  print('DEBUG: Chambeador failed to mark message as read: $e');
                 });
               }
             }
@@ -172,14 +192,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             setState(() {
               _error = 'Failed to load messages: $e';
             });
-            print('DEBUG: Message stream error: $e');
+            print('DEBUG: Chambeador message stream error: $e');
           },
         );
   }
 
   Future<void> _sendMessage() async {
     if (_messageController.text.isEmpty || _chatId == null) {
-      print('DEBUG: Cannot send message, text or chatId is empty/null');
+      print(
+        'DEBUG: Chambeador cannot send message, text or chatId is empty/null',
+      );
       return;
     }
 
@@ -190,7 +212,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
 
       final userResponse = await ApiService.get('/api/users/${user.uid}');
-      print('DEBUG: User response for send: $userResponse');
+      print('DEBUG: Chambeador user response for send: $userResponse');
       if (userResponse['status'] != 'success' || userResponse['data'] == null) {
         throw Exception(userResponse['message'] ?? 'User not found');
       }
@@ -203,7 +225,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'account_type': accountType,
         'is_image': false,
       });
-      print('DEBUG: Send message response: $response');
+      print('DEBUG: Chambeador send message response: $response');
       if (response['status'] != 'success') {
         throw Exception(response['message'] ?? 'Failed to send message');
       }
@@ -211,18 +233,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       setState(() {
         _messageController.clear();
       });
-      print('DEBUG: Message sent successfully');
+      print('DEBUG: Chambeador message sent successfully');
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
-      print('DEBUG: Failed to send message: $e');
+      print('DEBUG: Chambeador failed to send message: $e');
     }
   }
 
   Future<void> _sendImage() async {
     if (_chatId == null) {
-      print('DEBUG: Cannot send image, chatId is null');
+      print('DEBUG: Chambeador cannot send image, chatId is null');
       return;
     }
 
@@ -235,7 +257,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
       if (pickedFile == null) {
-        print('DEBUG: No image selected');
+        print('DEBUG: Chambeador no image selected');
         return;
       }
 
@@ -247,7 +269,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final url = await ref.getDownloadURL();
 
       final userResponse = await ApiService.get('/api/users/${user.uid}');
-      print('DEBUG: User response for send image: $userResponse');
+      print('DEBUG: Chambeador user response for send image: $userResponse');
       if (userResponse['status'] != 'success' || userResponse['data'] == null) {
         throw Exception(userResponse['message'] ?? 'User not found');
       }
@@ -260,16 +282,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'account_type': accountType,
         'is_image': true,
       });
-      print('DEBUG: Send image response: $response');
+      print('DEBUG: Chambeador send image response: $response');
       if (response['status'] != 'success') {
         throw Exception(response['message'] ?? 'Failed to send image');
       }
-      print('DEBUG: Image sent successfully');
+      print('DEBUG: Chambeador image sent successfully');
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error sending image: $e')));
-      print('DEBUG: Failed to send image: $e');
+      print('DEBUG: Chambeador failed to send image: $e');
     }
   }
 
@@ -297,7 +319,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              _workerName ?? 'Chat',
+              _clientName ?? 'Chat',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -349,6 +371,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       final isSent =
                           message['sender_id'] ==
                           FirebaseAuth.instance.currentUser?.uid;
+                      print(
+                        'DEBUG: Chambeador rendering message ${message['id']}, isSent: $isSent, sender_id: ${message['sender_id']}, user: ${FirebaseAuth.instance.currentUser?.uid}, sender_account_type: ${message['sender_account_type']}',
+                      );
                       return ChatMessage(
                         message: message['message'],
                         time: DateTime.parse(

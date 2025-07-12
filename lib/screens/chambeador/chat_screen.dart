@@ -29,11 +29,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _fetchAccountType() async {
     try {
       final accountType = await ApiService.getAccountType();
+      print('DEBUG: Account type fetched: $accountType');
       setState(() {
         _accountType = accountType;
       });
     } catch (e) {
-      print('Error fetching account type: $e');
+      print('DEBUG: Error fetching account type: $e');
       setState(() {
         _accountType = 'Chambeador'; // Fallback for Chambeador
       });
@@ -53,24 +54,33 @@ class _ChatScreenState extends State<ChatScreen> {
           _isLoading = false;
           _error = 'Debe iniciar sesión';
         });
+        print('DEBUG: User not authenticated');
         return;
       }
 
       final chats = await ApiService.getChats();
+      print('DEBUG: Raw chats from API: $chats');
       final filteredChats = chats.where((chat) {
-        return chat['worker_id'] == user.uid &&
+        final isWorkerChat =
+            chat['worker_id'] == user.uid &&
             chat['worker_account_type'] == 'Chambeador';
+        print(
+          'DEBUG: Checking chat ${chat['chat_id']}: isWorkerChat=$isWorkerChat, client_id=${chat['client_id']}, worker_id=${chat['worker_id']}, worker_account_type=${chat['worker_account_type']}',
+        );
+        return isWorkerChat;
       }).toList();
+
+      print('DEBUG: Filtered chats: $filteredChats');
 
       setState(() {
         _chats = filteredChats;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching chats: $e');
+      print('DEBUG: Error fetching chats: $e');
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        _error = 'Error al cargar los chats. Por favor, intenta de nuevo.';
       });
     }
   }
@@ -95,6 +105,10 @@ class _ChatScreenState extends State<ChatScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: Icon(Icons.refresh, color: Colors.black54),
+            onPressed: _fetchChats,
+          ),
+          IconButton(
             icon: Icon(Icons.search, color: Colors.black54),
             onPressed: () {
               Navigator.push(
@@ -108,9 +122,21 @@ class _ChatScreenState extends State<ChatScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text('Error: $_error'))
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $_error'),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _fetchChats,
+                    child: Text('Reintentar'),
+                  ),
+                ],
+              ),
+            )
           : _chats.isEmpty
-          ? const Center(child: Text('No hay chats disponibles'))
+          ? Center(child: Text('No hay chats disponibles'))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _chats.length,
@@ -120,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 final requestId =
                     int.tryParse(chat['request_id']?.toString() ?? '0') ?? 0;
                 final clientName = chat['client_account_type'] == 'Client'
-                    ? (chat['worker_name'] ?? 'Usuario $clientId')
+                    ? (chat['client_name'] ?? 'Usuario $clientId')
                     : 'Usuario Desconocido';
                 return ListTile(
                   leading: CircleAvatar(
@@ -130,22 +156,28 @@ class _ChatScreenState extends State<ChatScreen> {
                   title: Text(clientName),
                   subtitle: Text(chat['last_message'] ?? 'Sin mensajes'),
                   trailing: Text(
-                    chat['updated_at']?.toString() ?? 'Desconocido',
+                    _formatTimestamp(chat['updated_at']?.toString()),
                   ),
                   onTap: () {
                     if (clientId.isNotEmpty && requestId != 0) {
+                      print(
+                        'DEBUG: Navigating to ChatDetailScreen with clientId=$clientId, requestId=$requestId',
+                      );
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => ChatDetailScreen(
-                            workerId: clientId,
+                            clientId: clientId,
                             requestId: requestId,
                           ),
                         ),
                       );
                     } else {
+                      print(
+                        'DEBUG: Invalid chat data: clientId=$clientId, requestId=$requestId',
+                      );
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Error: Datos de chat inválidos'),
                         ),
                       );
@@ -155,5 +187,15 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
     );
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return 'Desconocido';
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'Desconocido';
+    }
   }
 }

@@ -7,6 +7,7 @@ import 'package:chambea/blocs/chambeador/job_detail_bloc.dart';
 import 'package:chambea/blocs/chambeador/job_detail_event.dart';
 import 'package:chambea/blocs/chambeador/job_detail_state.dart';
 import 'package:chambea/models/job.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final int requestId;
@@ -331,13 +332,16 @@ class JobDetailScreen extends StatelessWidget {
                                       ),
                                     ),
                                     onPressed: () {
-                                      if (job.clientId != null) {
+                                      final user =
+                                          FirebaseAuth.instance.currentUser;
+                                      if (user != null &&
+                                          job.clientId != null) {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
                                             builder: (context) =>
                                                 ChatDetailScreen(
-                                                  workerId: job.clientId!
+                                                  clientId: job.clientId!
                                                       .toString(),
                                                   requestId: job.id,
                                                 ),
@@ -349,7 +353,7 @@ class JobDetailScreen extends StatelessWidget {
                                         ).showSnackBar(
                                           const SnackBar(
                                             content: Text(
-                                              'Error: No se encontró el ID del cliente',
+                                              'Error: No se encontró el ID del cliente o usuario no autenticado',
                                             ),
                                           ),
                                         );

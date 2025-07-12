@@ -52,7 +52,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
 
       print(
-        'DEBUG: Initializing chat for user ${user.uid}, requestId: ${widget.requestId}, workerId: ${widget.workerId}',
+        'DEBUG: Client initializing chat for user ${user.uid}, requestId: ${widget.requestId}, workerId: ${widget.workerId}',
       );
 
       // Verify client account type
@@ -71,16 +71,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
 
       // Fetch worker details
-      final userResponse = await retry(
+      final workerResponse = await retry(
         () => ApiService.get('/api/users/${widget.workerId}'),
         maxAttempts: 3,
         delayFactor: const Duration(seconds: 1),
       );
-      print('DEBUG: Worker response: $userResponse');
-      if (userResponse['status'] != 'success' || userResponse['data'] == null) {
-        throw Exception(userResponse['message'] ?? 'Worker not found');
+      print('DEBUG: Worker response: $workerResponse');
+      if (workerResponse['status'] != 'success' ||
+          workerResponse['data'] == null) {
+        throw Exception(workerResponse['message'] ?? 'Worker not found');
       }
-      final workerData = userResponse['data'] as Map<String, dynamic>;
+      final workerData = workerResponse['data'] as Map<String, dynamic>;
       if (workerData['account_type'] != 'Chambeador') {
         throw Exception('Worker is not a Chambeador');
       }
@@ -91,6 +92,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           'request_id': widget.requestId,
           'worker_id': widget.workerId,
           'account_type': 'Client',
+          'client_id': user.uid,
         }),
         maxAttempts: 3,
         delayFactor: const Duration(seconds: 1),
@@ -104,6 +106,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         throw Exception('Invalid chat response structure');
       }
 
+      final expectedChatId =
+          'chat_${widget.requestId}_${user.uid}_${widget.workerId}';
+      if (chatData['chat_id'] != expectedChatId) {
+        print(
+          'DEBUG: Client chat_id mismatch! Expected: $expectedChatId, Got: ${chatData['chat_id']}',
+        );
+        throw Exception(
+          'Chat ID mismatch. Please check backend initialization logic.',
+        );
+      }
+
       setState(() {
         _chatId = chatData['chat_id'] as String;
         _workerName =
@@ -111,14 +124,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _isLoading = false;
       });
 
-      print('DEBUG: Chat initialized with chat_id: $_chatId');
+      print('DEBUG: Client chat initialized with chat_id: $_chatId');
       _listenForMessages();
     } catch (e) {
       setState(() {
         _isLoading = false;
         _error = 'Error: $e';
       });
-      print('DEBUG: Chat initialization failed: $e');
+      print('DEBUG: Client chat initialization failed: $e');
     }
   }
 
@@ -127,7 +140,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       setState(() {
         _error = 'Chat ID not initialized';
       });
-      print('DEBUG: Cannot listen for messages, chatId is null');
+      print('DEBUG: Client cannot listen for messages, chatId is null');
       return;
     }
     _messageSubscription = FirebaseFirestore.instance
@@ -141,6 +154,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             setState(() {
               _messages = snapshot.docs.map((doc) {
                 final data = doc.data();
+                print(
+                  'DEBUG: Client fetched message ${doc.id}, sender: ${data['sender_id']}, account_type: ${data['sender_account_type']}',
+                );
                 return {
                   'id': doc.id,
                   'sender_id': data['sender_id'],
@@ -152,16 +168,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 };
               }).toList();
             });
-            print('DEBUG: Messages updated: ${_messages.length}');
+            print('DEBUG: Client messages updated: ${_messages.length}');
             final user = FirebaseAuth.instance.currentUser;
-            if (user == null) return;
+            if (user == null) {
+              print('DEBUG: Client user not authenticated in message listener');
+              return;
+            }
             for (var message in _messages) {
               if (message['sender_id'] != user.uid && !message['read']) {
                 ApiService.post('/api/chats/mark-read', {
                   'chat_id': _chatId,
                   'message_id': message['id'],
                 }).catchError((e) {
-                  print('DEBUG: Failed to mark message as read: $e');
+                  print('DEBUG: Client failed to mark message as read: $e');
                 });
               }
             }
@@ -170,14 +189,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             setState(() {
               _error = 'Failed to load messages: $e';
             });
-            print('DEBUG: Message stream error: $e');
+            print('DEBUG: Client message stream error: $e');
           },
         );
   }
 
   Future<void> _sendMessage() async {
     if (_messageController.text.isEmpty || _chatId == null) {
-      print('DEBUG: Cannot send message, text or chatId is empty/null');
+      print('DEBUG: Client cannot send message, text or chatId is empty/null');
       return;
     }
 
@@ -193,7 +212,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'account_type': 'Client',
         'is_image': false,
       });
-      print('DEBUG: Send message response: $response');
+      print('DEBUG: Client send message response: $response');
       if (response['status'] != 'success') {
         throw Exception(response['message'] ?? 'Failed to send message');
       }
@@ -201,18 +220,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       setState(() {
         _messageController.clear();
       });
-      print('DEBUG: Message sent successfully');
+      print('DEBUG: Client message sent successfully');
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
-      print('DEBUG: Failed to send message: $e');
+      print('DEBUG: Client failed to send message: $e');
     }
   }
 
   Future<void> _sendImage() async {
     if (_chatId == null) {
-      print('DEBUG: Cannot send image, chatId is null');
+      print('DEBUG: Client cannot send image, chatId is null');
       return;
     }
 
@@ -225,7 +244,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
       if (pickedFile == null) {
-        print('DEBUG: No image selected');
+        print('DEBUG: Client no image selected');
         return;
       }
 
@@ -242,16 +261,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'account_type': 'Client',
         'is_image': true,
       });
-      print('DEBUG: Send image response: $response');
+      print('DEBUG: Client send image response: $response');
       if (response['status'] != 'success') {
         throw Exception(response['message'] ?? 'Failed to send image');
       }
-      print('DEBUG: Image sent successfully');
+      print('DEBUG: Client image sent successfully');
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error sending image: $e')));
-      print('DEBUG: Failed to send image: $e');
+      print('DEBUG: Client failed to send image: $e');
     }
   }
 
@@ -331,6 +350,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       final isSent =
                           message['sender_id'] ==
                           FirebaseAuth.instance.currentUser?.uid;
+                      print(
+                        'DEBUG: Client rendering message ${message['id']}, isSent: $isSent, sender_id: ${message['sender_id']}, user: ${FirebaseAuth.instance.currentUser?.uid}, sender_account_type: ${message['sender_account_type']}',
+                      );
                       return ChatMessage(
                         message: message['message'],
                         time: DateTime.parse(

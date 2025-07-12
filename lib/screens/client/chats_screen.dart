@@ -64,7 +64,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
             chat['client_id'] == user.uid &&
             chat['client_account_type'] == 'Client';
         print(
-          'DEBUG: Checking chat ${chat['chat_id']}: isClientChat=$isClientChat',
+          'DEBUG: Checking chat ${chat['chat_id']}: isClientChat=$isClientChat, client_id=${chat['client_id']}, worker_id=${chat['worker_id']}, worker_account_type=${chat['worker_account_type']}',
         );
         return isClientChat;
       }).toList();
@@ -97,6 +97,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ),
         actions: [
           IconButton(
+            icon: Icon(Icons.refresh, color: Colors.black54),
+            onPressed: _fetchChats,
+          ),
+          IconButton(
             icon: Icon(Icons.search, color: Colors.black54),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -111,9 +115,21 @@ class _ChatsScreenState extends State<ChatsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text('Error: $_error'))
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $_error'),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _fetchChats,
+                    child: Text('Reintentar'),
+                  ),
+                ],
+              ),
+            )
           : _chats.isEmpty
-          ? const Center(child: Text('No hay chats disponibles'))
+          ? Center(child: Text('No hay chats disponibles'))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _chats.length,
@@ -154,7 +170,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         'DEBUG: Invalid chat data: workerId=$workerId, requestId=$requestId',
                       );
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Error: Datos de chat inválidos'),
                         ),
                       );
@@ -170,7 +186,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     if (timestamp == null) return 'Desconocido';
     try {
       final dateTime = DateTime.parse(timestamp);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return 'Desconocido';
     }
