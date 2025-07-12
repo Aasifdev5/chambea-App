@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:chambea/services/api_service.dart';
+import 'package:retry/retry.dart';
 
 // Placeholder imports for navigation (adjust paths as needed)
 import 'package:chambea/screens/client/bandeja_screen.dart';
@@ -19,24 +21,64 @@ class ClientHomeScreen extends StatefulWidget {
 
 class _ClientHomeScreenState extends State<ClientHomeScreen> {
   int _selectedIndex = 0;
+  List<dynamic> _chambeadores = [];
+  bool _isLoadingChambeadores = true;
+  String? _chambeadoresError;
 
-  // List of screens for BottomNavigationBar navigation
-  final List<Widget> _screens = [
-    const ClientHomeContent(), // Inicio (index 0)
-    BandejaScreen(), // Bondeo (index 1)
-    const SolicitarServicioScreen(subcategoryName: ''), // Servicios (index 2)
-    ChatsScreen(), // Chat (index 3)
-    MenuScreen(), // Menú (index 4)
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadChambeadores();
+  }
+
+  Future<void> _loadChambeadores() async {
+    try {
+      print('DEBUG: Starting chambeadores fetch');
+      setState(() {
+        _isLoadingChambeadores = true;
+        _chambeadoresError = null;
+      });
+
+      final response = await retry(
+        () => ApiService.get('/api/chambeadores/ratings'),
+        maxAttempts: 3,
+        delayFactor: const Duration(seconds: 1),
+      );
+
+      print('DEBUG: API response: $response');
+
+      if (response['status'] != 'success' || response['data'] == null) {
+        throw Exception(response['message'] ?? 'Failed to load chambeadores');
+      }
+
+      setState(() {
+        _chambeadores = response['data'];
+        _isLoadingChambeadores = false;
+        print(
+          'DEBUG: setState called with ${_chambeadores.length} chambeadores',
+        );
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingChambeadores = false;
+        _chambeadoresError = 'Error loading chambeadores: $e';
+        print('DEBUG: Failed to load chambeadores: $e');
+      });
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      print('DEBUG: BottomNavigationBar index changed to: $index');
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    print(
+      'DEBUG: Building ClientHomeScreen, isLoading: $_isLoadingChambeadores, chambeadores: ${_chambeadores.length}',
+    );
     return Scaffold(
       body: SafeArea(child: _screens[_selectedIndex]),
       bottomNavigationBar: BottomNavigationBar(
@@ -57,13 +99,32 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       ),
     );
   }
+
+  // List of screens for BottomNavigationBar navigation
+  final List<Widget> _screens = [
+    ClientHomeContent(key: const ValueKey('home_content')), // Inicio (index 0)
+    BandejaScreen(), // Bandeja (index 1)
+    const SolicitarServicioScreen(subcategoryName: ''), // Servicios (index 2)
+    ChatsScreen(), // Chat (index 3)
+    MenuScreen(), // Menú (index 4)
+  ];
 }
 
-class ClientHomeContent extends StatelessWidget {
+class ClientHomeContent extends StatefulWidget {
   const ClientHomeContent({super.key});
 
   @override
+  _ClientHomeContentState createState() => _ClientHomeContentState();
+}
+
+class _ClientHomeContentState extends State<ClientHomeContent> {
+  @override
   Widget build(BuildContext context) {
+    final state = context.findAncestorStateOfType<_ClientHomeScreenState>()!;
+    print(
+      'DEBUG: Building ClientHomeContent, isLoading: ${state._isLoadingChambeadores}, chambeadores: ${state._chambeadores.length}',
+    );
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -89,6 +150,7 @@ class ClientHomeContent extends StatelessWidget {
                     size: 24,
                   ),
                   onPressed: () {
+                    print('DEBUG: Navigating to BusquedaScreen');
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => BusquedaScreen()),
@@ -109,7 +171,7 @@ class ClientHomeContent extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             GridView.count(
-              crossAxisCount: 3, // Fixed to 3 columns
+              crossAxisCount: 3,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 8,
@@ -161,7 +223,7 @@ class ClientHomeContent extends StatelessWidget {
                 _buildCategoryCard(
                   context: context,
                   icon: Icons.spa,
-                  title: 'Belleza',
+                  title: ' Belleza',
                   users: '12k usuarios',
                 ),
                 _buildCategoryCard(
@@ -205,6 +267,7 @@ class ClientHomeContent extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () {
+                    print('DEBUG: Navigating to CercaDeMiScreen');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -220,33 +283,47 @@ class ClientHomeContent extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildChambeadorCard(
-                    context: context,
-                    name: 'Rosa Elena Pérez',
-                    rating: 4.1,
+            state._isLoadingChambeadores
+                ? const Center(child: CircularProgressIndicator())
+                : state._chambeadoresError != null
+                ? Center(child: Text(state._chambeadoresError!))
+                : state._chambeadores.isEmpty
+                ? const Center(child: Text('No chambeadores found'))
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: state._chambeadores.map((profile) {
+                        final name = profile['name'] as String;
+                        final lastName = profile['last_name'] as String? ?? '';
+                        final fullName =
+                            '$name${lastName.isNotEmpty ? ' $lastName' : ''}';
+                        final profession = profile['profession'] as String;
+                        final rating = profile['rating'] != null
+                            ? double.parse(profile['rating'].toString())
+                            : 0.0;
+                        final uid = profile['uid'] as String;
+                        print('DEBUG: Rendering chambeador card: $fullName');
+                        return GestureDetector(
+                          onTap: () {
+                            print(
+                              'DEBUG: Navigating to chambeador_profile with uid: $uid',
+                            );
+                            Navigator.pushNamed(
+                              context,
+                              '/chambeador_profile',
+                              arguments: {'uid': uid},
+                            );
+                          },
+                          child: _buildChambeadorCard(
+                            context: context,
+                            name: fullName,
+                            profession: profession,
+                            rating: rating,
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                  _buildChambeadorCard(
-                    context: context,
-                    name: 'Julio Sequeira',
-                    rating: 4.1,
-                  ),
-                  _buildChambeadorCard(
-                    context: context,
-                    name: 'Julio César Suárez',
-                    rating: 4.1,
-                  ),
-                  _buildChambeadorCard(
-                    context: context,
-                    name: 'Pedro Castillo',
-                    rating: 4.1,
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 16),
             // Popular Services Section
             Row(
@@ -262,6 +339,7 @@ class ClientHomeContent extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () {
+                    print('DEBUG: Navigating to ServiciosScreen');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -391,6 +469,7 @@ class ClientHomeContent extends StatelessWidget {
   }) {
     return GestureDetector(
       onTap: () {
+        print('DEBUG: Navigating to SubcategoriasScreen with category: $title');
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -434,9 +513,11 @@ class ClientHomeContent extends StatelessWidget {
   Widget _buildChambeadorCard({
     required BuildContext context,
     required String name,
+    required String profession,
     required double rating,
   }) {
     return Container(
+      width: 120,
       margin: const EdgeInsets.only(right: 16),
       child: Column(
         children: [
@@ -458,14 +539,22 @@ class ClientHomeContent extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.star, size: 14, color: Colors.yellow.shade700),
               const SizedBox(width: 4),
               Text(
-                rating.toString(),
+                rating.toStringAsFixed(1),
                 style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ],
+          ),
+          Text(
+            profession,
+            style: const TextStyle(fontSize: 10, color: Colors.black54),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
