@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-class JobsState extends Equatable {
+abstract class JobsState extends Equatable {
   const JobsState();
 
   @override
@@ -13,11 +13,13 @@ class JobsLoading extends JobsState {}
 
 class JobsLoaded extends JobsState {
   final List<dynamic> jobs;
+  final Map<String, dynamic>? workerProfile;
+  final Map<String, dynamic>? contractSummary;
 
-  const JobsLoaded(this.jobs);
+  const JobsLoaded(this.jobs, {this.workerProfile, this.contractSummary});
 
   @override
-  List<Object?> get props => [jobs];
+  List<Object?> get props => [jobs, workerProfile, contractSummary];
 }
 
 class JobsError extends JobsState {

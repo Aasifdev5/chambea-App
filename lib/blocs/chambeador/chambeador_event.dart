@@ -16,13 +16,15 @@ class UpdateProfileEvent extends ChambeadorEvent {
   final String profession;
   final String birthDate;
   final String phone;
-  final String? email; // Made nullable
+  final String? email;
   final String gender;
-  final String? address; // Made nullable
+  final String? address;
   final String aboutMe;
   final List<String> skills;
   final String category;
   final List<String> subcategories;
+  final double? lat;
+  final double? lng;
 
   const UpdateProfileEvent({
     required this.name,
@@ -30,13 +32,15 @@ class UpdateProfileEvent extends ChambeadorEvent {
     required this.profession,
     required this.birthDate,
     required this.phone,
-    this.email, // Nullable
+    this.email,
     required this.gender,
-    this.address, // Nullable
+    this.address,
     required this.aboutMe,
     required this.skills,
     required this.category,
     required this.subcategories,
+    this.lat,
+    this.lng,
   });
 
   @override
@@ -53,6 +57,8 @@ class UpdateProfileEvent extends ChambeadorEvent {
     skills,
     category,
     subcategories,
+    lat,
+    lng,
   ];
 }
 

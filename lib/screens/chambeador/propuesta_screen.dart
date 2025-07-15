@@ -126,7 +126,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
                   if (state is ProposalSuccess) {
                     final jobState = context.read<JobDetailBloc>().state;
                     if (jobState is JobDetailLoaded) {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => ContratadoScreen(

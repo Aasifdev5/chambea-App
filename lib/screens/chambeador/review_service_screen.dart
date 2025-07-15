@@ -131,7 +131,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Reseña enviada con éxito')),
         );
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TrabajosContent()),
         );

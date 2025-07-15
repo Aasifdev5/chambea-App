@@ -23,7 +23,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     BlocProvider(
-      create: (context) => JobsBloc()..add(FetchJobs()),
+      create: (context) => JobsBloc()
+        ..add(FetchJobs())
+        ..add(FetchWorkerProfile())
+        ..add(FetchContractSummary()),
       child: const HomeScreenContent(),
     ),
     const TrabajosContent(),
@@ -203,114 +206,223 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Container(
-                            padding: EdgeInsets.all(
-                              screenWidth < 360
-                                  ? screenWidth * 0.03
-                                  : screenWidth * 0.04,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.green.shade50,
-                                  Colors.green.shade100.withOpacity(0.8),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                screenWidth * 0.04,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                        BlocBuilder<JobsBloc, JobsState>(
+                          builder: (context, state) {
+                            String workerName = 'Usuario';
+                            double workerRating = 0.0;
+                            double totalBalance = 0.0;
+                            int ongoingServices = 0;
+
+                            if (state is JobsLoading) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            } else if (state is JobsError) {
+                              return Center(
+                                child: Text('Error: ${state.message}'),
+                              );
+                            } else if (state is JobsLoaded) {
+                              workerName =
+                                  state.workerProfile?['name'] ?? 'Usuario';
+                              workerRating =
+                                  state.workerProfile?['rating']?.toDouble() ??
+                                  0.0;
+                              totalBalance =
+                                  state.contractSummary?['total_balance']
+                                      ?.toDouble() ??
+                                  0.0;
+                              ongoingServices =
+                                  state.contractSummary?['ongoing_services'] ??
+                                  0;
+                            }
+
+                            return FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: Container(
+                                padding: EdgeInsets.all(
+                                  screenWidth < 360
+                                      ? screenWidth * 0.03
+                                      : screenWidth * 0.04,
                                 ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Flexible(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '¡Ofrece tu servicio hoy mismo!',
-                                        style: TextStyle(
-                                          fontSize: screenWidth < 360
-                                              ? (baseFontSize * 1.1).clamp(
-                                                      12,
-                                                      16,
-                                                    ) *
-                                                    textScaleFactor
-                                              : (baseFontSize * 1.2).clamp(
-                                                      14,
-                                                      18,
-                                                    ) *
-                                                    textScaleFactor,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                      SizedBox(height: screenHeight * 0.015),
-                                      Row(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Colors.green.shade50,
+                                      Colors.green.shade100.withOpacity(0.8),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    screenWidth * 0.04,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Flexible(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          CircleAvatar(
-                                            radius: (screenWidth * 0.045).clamp(
-                                              12,
-                                              16,
-                                            ),
-                                            backgroundColor:
-                                                Colors.grey.shade400,
-                                            child: Icon(
-                                              Icons.person,
-                                              size: (screenWidth * 0.035).clamp(
-                                                10,
-                                                14,
-                                              ),
-                                              color: Colors.white,
+                                          Text(
+                                            '¡Ofrece tu servicio hoy mismo!',
+                                            style: TextStyle(
+                                              fontSize: screenWidth < 360
+                                                  ? (baseFontSize * 1.1).clamp(
+                                                          12,
+                                                          16,
+                                                        ) *
+                                                        textScaleFactor
+                                                  : (baseFontSize * 1.2).clamp(
+                                                          14,
+                                                          18,
+                                                        ) *
+                                                        textScaleFactor,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
                                             ),
                                           ),
-                                          SizedBox(width: screenWidth * 0.02),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                          SizedBox(
+                                            height: screenHeight * 0.015,
+                                          ),
+                                          Row(
                                             children: [
-                                              Text(
-                                                'Andrés Villamontes', // Replace with dynamic user data
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      (baseFontSize * 1.0)
-                                                          .clamp(10, 14) *
-                                                      textScaleFactor,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.black87,
+                                              CircleAvatar(
+                                                radius: (screenWidth * 0.045)
+                                                    .clamp(12, 16),
+                                                backgroundColor:
+                                                    Colors.grey.shade400,
+                                                child: Icon(
+                                                  Icons.person,
+                                                  size: (screenWidth * 0.035)
+                                                      .clamp(10, 14),
+                                                  color: Colors.white,
                                                 ),
                                               ),
-                                              Row(
+                                              SizedBox(
+                                                width: screenWidth * 0.02,
+                                              ),
+                                              Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
-                                                  Icon(
-                                                    Icons.star,
-                                                    size: (screenWidth * 0.035)
-                                                        .clamp(10, 14),
-                                                    color:
-                                                        Colors.yellow.shade700,
-                                                  ),
-                                                  SizedBox(
-                                                    width: screenWidth * 0.01,
-                                                  ),
                                                   Text(
-                                                    '3.9',
+                                                    workerName,
                                                     style: TextStyle(
                                                       fontSize:
-                                                          (baseFontSize * 0.8)
-                                                              .clamp(10, 12) *
+                                                          (baseFontSize * 1.0)
+                                                              .clamp(10, 14) *
+                                                          textScaleFactor,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                  Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.star,
+                                                        size:
+                                                            (screenWidth *
+                                                                    0.035)
+                                                                .clamp(10, 14),
+                                                        color: Colors
+                                                            .yellow
+                                                            .shade700,
+                                                      ),
+                                                      SizedBox(
+                                                        width:
+                                                            screenWidth * 0.01,
+                                                      ),
+                                                      Text(
+                                                        workerRating
+                                                            .toStringAsFixed(1),
+                                                        style: TextStyle(
+                                                          fontSize:
+                                                              (baseFontSize *
+                                                                      0.8)
+                                                                  .clamp(
+                                                                    10,
+                                                                    12,
+                                                                  ) *
+                                                              textScaleFactor,
+                                                          color: Colors.black54,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(
+                                            height: screenHeight * 0.015,
+                                          ),
+                                          Row(
+                                            children: [
+                                              Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'BOB: ${totalBalance.toStringAsFixed(2)}',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          (baseFontSize * 1.0)
+                                                              .clamp(10, 14) *
+                                                          textScaleFactor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    'Saldo Actual',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          (baseFontSize * 0.7)
+                                                              .clamp(8, 10) *
+                                                          textScaleFactor,
+                                                      color: Colors.black54,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              SizedBox(
+                                                width: screenWidth * 0.04,
+                                              ),
+                                              Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    '$ongoingServices',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          (baseFontSize * 1.0)
+                                                              .clamp(10, 14) *
+                                                          textScaleFactor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    'Servicios en curso',
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          (baseFontSize * 0.7)
+                                                              .clamp(8, 10) *
                                                           textScaleFactor,
                                                       color: Colors.black54,
                                                     ),
@@ -321,89 +433,36 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                           ),
                                         ],
                                       ),
-                                      SizedBox(height: screenHeight * 0.015),
-                                      Row(
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'BOB: 0.00',
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      (baseFontSize * 1.0)
-                                                          .clamp(10, 14) *
-                                                      textScaleFactor,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Saldo Actual',
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      (baseFontSize * 0.7)
-                                                          .clamp(8, 10) *
-                                                      textScaleFactor,
-                                                  color: Colors.black54,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(width: screenWidth * 0.04),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                '0',
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      (baseFontSize * 1.0)
-                                                          .clamp(10, 14) *
-                                                      textScaleFactor,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Servicios en curso',
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      (baseFontSize * 0.7)
-                                                          .clamp(8, 10) *
-                                                      textScaleFactor,
-                                                  color: Colors.black54,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Ver más')),
-                                    );
-                                  },
-                                  child: Text(
-                                    'Ver más',
-                                    style: TextStyle(
-                                      color: const Color(0xFF22c55e),
-                                      fontSize:
-                                          (baseFontSize * 0.8).clamp(10, 12) *
-                                          textScaleFactor,
-                                      fontWeight: FontWeight.w600,
                                     ),
-                                  ),
+                                    TextButton(
+                                      onPressed: () {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Ver más'),
+                                          ),
+                                        );
+                                      },
+                                      child: Text(
+                                        'Ver más',
+                                        style: TextStyle(
+                                          color: const Color(0xFF22c55e),
+                                          fontSize:
+                                              (baseFontSize * 0.8).clamp(
+                                                10,
+                                                12,
+                                              ) *
+                                              textScaleFactor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          },
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         Text(
@@ -802,7 +861,6 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-
                             Row(
                               children: [
                                 Icon(

@@ -1,3 +1,4 @@
+import 'dart:async'; // Added to resolve TimeoutException
 import 'package:flutter/material.dart';
 import 'package:chambea/services/api_service.dart';
 import 'package:retry/retry.dart';
@@ -22,7 +23,8 @@ class ClientHomeScreen extends StatefulWidget {
 class _ClientHomeScreenState extends State<ClientHomeScreen> {
   int _selectedIndex = 0;
   List<dynamic> _chambeadores = [];
-  bool _isLoadingChambeadores = true;
+  bool _isLoadingChambeadores = false;
+  bool _hasLoadedChambeadores = false;
   String? _chambeadoresError;
 
   @override
@@ -32,6 +34,11 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   }
 
   Future<void> _loadChambeadores() async {
+    if (_hasLoadedChambeadores && _chambeadores.isNotEmpty) {
+      print('DEBUG: Skipping chambeadores fetch, data already loaded');
+      return;
+    }
+
     try {
       print('DEBUG: Starting chambeadores fetch');
       setState(() {
@@ -40,9 +47,14 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       });
 
       final response = await retry(
-        () => ApiService.get('/api/chambeadores/ratings'),
+        () => ApiService.get('/api/chambeadores/ratings?per_page=20&page=1')
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => throw TimeoutException('API request timed out'),
+            ),
         maxAttempts: 3,
         delayFactor: const Duration(seconds: 1),
+        randomizationFactor: 0.5,
       );
 
       print('DEBUG: API response: $response');
@@ -54,9 +66,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       setState(() {
         _chambeadores = response['data'];
         _isLoadingChambeadores = false;
-        print(
-          'DEBUG: setState called with ${_chambeadores.length} chambeadores',
-        );
+        _hasLoadedChambeadores = true;
+        print('DEBUG: Loaded ${_chambeadores.length} chambeadores');
       });
     } catch (e) {
       setState(() {
@@ -64,6 +75,11 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         _chambeadoresError = 'Error loading chambeadores: $e';
         print('DEBUG: Failed to load chambeadores: $e');
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load chambeadores: $e')),
+        );
+      }
     }
   }
 
@@ -100,13 +116,12 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     );
   }
 
-  // List of screens for BottomNavigationBar navigation
   final List<Widget> _screens = [
-    ClientHomeContent(key: const ValueKey('home_content')), // Inicio (index 0)
-    BandejaScreen(), // Bandeja (index 1)
-    const SolicitarServicioScreen(subcategoryName: ''), // Servicios (index 2)
-    ChatsScreen(), // Chat (index 3)
-    MenuScreen(), // Menú (index 4)
+    ClientHomeContent(key: const ValueKey('home_content')),
+    BandejaScreen(),
+    const SolicitarServicioScreen(subcategoryName: ''),
+    ChatsScreen(),
+    MenuScreen(),
   ];
 }
 
@@ -118,6 +133,153 @@ class ClientHomeContent extends StatefulWidget {
 }
 
 class _ClientHomeContentState extends State<ClientHomeContent> {
+  final List<Map<String, dynamic>> _categories = const [
+    {
+      'title': 'Construcción',
+      'icon': Icons.construction,
+      'users': '12k usuarios',
+      'subcategories': <String>[
+        'Albañil',
+        'Plomero',
+        'Pintor',
+        'Electricista',
+        'Carpintero',
+        'Cerrajero',
+        'Vidriero',
+      ],
+    },
+    {
+      'title': 'Hogar',
+      'icon': Icons.home,
+      'users': '12k usuarios',
+      'subcategories': <String>[
+        'Personal de Limpieza',
+        'Lavandería',
+        'Jardinería',
+        'Fumigación',
+      ],
+    },
+    {
+      'title': 'Gastronomía',
+      'icon': Icons.kitchen,
+      'users': '970 usuarios',
+      'subcategories': <String>[
+        'Churrasquero',
+        'Chef',
+        'Cocinero/a',
+        'Ayudante de Cocina',
+        'Repostera/o',
+      ],
+    },
+    {
+      'title': 'Cuidado/Bienestar',
+      'icon': Icons.local_hospital,
+      'users': '1k usuarios',
+      'subcategories': <String>[
+        'Niñera',
+        'Enfermería',
+        'Fisioterapia',
+        'Psicólogo',
+        'Personal Trainer',
+        'Nutricionista',
+        'Cuidado de Adulto mayor',
+      ],
+    },
+    {
+      'title': 'Seguridad',
+      'icon': Icons.security,
+      'users': '12k usuarios',
+      'subcategories': <String>[
+        'Sereno',
+        'Guardaespaldas',
+        'Detective Privado',
+        'Personal de seguridad',
+      ],
+    },
+    {
+      'title': 'Educación',
+      'icon': Icons.school,
+      'users': '970 usuarios',
+      'subcategories': <String>[
+        'Nivelación Escolar',
+        'Trabajos Escolares',
+        'Profesor de idiomas',
+        'Psicopedagogos',
+        'Ayudantías Universitarias',
+        'Tutor de Tesis',
+      ],
+    },
+    {
+      'title': 'Mascotas',
+      'icon': Icons.pets,
+      'users': '1k usuarios',
+      'subcategories': <String>[
+        'Veterinario',
+        'Cuidado de mascotas',
+        'Paseo de Mascotas',
+        'Peluquería/spa',
+      ],
+    },
+    {
+      'title': 'Belleza',
+      'icon': Icons.spa,
+      'users': '12k usuarios',
+      'subcategories': <String>[
+        'Barberia/corte',
+        'Manicura/pedicura',
+        'Maquillaje facial',
+        'Depilación',
+        'Peinados',
+      ],
+    },
+    {
+      'title': 'Eventos',
+      'icon': Icons.event,
+      'users': '970 usuarios',
+      'subcategories': <String>[
+        'Meseros',
+        'Barman',
+        'Filmación',
+        'Fotógrafo',
+        'Animación/Entretenimiento',
+        'Payasos',
+        'Amplificación y Sonido',
+        'Decoración/escenario',
+        'Servicio de DJ',
+        'Grupo musical/solista',
+      ],
+    },
+    {
+      'title': 'Redes Sociales',
+      'icon': Icons.network_wifi,
+      'users': '1k usuarios',
+      'subcategories': <String>[
+        'Influencer',
+        'Editor de Videos',
+        'Editor de Imágenes',
+        'Manejo de Redes Sociales',
+      ],
+    },
+    {
+      'title': 'Mantenimiento y Reparación',
+      'icon': Icons.build,
+      'users': '12k usuarios',
+      'subcategories': <String>[
+        'Mecánica General',
+        'Aires Acondicionados',
+        'Cámaras de Seguridad',
+        'Calefones',
+        'Sistemas Eléctricos',
+      ],
+    },
+    {
+      'title': 'Otros',
+      'icon': Icons.add,
+      'users': '970 usuarios',
+      'subcategories': <String>[],
+    },
+  ];
+
   @override
   Widget build(BuildContext context) {
     final state = context.findAncestorStateOfType<_ClientHomeScreenState>()!;
@@ -131,7 +293,6 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: "¿Qué servicio necesitas?"
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -160,7 +321,6 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
               ],
             ),
             const SizedBox(height: 16),
-            // Categories Section
             const Text(
               'Categorías',
               style: TextStyle(
@@ -177,83 +337,17 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
               childAspectRatio: 1.0,
-              children: [
-                _buildCategoryCard(
+              children: _categories.map((category) {
+                return _buildCategoryCard(
                   context: context,
-                  icon: Icons.construction,
-                  title: 'Construcción',
-                  users: '12k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.home,
-                  title: 'Hogar',
-                  users: '12k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.kitchen,
-                  title: 'Gastronomía',
-                  users: '970 usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.local_hospital,
-                  title: 'Cuidado/Bienestar',
-                  users: '1k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.security,
-                  title: 'Seguridad',
-                  users: '12k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.school,
-                  title: 'Educación',
-                  users: '970 usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.pets,
-                  title: 'Mascotas',
-                  users: '1k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.spa,
-                  title: ' Belleza',
-                  users: '12k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.event,
-                  title: 'Eventos',
-                  users: '970 usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.network_wifi,
-                  title: 'Redes Sociales',
-                  users: '1k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.build,
-                  title: 'Mantenimiento',
-                  users: '12k usuarios',
-                ),
-                _buildCategoryCard(
-                  context: context,
-                  icon: Icons.add,
-                  title: 'Otros',
-                  users: '970 usuarios',
-                ),
-              ],
+                  icon: category['icon'] as IconData,
+                  title: category['title'] as String,
+                  users: category['users'] as String,
+                  subcategories: category['subcategories'] as List<String>,
+                );
+              }).toList(),
             ),
             const SizedBox(height: 16),
-            // Recommended Chambeadores Section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -325,7 +419,6 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                     ),
                   ),
             const SizedBox(height: 16),
-            // Popular Services Section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -340,12 +433,21 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                 TextButton(
                   onPressed: () {
                     print('DEBUG: Navigating to ServiciosScreen');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ServiciosScreen(),
-                      ),
-                    );
+                    try {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ServiciosScreen(),
+                        ),
+                      );
+                    } catch (e) {
+                      print('DEBUG: Navigation error: $e');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Navigation error: $e')),
+                        );
+                      }
+                    }
                   },
                   child: const Text(
                     'Ver más',
@@ -466,6 +568,7 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
     required IconData icon,
     required String title,
     required String users,
+    required List<String> subcategories,
   }) {
     return GestureDetector(
       onTap: () {
@@ -473,7 +576,10 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SubcategoriasScreen(category: title),
+            builder: (context) => SubcategoriasScreen(
+              category: title,
+              subcategories: subcategories,
+            ),
           ),
         );
       },

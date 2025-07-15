@@ -60,7 +60,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
           ),
         );
         // Redirect to HomeScreen
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
         );
@@ -227,7 +227,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
           content: Text('Solo los clientes pueden contratar servicios'),
         ),
       );
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
       );

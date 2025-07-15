@@ -63,37 +63,50 @@ Future<void> registerFcmToken() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: kDebugMode
-        ? AndroidProvider.debug
-        : AndroidProvider.playIntegrity,
-  );
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
 
-  // Run the app first
-  runApp(const ChambeaApp());
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.dumpErrorToConsole(details);
+    if (kReleaseMode) exit(1);
+  };
 
-  // Perform non-critical initialization after the first frame
-  Future.microtask(() async {
-    await registerFcmToken();
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Received notification: ${message.notification?.body}');
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print("✅ Firebase initialized");
+
+    await FirebaseAppCheck.instance.activate();
+    print("✅ App Check activated");
+
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+    print("✅ Firestore persistence enabled");
+
+    runApp(const ChambeaApp());
+
+    // Register FCM token after UI
+    Future.microtask(() async {
+      await registerFcmToken();
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('📩 Notification: ${message.notification?.body}');
+      });
+
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        try {
+          await ApiService.post('/api/users/update-fcm-token', {
+            'fcm_token': newToken,
+          });
+          print('✅ FCM token refreshed');
+        } catch (e) {
+          print('❌ FCM token refresh error: $e');
+        }
+      });
     });
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-      try {
-        await ApiService.post('/api/users/update-fcm-token', {
-          'fcm_token': newToken,
-        });
-        print('DEBUG: FCM token refreshed and updated');
-      } catch (e) {
-        print('DEBUG: Error refreshing FCM token: $e');
-      }
-    });
-  });
+  } catch (e, stack) {
+    print('🔥 Main crash: $e\n$stack');
+  }
 }
 
 class ApiService {
@@ -734,6 +747,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'BO');
+  bool _isLoading = false;
 
   Future<void> _signInWithGoogle() async {
     try {
@@ -773,6 +787,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _startPhoneAuth() async {
     try {
+      setState(() {
+        _isLoading = true;
+      });
       final phoneNumber = _phoneNumber.phoneNumber;
       print('DEBUG: Starting phone auth for number: $phoneNumber');
       if (phoneNumber == null || phoneNumber.isEmpty) {
@@ -782,6 +799,9 @@ class _LoginScreenState extends State<LoginScreen> {
             content: Text('Por favor, ingresa un número de teléfono'),
           ),
         );
+        setState(() {
+          _isLoading = false;
+        });
         return;
       }
 
@@ -795,6 +815,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         );
+        setState(() {
+          _isLoading = false;
+        });
         return;
       }
 
@@ -822,6 +845,9 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
           }
+          setState(() {
+            _isLoading = false;
+          });
         },
         codeSent: (String verificationId, int? resendToken) {
           print('DEBUG: OTP code sent, verificationId: $verificationId');
@@ -836,10 +862,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
           }
+          setState(() {
+            _isLoading = false;
+          });
         },
         codeAutoRetrievalTimeout: (String verificationId) {
           print('DEBUG: Code auto-retrieval timeout: $verificationId');
         },
+        timeout: const Duration(seconds: 60),
       );
     } catch (e) {
       print('DEBUG: Error in phone auth: $e');
@@ -848,6 +878,9 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text('Error al enviar el código: $e')),
         );
       }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -921,7 +954,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     leadingPadding: 12,
                   ),
                   ignoreBlank: false,
-                  autoValidateMode: AutovalidateMode.disabled,
+                  autoValidateMode: AutovalidateMode.onUserInteraction,
                   initialValue: _phoneNumber,
                   selectorTextStyle: TextStyle(
                     fontSize: screenWidth * 0.035,
@@ -957,26 +990,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.03),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.1,
-                      vertical: screenHeight * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 8,
-                  ),
-                  onPressed: _startPhoneAuth,
-                  child: Text(
-                    'Enviar código',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                _isLoading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.1,
+                            vertical: screenHeight * 0.02,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 8,
+                        ),
+                        onPressed: _startPhoneAuth,
+                        child: Text(
+                          'Enviar código',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.035,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                 SizedBox(height: screenHeight * 0.03),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
@@ -1049,6 +1084,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   String _otp = '';
   bool _canResend = false;
   int _resendCountdown = 60;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -1096,6 +1132,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
   }
 
   Future<void> _verifyOtp() async {
+    setState(() {
+      _isLoading = true;
+    });
     _otp = _otpControllers.map((controller) => controller.text).join();
     if (_otp.length != 6) {
       print('DEBUG: OTP length invalid: $_otp');
@@ -1104,6 +1143,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           content: Text('Por favor, ingresa un código de 6 dígitos'),
         ),
       );
+      setState(() {
+        _isLoading = false;
+      });
       return;
     }
 
@@ -1131,6 +1173,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         ).showSnackBar(SnackBar(content: Text('Código incorrecto: $e')));
       }
     }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _resendOtp() async {
@@ -1138,6 +1183,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
       print('DEBUG: Resend not allowed yet, countdown: $_resendCountdown');
       return;
     }
+    setState(() {
+      _isLoading = true;
+    });
     try {
       print('DEBUG: Resending OTP for phone: ${widget.phoneNumber}');
       await _auth.verifyPhoneNumber(
@@ -1190,6 +1238,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
             'DEBUG: Code auto-retrieval timeout for verificationId: $verificationId',
           );
         },
+        timeout: const Duration(seconds: 60),
       );
     } catch (e) {
       print('DEBUG: Error resending OTP: $e');
@@ -1198,6 +1247,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           SnackBar(content: Text('Error al reenviar el código: $e')),
         );
       }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -1302,16 +1354,18 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
                   children: List.generate(6, (index) => _otpTextField(index)),
                 ),
                 SizedBox(height: screenHeight * 0.03),
-                Text(
-                  _canResend
-                      ? 'Puedes reenviar el código ahora'
-                      : 'Puedes reenviar el código en $_resendCountdown segundos',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.03,
-                    color: Colors.black54,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                _isLoading
+                    ? const CircularProgressIndicator()
+                    : Text(
+                        _canResend
+                            ? 'Puedes reenviar el código ahora'
+                            : 'Puedes reenviar el código en $_resendCountdown segundos',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.03,
+                          color: Colors.black54,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                 SizedBox(height: screenHeight * 0.05),
                 TextButton(
                   onPressed: _canResend ? _resendOtp : null,

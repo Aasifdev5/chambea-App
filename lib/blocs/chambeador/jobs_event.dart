@@ -8,3 +8,7 @@ abstract class JobsEvent extends Equatable {
 }
 
 class FetchJobs extends JobsEvent {}
+
+class FetchWorkerProfile extends JobsEvent {}
+
+class FetchContractSummary extends JobsEvent {}

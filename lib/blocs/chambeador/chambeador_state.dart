@@ -8,9 +8,9 @@ class ChambeadorState extends Equatable {
   final String profession;
   final String birthDate;
   final String phone;
-  final String? email; // Made nullable
+  final String? email;
   final String gender;
-  final String? address; // Made nullable
+  final String? address;
   final String aboutMe;
   final List<String> skills;
   final String category;
@@ -20,6 +20,8 @@ class ChambeadorState extends Equatable {
   final String? idNumber;
   final String? frontImagePath;
   final String? backImagePath;
+  final double? lat;
+  final double? lng;
 
   const ChambeadorState({
     this.isLoading = false,
@@ -29,9 +31,9 @@ class ChambeadorState extends Equatable {
     this.profession = 'Plomero',
     this.birthDate = '',
     this.phone = '',
-    this.email, // Nullable
+    this.email,
     this.gender = 'Masculino',
-    this.address, // Nullable
+    this.address,
     this.aboutMe = '',
     this.skills = const [],
     this.category = '',
@@ -41,6 +43,8 @@ class ChambeadorState extends Equatable {
     this.idNumber,
     this.frontImagePath,
     this.backImagePath,
+    this.lat,
+    this.lng,
   });
 
   ChambeadorState copyWith({
@@ -63,6 +67,8 @@ class ChambeadorState extends Equatable {
     String? idNumber,
     String? frontImagePath,
     String? backImagePath,
+    double? lat,
+    double? lng,
   }) {
     return ChambeadorState(
       isLoading: isLoading ?? this.isLoading,
@@ -84,6 +90,8 @@ class ChambeadorState extends Equatable {
       idNumber: idNumber ?? this.idNumber,
       frontImagePath: frontImagePath ?? this.frontImagePath,
       backImagePath: backImagePath ?? this.backImagePath,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
     );
   }
 
@@ -108,5 +116,7 @@ class ChambeadorState extends Equatable {
     idNumber,
     frontImagePath,
     backImagePath,
+    lat,
+    lng,
   ];
 }

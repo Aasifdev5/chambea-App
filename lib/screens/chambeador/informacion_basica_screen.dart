@@ -4,6 +4,9 @@ import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_event.dart';
 import 'package:chambea/blocs/chambeador/chambeador_state.dart';
 import 'package:chambea/screens/chambeador/profile_photo_upload_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class InformacionBasicaScreen extends StatefulWidget {
   const InformacionBasicaScreen({super.key});
@@ -22,14 +25,98 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
 
-  String _profession = 'Plomero';
+  String? _profession;
   String _gender = 'Masculino';
+  List<Map<String, dynamic>> _professions = [];
+  bool _isLoadingProfessions = true;
+  String? _professionError;
+  bool _isInitialLoad = true;
 
   @override
   void initState() {
     super.initState();
-    print('Initializing InformacionBasicaScreen, fetching profile'); // Debug
+    print(
+      '[InformacionBasicaScreen] Initializing, fetching profile and categories',
+    );
     context.read<ChambeadorBloc>().add(FetchProfileEvent());
+    _fetchProfessions();
+  }
+
+  Future<Map<String, String>?> _getAuthToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final token = await user.getIdToken();
+      return {'Authorization': 'Bearer $token'};
+    }
+    print('[InformacionBasicaScreen] No auth token available');
+    return null;
+  }
+
+  Future<void> _fetchProfessions() async {
+    try {
+      final headers = await _getAuthToken();
+      if (headers == null) {
+        setState(() {
+          _isLoadingProfessions = false;
+          _professionError = 'No se pudo autenticar al usuario';
+        });
+        return;
+      }
+      final url = Uri.parse('https://chambea.lat/api/categories');
+      print('[InformacionBasicaScreen] Request URL: $url');
+      print(
+        '[InformacionBasicaScreen] Request Headers: ${headers.keys.join(", ")}',
+      );
+      final response = await http.get(url, headers: headers);
+      print(
+        '[InformacionBasicaScreen] Categories API Response: ${response.body}',
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['status'] == 'success') {
+          final List<Map<String, dynamic>> fetchedProfessions =
+              List<Map<String, dynamic>>.from(responseData['data'] ?? []);
+          setState(() {
+            _professions = fetchedProfessions;
+            _isLoadingProfessions = false;
+            final state = context.read<ChambeadorBloc>().state;
+            if (_professions.any((p) => p['name'] == state.profession)) {
+              _profession = state.profession;
+            } else if (_professions.isNotEmpty) {
+              _profession = _professions[0]['name'];
+            } else {
+              _profession = '';
+              _professionError = 'No se encontraron categorías disponibles';
+            }
+          });
+          print('[InformacionBasicaScreen] Fetched categories: $_professions');
+        } else {
+          setState(() {
+            _isLoadingProfessions = false;
+            _professionError =
+                responseData['message'] ?? 'Error al cargar categorías';
+          });
+          print(
+            '[InformacionBasicaScreen] Error in category response: ${responseData['message']}',
+          );
+        }
+      } else {
+        setState(() {
+          _isLoadingProfessions = false;
+          _professionError =
+              'Error al cargar categorías: Código ${response.statusCode}';
+        });
+        print(
+          '[InformacionBasicaScreen] Error fetching categories: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingProfessions = false;
+        _professionError = 'Error al cargar categorías: $e';
+      });
+      print('[InformacionBasicaScreen] Exception fetching categories: $e');
+    }
   }
 
   @override
@@ -50,32 +137,34 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
 
     return BlocConsumer<ChambeadorBloc, ChambeadorState>(
       listener: (context, state) {
-        print('Listener received state: $state'); // Debug
+        print('[InformacionBasicaScreen] Listener received state: $state');
         if (state.error != null) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(state.error!)));
-        } else if (!state.isLoading) {
-          _nameController.text = state.name ?? '';
-          _lastNameController.text = state.lastName ?? '';
-          _birthDateController.text = state.birthDate ?? '';
-          _phoneController.text = state.phone ?? '';
-          _emailController.text = state.email ?? '';
-          _addressController.text = state.address ?? '';
+        }
+        if (!state.isLoading && _isInitialLoad) {
           setState(() {
-            _profession = state.profession.isNotEmpty
-                ? state.profession
-                : 'Plomero';
+            _nameController.text = state.name;
+            _lastNameController.text = state.lastName;
+            _birthDateController.text = state.birthDate;
+            _phoneController.text = state.phone;
+            _emailController.text = state.email ?? '';
+            _addressController.text = state.address ?? '';
             _gender = state.gender.isNotEmpty ? state.gender : 'Masculino';
+            if (_professions.any((p) => p['name'] == state.profession)) {
+              _profession = state.profession;
+            }
+            _isInitialLoad = false;
           });
-          if (state.name == null && state.lastName == null) {
+          if (state.name.isEmpty && state.lastName.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Por favor, completa tu perfil')),
             );
           }
           print(
-            'Updated controllers: name=${_nameController.text}, profession=$_profession, email=${_emailController.text}, address=${_addressController.text}',
-          ); // Debug
+            '[InformacionBasicaScreen] Updated controllers: name=${_nameController.text}, profession=$_profession, email=${_emailController.text}, address=${_addressController.text}',
+          );
         }
       },
       builder: (context, state) {
@@ -87,7 +176,7 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
                 } else {
-                  Navigator.pushReplacementNamed(context, '/home');
+                  Navigator.pushNamed(context, '/home');
                 }
               },
             ),
@@ -104,18 +193,15 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
             actions: [
               TextButton(
                 onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    final subcategoriesList = state.subcategories.keys
-                        .where((key) => state.subcategories[key]!)
-                        .toList();
-                    print(
-                      'Applying changes with subcategories: $subcategoriesList',
-                    ); // Debug
+                  if (_formKey.currentState!.validate() &&
+                      _profession != null &&
+                      _profession!.isNotEmpty) {
+                    print('[InformacionBasicaScreen] Applying changes');
                     context.read<ChambeadorBloc>().add(
                       UpdateProfileEvent(
                         name: _nameController.text,
                         lastName: _lastNameController.text,
-                        profession: _profession,
+                        profession: _profession!,
                         birthDate: _birthDateController.text,
                         phone: _phoneController.text,
                         email: _emailController.text.isNotEmpty
@@ -128,15 +214,27 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                         aboutMe: state.aboutMe,
                         skills: state.skills,
                         category: state.category,
-                        subcategories: subcategoriesList,
+                        subcategories: state.subcategories.keys
+                            .where((key) => state.subcategories[key]!)
+                            .toList(),
+                        lat: state.lat,
+                        lng: state.lng,
                       ),
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Cambios aplicados')),
                     );
-                    Navigator.pushReplacementNamed(context, '/home');
                   } else {
-                    print('Form validation failed'); // Debug
+                    print(
+                      '[InformacionBasicaScreen] Form validation failed or no valid profession selected',
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Por favor, completa todos los campos requeridos y selecciona una profesión válida',
+                        ),
+                      ),
+                    );
                   }
                 },
                 child: const Text(
@@ -146,7 +244,7 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
               ),
             ],
           ),
-          body: state.isLoading
+          body: state.isLoading || _isLoadingProfessions
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
@@ -158,12 +256,25 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_professionError != null)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              bottom: screenHeight * 0.02,
+                            ),
+                            child: Text(
+                              _professionError!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                         Center(
                           child: GestureDetector(
                             onTap: () async {
                               print(
-                                'Navigating to ProfilePhotoUploadScreen',
-                              ); // Debug
+                                '[InformacionBasicaScreen] Navigating to ProfilePhotoUploadScreen',
+                              );
                               final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -173,8 +284,8 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                               );
                               if (result != null) {
                                 print(
-                                  'Uploading profile photo: $result',
-                                ); // Debug
+                                  '[InformacionBasicaScreen] Uploading profile photo: $result',
+                                );
                                 context.read<ChambeadorBloc>().add(
                                   UploadProfilePhotoEvent(image: result),
                                 );
@@ -244,28 +355,41 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                         DropdownButtonFormField<String>(
                           value: _profession,
                           decoration: InputDecoration(
-                            labelText: 'Profesión',
+                            labelText: 'Profesión*',
                             hintText: 'Selecciona tu profesión',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          items: ['Electricista', 'Plomero', 'Carpintero']
-                              .map(
-                                (profession) => DropdownMenuItem(
-                                  value: profession,
-                                  child: Text(profession),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _profession = value!;
-                              print(
-                                'Selected profession: $_profession',
-                              ); // Debug
-                            });
-                          },
+                          items: _professions.isEmpty
+                              ? [
+                                  const DropdownMenuItem(
+                                    value: '',
+                                    enabled: false,
+                                    child: Text('Cargando profesiones...'),
+                                  ),
+                                ]
+                              : _professions
+                                    .map(
+                                      (profession) => DropdownMenuItem<String>(
+                                        value: profession['name'],
+                                        child: Text(profession['name']),
+                                      ),
+                                    )
+                                    .toList(),
+                          onChanged: _professions.isEmpty
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _profession = value!;
+                                    print(
+                                      '[InformacionBasicaScreen] Selected profession: $_profession',
+                                    );
+                                  });
+                                },
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Por favor, selecciona una profesión válida'
+                              : null,
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         TextFormField(
@@ -355,7 +479,7 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                           ),
                           items: ['Masculino', 'Femenino', 'Otro']
                               .map(
-                                (gender) => DropdownMenuItem(
+                                (gender) => DropdownMenuItem<String>(
                                   value: gender,
                                   child: Text(gender),
                                 ),
@@ -364,7 +488,9 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                           onChanged: (value) {
                             setState(() {
                               _gender = value!;
-                              print('Selected gender: $_gender'); // Debug
+                              print(
+                                '[InformacionBasicaScreen] Selected gender: $_gender',
+                              );
                             });
                           },
                         ),
@@ -372,12 +498,14 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                         TextFormField(
                           controller: _addressController,
                           decoration: InputDecoration(
-                            labelText: 'Dirección de domicilio',
+                            labelText: 'Dirección de domicilio*',
                             hintText: 'Ciudad',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
                         ),
                         SizedBox(height: screenHeight * 0.03),
                         ElevatedButton(
@@ -389,18 +517,15 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                             ),
                           ),
                           onPressed: () {
-                            if (_formKey.currentState!.validate()) {
-                              final subcategoriesList = state.subcategories.keys
-                                  .where((key) => state.subcategories[key]!)
-                                  .toList();
-                              print(
-                                'Saving with subcategories: $subcategoriesList',
-                              ); // Debug
+                            if (_formKey.currentState!.validate() &&
+                                _profession != null &&
+                                _profession!.isNotEmpty) {
+                              print('[InformacionBasicaScreen] Saving profile');
                               context.read<ChambeadorBloc>().add(
                                 UpdateProfileEvent(
                                   name: _nameController.text,
                                   lastName: _lastNameController.text,
-                                  profession: _profession,
+                                  profession: _profession!,
                                   birthDate: _birthDateController.text,
                                   phone: _phoneController.text,
                                   email: _emailController.text.isNotEmpty
@@ -413,7 +538,11 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                   aboutMe: state.aboutMe,
                                   skills: state.skills,
                                   category: state.category,
-                                  subcategories: subcategoriesList,
+                                  subcategories: state.subcategories.keys
+                                      .where((key) => state.subcategories[key]!)
+                                      .toList(),
+                                  lat: state.lat,
+                                  lng: state.lng,
                                 ),
                               );
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -428,11 +557,13 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                 '/perfil_chambeador',
                               );
                             } else {
-                              print('Form validation failed'); // Debug
+                              print(
+                                '[InformacionBasicaScreen] Form validation failed or no valid profession selected',
+                              );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    'Por favor, completa todos los campos requeridos',
+                                    'Por favor, completa todos los campos requeridos y selecciona una profesión válida',
                                   ),
                                 ),
                               );
