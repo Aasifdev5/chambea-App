@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:chambea/screens/client/contratado_screen.dart';
 import 'package:chambea/screens/client/propuestas_screen.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
@@ -8,6 +7,8 @@ import 'package:chambea/blocs/client/proposals_state.dart';
 import 'package:chambea/services/fcm_service.dart';
 
 class BandejaScreen extends StatefulWidget {
+  const BandejaScreen({super.key});
+
   @override
   _BandejaScreenState createState() => _BandejaScreenState();
 }
@@ -16,7 +17,7 @@ class _BandejaScreenState extends State<BandejaScreen> {
   @override
   void initState() {
     super.initState();
-    FcmService.initialize(context); // Initialize FCM for notifications
+    FcmService.initialize(context);
   }
 
   @override
@@ -35,7 +36,7 @@ class _BandejaScreenState extends State<BandejaScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text(
                 'Cancelar',
-                style: TextStyle(color: Colors.green),
+                style: TextStyle(color: Color(0xFF22c55e)),
               ),
             ),
           ],
@@ -70,9 +71,20 @@ class _BandejaScreenState extends State<BandejaScreen> {
                         final contract =
                             request['contract'] as Map<String, dynamic>?;
                         final workerId = contract != null
-                            ? contract['worker_id']
+                            ? contract['worker_id'] as int?
                             : (proposals.isNotEmpty
-                                  ? proposals[0]['worker_id']
+                                  ? proposals[0]['worker_id'] as int?
+                                  : null);
+                        final workerFirebaseUid = contract != null
+                            ? contract['worker_firebase_uid'] as String?
+                            : (proposals.isNotEmpty
+                                  ? proposals[0]['worker_firebase_uid']
+                                        as String?
+                                  : null);
+                        final workerName = contract != null
+                            ? contract['worker_name'] as String?
+                            : (proposals.isNotEmpty
+                                  ? proposals[0]['worker_name'] as String?
                                   : null);
                         return _buildJobCard(
                           context,
@@ -89,13 +101,15 @@ class _BandejaScreenState extends State<BandejaScreen> {
                           request['is_time_undefined'] == true
                               ? 'Horario flexible'
                               : (request['start_time'] ?? 'Sin horario'),
-                          'No especificado', // Duration not provided in API response
+                          'No especificado',
                           'Usuario ${request['client_name'] ?? request['created_by'] ?? 'Desconocido'}',
                           request['client_rating']?.toDouble() ?? 0.0,
                           request['id'],
                           request['subcategory'] ?? 'General',
                           proposals,
                           workerId,
+                          workerFirebaseUid,
+                          workerName,
                         );
                       },
                     );
@@ -123,7 +137,9 @@ class _BandejaScreenState extends State<BandejaScreen> {
     int requestId,
     String subcategory,
     List<Map<String, dynamic>> proposals,
-    dynamic workerId,
+    int? workerId,
+    String? workerFirebaseUid,
+    String? workerName,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -145,19 +161,57 @@ class _BandejaScreenState extends State<BandejaScreen> {
                         ? Colors.yellow.shade100
                         : status == 'En curso'
                         ? Colors.blue.shade100
+                        : status == 'Completado'
+                        ? Colors.purple.shade100
                         : Colors.green.shade100,
                     borderRadius: BorderRadius.circular(4),
+                    border: status == 'accepted' || status == 'Completado'
+                        ? Border.all(
+                            color: status == 'Completado'
+                                ? Colors.purple.shade700
+                                : Colors.green.shade700,
+                            width: 1.5,
+                          )
+                        : null,
                   ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      color: status == 'Pendiente'
-                          ? Colors.yellow.shade800
-                          : status == 'En curso'
-                          ? Colors.blue.shade800
-                          : Colors.green.shade800,
-                      fontSize: 12,
-                    ),
+                  child: Row(
+                    children: [
+                      if (status == 'accepted' || status == 'Completado')
+                        Icon(
+                          status == 'Completado'
+                              ? Icons.done_all
+                              : Icons.check_circle,
+                          size: 16,
+                          color: status == 'Completado'
+                              ? Colors.purple.shade800
+                              : Colors.green.shade800,
+                        ),
+                      if (status == 'accepted' || status == 'Completado')
+                        const SizedBox(width: 4),
+                      Text(
+                        status == 'Pendiente'
+                            ? 'Pendiente'
+                            : status == 'En curso'
+                            ? 'En curso'
+                            : status == 'Completado'
+                            ? 'Completado'
+                            : 'Contratado',
+                        style: TextStyle(
+                          color: status == 'Pendiente'
+                              ? Colors.yellow.shade800
+                              : status == 'En curso'
+                              ? Colors.blue.shade800
+                              : status == 'Completado'
+                              ? Colors.purple.shade800
+                              : Colors.green.shade800,
+                          fontSize: 12,
+                          fontWeight:
+                              status == 'accepted' || status == 'Completado'
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Flexible(child: Text(price, overflow: TextOverflow.ellipsis)),
@@ -170,11 +224,17 @@ class _BandejaScreenState extends State<BandejaScreen> {
             ),
             const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(Icons.location_on, size: 16, color: Colors.black54),
                 const SizedBox(width: 4),
                 Flexible(
-                  child: Text(location, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    location,
+                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -186,6 +246,7 @@ class _BandejaScreenState extends State<BandejaScreen> {
                 Flexible(
                   child: Text(
                     '$time ($duration)',
+                    style: const TextStyle(fontSize: 14, color: Colors.black54),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -232,7 +293,7 @@ class _BandejaScreenState extends State<BandejaScreen> {
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: const Color(0xFF22c55e),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -242,6 +303,9 @@ class _BandejaScreenState extends State<BandejaScreen> {
                     onPressed: proposals.isEmpty
                         ? null
                         : () {
+                            print(
+                              'DEBUG: Navigating to PropuestasScreen for requestId: $requestId',
+                            );
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -253,56 +317,6 @@ class _BandejaScreenState extends State<BandejaScreen> {
                             );
                           },
                     child: Text('Propuestas (${proposals.length})'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.green),
-                      foregroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    onPressed: () {
-                      context.read<ProposalsBloc>().add(
-                        RejectServiceRequest(requestId),
-                      );
-                    },
-                    child: const Text('Rechazar'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    onPressed: workerId == null
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ContratadoScreen(
-                                  requestId: requestId,
-                                  workerId: workerId,
-                                ),
-                              ),
-                            );
-                          },
-                    child: const Text('Contratar'),
                   ),
                 ),
               ],

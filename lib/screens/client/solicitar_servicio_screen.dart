@@ -4,10 +4,14 @@ import 'package:chambea/models/service_request.dart';
 import 'package:intl/intl.dart';
 
 class SolicitarServicioScreen extends StatefulWidget {
+  final String? categoryName;
   final String? subcategoryName;
 
-  const SolicitarServicioScreen({Key? key, required this.subcategoryName})
-    : super(key: key);
+  const SolicitarServicioScreen({
+    Key? key,
+    this.categoryName,
+    this.subcategoryName,
+  }) : super(key: key);
 
   @override
   _SolicitarServicioScreenState createState() =>
@@ -22,10 +26,87 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
   String? _selectedCategory;
   String? _selectedSubcategory;
 
+  // Consistent with ClientHomeContent categories
   final Map<String, List<String>> _subcategories = {
-    'Construcción': ['Albañil', 'Plomero', 'Pintor'],
-    'Hogar': ['Personal de Limpieza', 'Lavanderia', 'Chef'],
-    'Gastronomía': ['Charquero', 'Chef', 'Cocinero'],
+    'Construcción': [
+      'Albañil',
+      'Plomero',
+      'Pintor',
+      'Electricista',
+      'Carpintero',
+      'Cerrajero',
+      'Vidriero',
+    ],
+    'Hogar': ['Personal de Limpieza', 'Lavandería', 'Jardinería', 'Fumigación'],
+    'Gastronomía': [
+      'Churrasquero',
+      'Chef',
+      'Cocinero/a',
+      'Ayudante de Cocina',
+      'Repostera/o',
+    ],
+    'Cuidado/Bienestar': [
+      'Niñera',
+      'Enfermería',
+      'Fisioterapia',
+      'Psicólogo',
+      'Personal Trainer',
+      'Nutricionista',
+      'Cuidado de Adulto mayor',
+    ],
+    'Seguridad': [
+      'Sereno',
+      'Guardaespaldas',
+      'Detective Privado',
+      'Personal de seguridad',
+    ],
+    'Educación': [
+      'Nivelación Escolar',
+      'Trabajos Escolares',
+      'Profesor de idiomas',
+      'Psicopedagogos',
+      'Ayudantías Universitarias',
+      'Tutor de Tesis',
+    ],
+    'Mascotas': [
+      'Veterinario',
+      'Cuidado de mascotas',
+      'Paseo de Mascotas',
+      'Peluquería/spa',
+    ],
+    'Belleza': [
+      'Barberia/corte',
+      'Manicura/pedicura',
+      'Maquillaje facial',
+      'Depilación',
+      'Peinados',
+    ],
+    'Eventos': [
+      'Meseros',
+      'Barman',
+      'Filmación',
+      'Fotógrafo',
+      'Animación/Entretenimiento',
+      'Payasos',
+      'Amplificación y Sonido',
+      'Decoración/escenario',
+      'Servicio de DJ',
+      'Grupo musical/solista',
+    ],
+    'Redes Sociales': [
+      'Influencer',
+      'Editor de Videos',
+      'Editor de Imágenes',
+      'Manejo de Redes Sociales',
+    ],
+    'Mantenimiento y Reparación': [
+      'Mecánica General',
+      'Aires Acondicionados',
+      'Cámaras de Seguridad',
+      'Calefones',
+      'Sistemas Eléctricos',
+    ],
+    'Otros': [],
   };
 
   Future<void> _selectDate(BuildContext context) async {
@@ -59,15 +140,33 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
   @override
   void initState() {
     super.initState();
+    print(
+      'DEBUG: Initializing SolicitarServicioScreen with category: ${widget.categoryName}, subcategory: ${widget.subcategoryName}',
+    );
     if (widget.subcategoryName != null && widget.subcategoryName!.isNotEmpty) {
       _selectedSubcategory = widget.subcategoryName;
       _serviceRequest.subcategory = widget.subcategoryName;
+    }
+    if (widget.categoryName != null && widget.categoryName!.isNotEmpty) {
+      _selectedCategory = widget.categoryName;
+      _serviceRequest.category = widget.categoryName;
+    } else if (widget.subcategoryName != null &&
+        widget.subcategoryName!.isNotEmpty) {
+      // Fallback to infer category from subcategory
       _subcategories.forEach((category, subcategories) {
         if (subcategories.contains(widget.subcategoryName)) {
           _selectedCategory = category;
           _serviceRequest.category = category;
         }
       });
+      if (_selectedCategory == null && widget.subcategoryName!.isNotEmpty) {
+        // Assume custom subcategory belongs to 'Otros' if not found
+        _selectedCategory = 'Otros';
+        _serviceRequest.category = 'Otros';
+        print(
+          'DEBUG: Assigned subcategory ${widget.subcategoryName} to category: Otros',
+        );
+      }
     }
   }
 
@@ -82,6 +181,9 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    final showDropdowns =
+        (widget.categoryName == null || widget.categoryName!.isEmpty) &&
+        (widget.subcategoryName == null || widget.subcategoryName!.isEmpty);
 
     return Scaffold(
       appBar: AppBar(
@@ -203,21 +305,29 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                     ],
                   ),
                   SizedBox(height: screenHeight * 0.02),
-                  if (widget.subcategoryName != null &&
-                      widget.subcategoryName!.isNotEmpty)
+                  if (!showDropdowns &&
+                      _selectedCategory != null &&
+                      _selectedSubcategory != null) ...[
                     Text(
-                      'Subcategoría: ${widget.subcategoryName}',
+                      'Categoría: $_selectedCategory',
                       style: TextStyle(
                         fontSize: screenWidth * 0.035,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
-                  if (widget.subcategoryName != null &&
-                      widget.subcategoryName!.isNotEmpty)
+                    SizedBox(height: screenHeight * 0.01),
+                    Text(
+                      'Subcategoría: $_selectedSubcategory',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
                     SizedBox(height: screenHeight * 0.02),
-                  if (widget.subcategoryName == null ||
-                      widget.subcategoryName!.isEmpty) ...[
+                  ],
+                  if (showDropdowns) ...[
                     Text(
                       '¿Qué tipo de servicio necesitas?*',
                       style: TextStyle(
@@ -352,6 +462,9 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
                           if (_serviceRequest.isStep1Complete()) {
+                            print(
+                              'DEBUG: ServiceRequest before navigation: ${_serviceRequest.toJson()}',
+                            );
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -364,7 +477,7 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Por favor complete todos los campos requeridos',
+                                  'Por favor complete todos los campos requeridos, incluyendo categoría y subcategoría',
                                 ),
                               ),
                             );

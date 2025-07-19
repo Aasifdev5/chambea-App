@@ -89,14 +89,23 @@ class ServiceRequest {
 
   bool isStep1Complete() {
     if (isTimeUndefined) {
-      return date != null && date!.isNotEmpty;
+      return date != null &&
+          date!.isNotEmpty &&
+          category != null &&
+          category!.isNotEmpty &&
+          subcategory != null &&
+          subcategory!.isNotEmpty;
     }
     return date != null &&
         date!.isNotEmpty &&
         startTime != null &&
         startTime!.isNotEmpty &&
         endTime != null &&
-        endTime!.isNotEmpty;
+        endTime!.isNotEmpty &&
+        category != null &&
+        category!.isNotEmpty &&
+        subcategory != null &&
+        subcategory!.isNotEmpty;
   }
 
   bool isStep2Complete() {

@@ -31,8 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
     const TrabajosContent(),
     BuscarScreen(),
-    ChatScreen(),
-    MasScreen(),
+    const ChatScreen(),
+    const MasScreen(),
   ];
 
   @override
@@ -500,8 +500,12 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                   final job = state.jobs[index];
                                   return _buildJobCard(
                                     context: context,
-                                    requestId: job['id'],
-                                    timeAgo: _formatTimeAgo(job['created_at']),
+                                    requestId:
+                                        job['id'] as int?, // Handle null ID
+                                    timeAgo: _formatTimeAgo(
+                                      job['created_at'] ??
+                                          DateTime.now().toIso8601String(),
+                                    ),
                                     title:
                                         '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
                                     budget:
@@ -699,7 +703,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
 
   Widget _buildJobCard({
     required BuildContext context,
-    required int requestId,
+    required int? requestId, // Nullable to handle invalid IDs
     required String timeAgo,
     required String title,
     required String budget,
@@ -718,6 +722,15 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     );
     return GestureDetector(
       onTap: () {
+        if (requestId == null) {
+          print(
+            'ERROR: Attempted to navigate to JobDetailScreen with null requestId',
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error: Invalid job ID')),
+          );
+          return;
+        }
         try {
           Navigator.push(
             context,
@@ -726,8 +739,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
             ),
           );
         } catch (e) {
+          print(
+            'ERROR: Failed to navigate to JobDetailScreen for requestId: $requestId, Error: $e',
+          );
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error navigating to JobDetailScreen: $e')),
+            SnackBar(content: Text('Error navigating to job details: $e')),
           );
         }
       },
@@ -870,7 +886,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                 ),
                                 SizedBox(width: screenWidth * 0.01),
                                 Text(
-                                  clientRating.toString(),
+                                  clientRating.toStringAsFixed(1),
                                   style: TextStyle(
                                     fontSize:
                                         (baseFontSize * 0.8).clamp(10, 12) *
@@ -944,7 +960,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
               ),
               SizedBox(width: screenWidth * 0.01),
               Text(
-                rating.toString(),
+                rating.toStringAsFixed(1),
                 style: TextStyle(
                   fontSize:
                       (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
@@ -1016,7 +1032,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           ),
                           SizedBox(width: screenWidth * 0.01),
                           Text(
-                            rating.toString(),
+                            rating.toStringAsFixed(1),
                             style: TextStyle(
                               fontSize:
                                   (baseFontSize * 0.8).clamp(10, 12) *
@@ -1055,15 +1071,20 @@ class _HomeScreenContentState extends State<HomeScreenContent>
   }
 
   String _formatTimeAgo(String createdAt) {
-    final now = DateTime.now();
-    final created = DateTime.parse(createdAt);
-    final difference = now.difference(created);
-    if (difference.inDays > 0) {
-      return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
-    } else if (difference.inHours > 0) {
-      return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
-    } else {
-      return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+    try {
+      final now = DateTime.now();
+      final created = DateTime.parse(createdAt);
+      final difference = now.difference(created);
+      if (difference.inDays > 0) {
+        return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+      } else if (difference.inHours > 0) {
+        return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+      } else {
+        return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+      }
+    } catch (e) {
+      print('ERROR: Failed to parse createdAt: $createdAt, Error: $e');
+      return 'Hace desconocido';
     }
   }
 }

@@ -27,36 +27,47 @@ import 'dart:io';
 Future<void> registerFcmToken() async {
   try {
     final messaging = FirebaseMessaging.instance;
-    final permission = await messaging.requestPermission();
+    final permission = await messaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
     if (permission.authorizationStatus != AuthorizationStatus.authorized) {
       print('DEBUG: Notification permission denied');
+      await messaging.requestPermission(provisional: true);
       return;
     }
     final token = await messaging.getToken();
+    print('DEBUG: FCM Token: $token');
     if (token == null) {
-      print('DEBUG: FCM token is null');
+      print('DEBUG: FCM token is null. Check Firebase configuration.');
       return;
     }
     final response = await ApiService.post('/api/users/update-fcm-token', {
       'fcm_token': token,
     });
-    if (response['status'] == 'success') {
+    print('DEBUG: API Response: ${response['statusCode']} ${response['body']}');
+    if (response['statusCode'] == 200 &&
+        response['body']['status'] == 'success') {
       print('DEBUG: FCM token updated successfully');
     } else {
       print(
-        'DEBUG: Failed to update FCM token: ${response['message'] ?? response}',
+        'DEBUG: Failed to update FCM token: ${response['body']['message'] ?? response['body']}',
       );
     }
-  } catch (e) {
-    print('DEBUG: Error registering FCM token: $e');
+  } catch (e, stack) {
+    print('DEBUG: Error registering FCM token: $e\n$stack');
     if (e.toString().contains('Method Not Allowed')) {
       print(
         'DEBUG: Ensure the endpoint /api/users/update-fcm-token supports POST',
       );
     } else if (e.toString().contains('Unauthorized')) {
-      print(
-        'DEBUG: Check Firebase ID token validity or auth.firebase middleware',
-      );
+      print('DEBUG: Refreshing Firebase ID token');
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
     }
   }
 }
@@ -66,7 +77,8 @@ void main() async {
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.dumpErrorToConsole(details);
-    if (kReleaseMode) exit(1);
+    print('Flutter Error: ${details.exceptionAsString()}\n${details.stack}');
+    // Removed exit(1) to prevent crashes in release mode
   };
 
   try {
@@ -75,7 +87,11 @@ void main() async {
     );
     print("✅ Firebase initialized");
 
-    await FirebaseAppCheck.instance.activate();
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kReleaseMode
+          ? AndroidProvider.playIntegrity
+          : AndroidProvider.debug,
+    );
     print("✅ App Check activated");
 
     FirebaseFirestore.instance.settings = const Settings(
@@ -86,7 +102,6 @@ void main() async {
 
     runApp(const ChambeaApp());
 
-    // Register FCM token after UI
     Future.microtask(() async {
       await registerFcmToken();
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -119,7 +134,7 @@ class ApiService {
       return {'Content-Type': 'application/json', 'Accept': 'application/json'};
     }
     try {
-      String? token = await user.getIdToken(true); // Force refresh token
+      String? token = await user.getIdToken(true);
       print('DEBUG: Firebase ID token: ${token != null ? 'Valid' : 'Null'}');
       return {
         'Content-Type': 'application/json',
@@ -172,10 +187,15 @@ class ApiService {
       print(
         'DEBUG: POST $endpoint response: ${response.statusCode} ${response.body}',
       );
-      return {
-        'statusCode': response.statusCode,
-        'body': json.decode(response.body),
-      };
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'statusCode': response.statusCode,
+          'body': json.decode(response.body),
+        };
+      }
+      throw Exception(
+        'Failed to post data: ${response.statusCode} - ${response.body}',
+      );
     } catch (e) {
       print('DEBUG: POST $endpoint failed with error: $e');
       rethrow;
@@ -186,34 +206,54 @@ class ApiService {
     String endpoint,
     Map<String, dynamic> body,
   ) async {
-    final headers = await getHeaders();
-    final response = await http.put(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: headers,
-      body: json.encode(body),
-    );
-    print(
-      'DEBUG: PUT $endpoint response: ${response.statusCode} ${response.body}',
-    );
-    return {
-      'statusCode': response.statusCode,
-      'body': json.decode(response.body),
-    };
+    try {
+      final headers = await getHeaders();
+      final response = await http.put(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: headers,
+        body: json.encode(body),
+      );
+      print(
+        'DEBUG: PUT $endpoint response: ${response.statusCode} ${response.body}',
+      );
+      if (response.statusCode == 200) {
+        return {
+          'statusCode': response.statusCode,
+          'body': json.decode(response.body),
+        };
+      }
+      throw Exception(
+        'Failed to put data: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      print('DEBUG: PUT $endpoint failed with error: $e');
+      rethrow;
+    }
   }
 
   static Future<Map<String, dynamic>> delete(String endpoint) async {
-    final headers = await getHeaders();
-    final response = await http.delete(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: headers,
-    );
-    print(
-      'DEBUG: DELETE $endpoint response: ${response.statusCode} ${response.body}',
-    );
-    return {
-      'statusCode': response.statusCode,
-      'body': json.decode(response.body),
-    };
+    try {
+      final headers = await getHeaders();
+      final response = await http.delete(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: headers,
+      );
+      print(
+        'DEBUG: DELETE $endpoint response: ${response.statusCode} ${response.body}',
+      );
+      if (response.statusCode == 200) {
+        return {
+          'statusCode': response.statusCode,
+          'body': json.decode(response.body),
+        };
+      }
+      throw Exception(
+        'Failed to delete data: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      print('DEBUG: DELETE $endpoint failed with error: $e');
+      rethrow;
+    }
   }
 
   static Future<Map<String, dynamic>> uploadFile(
@@ -221,22 +261,32 @@ class ApiService {
     String fieldName,
     File file,
   ) async {
-    final headers = await getHeaders();
-    headers.remove('Content-Type');
-    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl$endpoint'));
-    request.headers.addAll(headers);
-    request.files.add(await http.MultipartFile.fromPath(fieldName, file.path));
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-    print(
-      'DEBUG: UPLOAD $endpoint response: ${response.statusCode} ${response.body}',
-    );
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
+    try {
+      final headers = await getHeaders();
+      headers.remove('Content-Type');
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl$endpoint'),
+      );
+      request.headers.addAll(headers);
+      request.files.add(
+        await http.MultipartFile.fromPath(fieldName, file.path),
+      );
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      print(
+        'DEBUG: UPLOAD $endpoint response: ${response.statusCode} ${response.body}',
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      throw Exception(
+        'Failed to upload file: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      print('DEBUG: UPLOAD $endpoint failed with error: $e');
+      rethrow;
     }
-    throw Exception(
-      'Failed to upload file: ${response.statusCode} - ${response.body}',
-    );
   }
 }
 
@@ -259,8 +309,8 @@ class ChambeaApp extends StatelessWidget {
 
       final response = await ApiService.get('/api/account-type/${user.uid}');
       print('DEBUG: Fetch account type response: $response');
-      if (response['status'] == 'success') {
-        final accountType = response['data']['account_type']?.toString() ?? '';
+      if (response['status'] == 'success' && response['data'] != null) {
+        final accountType = response['data']['account_type']?.toString();
         print('DEBUG: Account type received: $accountType');
         if (accountType == 'Client') {
           print('DEBUG: User is Client, redirecting to ClientHomeScreen');
@@ -271,9 +321,14 @@ class ChambeaApp extends StatelessWidget {
         }
       }
 
-      // Check local storage as a fallback
+      print(
+        'DEBUG: No valid account type found, redirecting to ProfileSelectionScreen',
+      );
+      return const ProfileSelectionScreen();
+    } catch (e) {
+      print('DEBUG: Error fetching account type: $e');
       final prefs = await SharedPreferences.getInstance();
-      final accountType = await prefs.getString('account_type');
+      final accountType = prefs.getString('account_type');
       print('DEBUG: Local account type: $accountType');
       if (accountType == 'Client') {
         print(
@@ -286,30 +341,8 @@ class ChambeaApp extends StatelessWidget {
         );
         return const HomeScreen();
       }
-
       print(
-        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
-      );
-      return const ProfileSelectionScreen();
-    } catch (e) {
-      print('DEBUG: Error fetching account type: $e');
-      // Check local storage as a fallback
-      final prefs = await SharedPreferences.getInstance();
-      final accountType = await prefs.getString('account_type');
-      print('DEBUG: Local account type on error: $accountType');
-      if (accountType == 'Client') {
-        print(
-          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
-        );
-        return const ClientHomeScreen();
-      } else if (accountType == 'Chambeador') {
-        print(
-          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
-        );
-        return const HomeScreen();
-      }
-      print(
-        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
+        'DEBUG: No local account type, redirecting to ProfileSelectionScreen',
       );
       return const ProfileSelectionScreen();
     }
@@ -410,7 +443,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
         );
@@ -503,10 +536,10 @@ class OnboardingOneScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
+                        Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const OnboardingTwoScreen(),
+                            builder: (_) => const LoginScreen(),
                           ),
                         );
                       },
@@ -522,6 +555,33 @@ class OnboardingOneScreen extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: screenHeight * 0.02),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const OnboardingTwoScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.1,
+                      vertical: screenHeight * 0.02,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 8,
+                  ),
+                  child: Text(
+                    'Siguiente',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -590,10 +650,10 @@ class OnboardingTwoScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
+                        Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const OnboardingThreeScreen(),
+                            builder: (_) => const LoginScreen(),
                           ),
                         );
                       },
@@ -609,6 +669,33 @@ class OnboardingTwoScreen extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: screenHeight * 0.02),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const OnboardingThreeScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.1,
+                      vertical: screenHeight * 0.02,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 8,
+                  ),
+                  child: Text(
+                    'Siguiente',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -677,7 +764,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
+                        Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const LoginScreen(),
@@ -720,7 +807,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.push(
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
@@ -748,13 +835,21 @@ class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'BO');
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   Future<void> _signInWithGoogle() async {
+    if (_isGoogleLoading) return;
+    setState(() {
+      _isGoogleLoading = true;
+    });
     try {
       print('DEBUG: Starting Google Sign-In');
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
         print('DEBUG: Google Sign-In cancelled');
+        setState(() {
+          _isGoogleLoading = false;
+        });
         return;
       }
 
@@ -770,7 +865,7 @@ class _LoginScreenState extends State<LoginScreen> {
         'DEBUG: Google Sign-In successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -781,6 +876,12 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error en Google Sign-In: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
       }
     }
   }
@@ -830,7 +931,7 @@ class _LoginScreenState extends State<LoginScreen> {
             print(
               'DEBUG: Navigating to ActiveServiceScreen after auto-verification',
             );
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1013,34 +1114,36 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                 SizedBox(height: screenHeight * 0.03),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.grey.shade300),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.1,
-                      vertical: screenHeight * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    backgroundColor: Colors.white,
-                    elevation: 2,
-                  ),
-                  icon: Image.asset(
-                    'assets/images/search.png',
-                    height: screenHeight * 0.03,
-                    width: screenHeight * 0.03,
-                  ),
-                  label: Text(
-                    'Continuar con Google',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onPressed: _signInWithGoogle,
-                ),
+                _isGoogleLoading
+                    ? const CircularProgressIndicator()
+                    : OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey.shade300),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.1,
+                            vertical: screenHeight * 0.02,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          backgroundColor: Colors.white,
+                          elevation: 2,
+                        ),
+                        icon: Image.asset(
+                          'assets/images/search.png',
+                          height: screenHeight * 0.03,
+                          width: screenHeight * 0.03,
+                        ),
+                        label: Text(
+                          'Continuar con Google',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.035,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onPressed: _signInWithGoogle,
+                      ),
                 SizedBox(height: screenHeight * 0.05),
                 Text(
                   'Al unirte a nuestra aplicación, aceptas nuestros Términos de Uso y Política de privacidad',
@@ -1160,7 +1263,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         'DEBUG: OTP verification successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -1195,7 +1298,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           await _auth.signInWithCredential(credential);
           if (mounted) {
             print('DEBUG: Navigating to ActiveServiceScreen after resend');
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1214,7 +1317,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         codeSent: (String verificationId, int? resendToken) {
           print('DEBUG: New OTP code sent, verificationId: $verificationId');
           if (mounted) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) => OTPScreen(
@@ -1418,12 +1521,12 @@ class ActiveServiceScreen extends StatelessWidget {
         return const SplashScreen();
       }
 
-      final response = await ApiService.get('/account-type/${user.uid}');
+      final response = await ApiService.get('/api/account-type/${user.uid}');
       print(
         'DEBUG: ActiveServiceScreen fetch account type response: $response',
       );
-      if (response['status'] == 'success') {
-        final accountType = response['data']['account_type']?.toString() ?? '';
+      if (response['status'] == 'success' && response['data'] != null) {
+        final accountType = response['data']['account_type']?.toString();
         print('DEBUG: Account type received: $accountType');
         if (accountType == 'Client') {
           print('DEBUG: User is Client, redirecting to ClientHomeScreen');
@@ -1434,9 +1537,14 @@ class ActiveServiceScreen extends StatelessWidget {
         }
       }
 
-      // Check local storage as a fallback
+      print(
+        'DEBUG: No valid account type found, redirecting to ProfileSelectionScreen',
+      );
+      return const ProfileSelectionScreen();
+    } catch (e) {
+      print('DEBUG: Error fetching account type in ActiveServiceScreen: $e');
       final prefs = await SharedPreferences.getInstance();
-      final accountType = await prefs.getString('account_type');
+      final accountType = prefs.getString('account_type');
       print('DEBUG: Local account type: $accountType');
       if (accountType == 'Client') {
         print(
@@ -1449,30 +1557,8 @@ class ActiveServiceScreen extends StatelessWidget {
         );
         return const HomeScreen();
       }
-
       print(
-        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
-      );
-      return const ProfileSelectionScreen();
-    } catch (e) {
-      print('DEBUG: Error fetching account type in ActiveServiceScreen: $e');
-      // Check local storage as a fallback
-      final prefs = await SharedPreferences.getInstance();
-      final accountType = await prefs.getString('account_type');
-      print('DEBUG: Local account type on error: $accountType');
-      if (accountType == 'Client') {
-        print(
-          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
-        );
-        return const ClientHomeScreen();
-      } else if (accountType == 'Chambeador') {
-        print(
-          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
-        );
-        return const HomeScreen();
-      }
-      print(
-        'DEBUG: No account type found, redirecting to ProfileSelectionScreen',
+        'DEBUG: No local account type, redirecting to ProfileSelectionScreen',
       );
       return const ProfileSelectionScreen();
     }
@@ -1536,7 +1622,7 @@ class ActiveServiceScreen extends StatelessWidget {
                     await requestLocationPermission(context);
                     final nextScreen = await _getNextScreen();
                     if (context.mounted) {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (_) => nextScreen),
                       );
@@ -1555,7 +1641,7 @@ class ActiveServiceScreen extends StatelessWidget {
                   onPressed: () async {
                     final nextScreen = await _getNextScreen();
                     if (context.mounted) {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (_) => nextScreen),
                       );
@@ -1584,7 +1670,7 @@ class ProfileSelectionScreen extends StatefulWidget {
   const ProfileSelectionScreen({super.key});
 
   @override
-  _ProfileSelectionScreenState createState() => _ProfileSelectionScreenState();
+  State<ProfileSelectionScreen> createState() => _ProfileSelectionScreenState();
 }
 
 class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
@@ -1593,90 +1679,66 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   bool _isLoading = false;
 
   Future<void> _handleProfileSelection() async {
-    if (_selectedProfile == null || !_termsAccepted) return;
+    if (_selectedProfile == null || !_termsAccepted) {
+      print('DEBUG: Profile not selected or terms not accepted');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecciona un perfil y acepta los términos'),
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isLoading = true;
     });
+
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
+        print('DEBUG: No authenticated user found');
         throw Exception('No authenticated user found');
       }
-      print(
-        'DEBUG: Current user: ${user.uid}, selectedProfile: $_selectedProfile',
+
+      final saveResponse = await ApiService.post(
+        '/api/account-type/${user.uid}',
+        {'account_type': _selectedProfile},
       );
 
-      final response = await ApiService.post('/account-type/${user.uid}', {
-        'account_type': _selectedProfile,
-      });
-      print('DEBUG: Save account type response: $response');
-
-      if (response['statusCode'] == 200 &&
-          response['body']['status'] == 'success') {
-        // Save account type locally
+      if (saveResponse['statusCode'] == 200 &&
+          saveResponse['body']['status'] == 'success') {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('account_type', _selectedProfile!);
-        print('DEBUG: Saved account type locally: $_selectedProfile');
-
-        if (_selectedProfile == 'Client') {
-          print('DEBUG: User selected Client, redirecting to ClientHomeScreen');
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-            );
-          }
-        } else if (_selectedProfile == 'Chambeador') {
-          print(
-            'DEBUG: User selected Chambeador, redirecting to ChambeadorRegisterScreen',
-          );
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
-            );
-          }
-        }
+        print('DEBUG: Account type saved: $_selectedProfile');
       } else {
-        throw Exception(
-          'Failed to save profile type: ${response['statusCode']}',
+        print(
+          'DEBUG: Failed to save account type: ${saveResponse['body']['message'] ?? saveResponse['body']}',
         );
+        throw Exception('Failed to save account type');
       }
     } catch (e) {
-      print('DEBUG: Error saving profile type: $e');
-      if (mounted) {
-        // Fallback to local storage
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('account_type', _selectedProfile!);
-        print(
-          'DEBUG: Saved account type locally due to error: $_selectedProfile',
-        );
-        if (_selectedProfile == 'Client') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-          );
-        } else if (_selectedProfile == 'Chambeador') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error al guardar el tipo de cuenta: $e')),
-          );
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-          );
-        }
-      }
+      print('DEBUG: Error saving account type: $e');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('account_type', _selectedProfile!);
+      print('DEBUG: Saved account type locally: $_selectedProfile');
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        if (_selectedProfile == 'Client') {
+          print('DEBUG: Navigating to PerfilScreen');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const PerfilScreen()),
+          );
+        } else if (_selectedProfile == 'Chambeador') {
+          print('DEBUG: Navigating to ChambeadorRegisterScreen');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
+          );
+        }
       }
     }
   }
@@ -1687,127 +1749,118 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.06,
-              vertical: screenHeight * 0.05,
+              horizontal: screenWidth * 0.08,
+              vertical: screenHeight * 0.04,
             ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
+                SizedBox(height: screenHeight * 0.02),
+                const Text(
                   'Selecciona tu Perfil',
                   style: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                    letterSpacing: 0.5,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Elige si deseas contratar servicios o mostrar tus habilidades como profesional.',
+                const Text(
+                  'Selecciona si necesitas servicios técnicos o si quieres ofrecer tus habilidades como profesional.',
                   style: TextStyle(
-                    fontSize: screenWidth * 0.035,
+                    fontSize: 15,
                     color: Colors.black54,
-                    height: 1.4,
+                    height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: screenHeight * 0.05),
+                SizedBox(height: screenHeight * 0.04),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _profileOption(
-                      context,
-                      profileType: 'Cliente',
-                      description: 'Contrata servicios técnicos',
-                      iconPath: 'assets/images/Group.png',
-                      isSelected: _selectedProfile == 'Cliente',
-                      onTap: () {
-                        setState(() {
-                          _selectedProfile = 'Cliente';
-                        });
-                      },
+                    Expanded(
+                      child: _profileOption(
+                        buttonLabel: 'CLIENTE',
+                        subtitle: 'Buscar servicios',
+                        iconPath: 'assets/images/Group.png',
+                        isSelected: _selectedProfile == 'Client',
+                        onTap: () {
+                          setState(() {
+                            _selectedProfile = 'Client';
+                          });
+                        },
+                      ),
                     ),
-                    _profileOption(
-                      context,
-                      profileType: 'Chambeador',
-                      description: 'Ofrece tus servicios',
-                      iconPath:
-                          'assets/images/Maintenance-3--Streamline-Milano.svg.png',
-                      isSelected: _selectedProfile == 'Chambeador',
-                      onTap: () {
-                        setState(() {
-                          _selectedProfile = 'Chambeador';
-                        });
-                      },
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: _profileOption(
+                        buttonLabel: 'CHAMBEADOR',
+                        subtitle: 'Ofrecer servicios',
+                        iconPath:
+                            'assets/images/Maintenance-3--Streamline-Milano.svg.png',
+                        isSelected: _selectedProfile == 'Chambeador',
+                        onTap: () {
+                          setState(() {
+                            _selectedProfile = 'Chambeador';
+                          });
+                        },
+                      ),
                     ),
                   ],
                 ),
                 SizedBox(height: screenHeight * 0.04),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Checkbox(
                       value: _termsAccepted,
-                      onChanged: (bool? value) {
+                      onChanged: (val) {
                         setState(() {
-                          _termsAccepted = value ?? false;
+                          _termsAccepted = val ?? false;
                         });
                       },
-                      activeColor: const Color(0xFF22c55e),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                      activeColor: const Color(0xFF22C55E),
                     ),
                     Expanded(
                       child: Text(
-                        'Acepto la política de privacidad, términos y condiciones',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.03,
-                          color: Colors.black87,
-                          decoration: TextDecoration.underline,
-                        ),
+                        'He leído y acepto las política de privacidad, términos y condiciones',
+                        style: TextStyle(fontSize: 13, color: Colors.black87),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: screenHeight * 0.03),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              _selectedProfile != null && _termsAccepted
-                              ? const Color(0xFF22c55e)
-                              : Colors.grey.shade400,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.1,
-                            vertical: screenHeight * 0.02,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 5,
-                          shadowColor: const Color(0xFF22c55e).withOpacity(0.3),
-                        ),
-                        onPressed: _selectedProfile != null && _termsAccepted
-                            ? _handleProfileSelection
-                            : null,
-                        child: Text(
-                          'Continuar',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
                 SizedBox(height: screenHeight * 0.02),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _selectedProfile != null && _termsAccepted
+                        ? _handleProfileSelection
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _selectedProfile != null && _termsAccepted
+                          ? const Color(0xFF22C55E)
+                          : Colors.grey.shade400,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            'Continuar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1816,103 +1869,79 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     );
   }
 
-  Widget _profileOption(
-    BuildContext context, {
-    required String profileType,
-    required String description,
+  Widget _profileOption({
+    required String buttonLabel,
+    required String subtitle,
     required String iconPath,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        width: screenWidth * 0.4,
-        height: screenHeight * 0.3,
-        margin: EdgeInsets.symmetric(vertical: screenHeight * 0.01),
+      child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isSelected
-                ? [Colors.white, const Color(0xFFE8F5E9)]
-                : [Colors.white, Colors.grey.shade50],
-          ),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected
-                  ? const Color(0xFF22c55e).withOpacity(0.3)
-                  : Colors.grey.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
           border: Border.all(
-            color: isSelected ? const Color(0xFF22c55e) : Colors.grey.shade200,
-            width: 1.5,
+            color: isSelected ? const Color(0xFF22C55E) : Colors.grey.shade300,
+            width: 2,
           ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: const Color(0xFF22C55E).withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+          ],
         ),
         child: Stack(
           children: [
-            Padding(
-              padding: EdgeInsets.all(screenWidth * 0.03),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    iconPath,
-                    height: screenHeight * 0.1,
-                    width: screenHeight * 0.1,
-                    fit: BoxFit.contain,
-                  ),
-                  SizedBox(height: screenHeight * 0.015),
-                  Text(
-                    profileType,
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? const Color(0xFF22c55e)
-                          : Colors.black87,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(iconPath, height: 60),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: onTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22C55E),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: screenHeight * 0.01),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.03,
-                      color: Colors.black54,
-                      height: 1.3,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    textAlign: TextAlign.center,
+                    elevation: 0,
                   ),
-                ],
-              ),
+                  child: Text(
+                    buttonLabel,
+                    style: const TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+              ],
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: AnimatedScale(
-                scale: isSelected ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
+            if (isSelected)
+              Positioned(
+                top: 8,
+                right: 8,
                 child: Container(
-                  width: 24,
-                  height: 24,
+                  width: 20,
+                  height: 20,
                   decoration: const BoxDecoration(
+                    color: Color(0xFF22C55E),
                     shape: BoxShape.circle,
-                    color: Color(0xFF22c55e),
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 16),
+                  child: const Icon(Icons.check, size: 14, color: Colors.white),
                 ),
               ),
-            ),
           ],
         ),
       ),

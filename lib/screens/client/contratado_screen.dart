@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/client/chat_detail_screen.dart';
+import 'package:chambea/screens/client/review.dart';
 import 'package:chambea/services/api_service.dart';
 import 'package:chambea/services/fcm_service.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/blocs/client/proposals_state.dart';
-import 'package:chambea/screens/client/home.dart'; // Import HomeScreen
+import 'package:chambea/screens/client/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ContratadoScreen extends StatefulWidget {
@@ -59,7 +60,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
             content: Text('Solo los clientes pueden acceder a esta pantalla'),
           ),
         );
-        // Redirect to HomeScreen
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
@@ -96,7 +96,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         data['proposals'] ?? [],
       );
 
-      // Prioritize worker_firebase_uid from widget.workerId
       if (widget.workerId != null) {
         try {
           final uidResponse = await ApiService.get(
@@ -131,7 +130,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         }
       }
 
-      // Fallback to proposal or service request
       if (workerFirebaseUid == null) {
         if (widget.proposalId != null) {
           final selectedProposal = proposals.firstWhere(
@@ -169,7 +167,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         }
       }
 
-      // Verify worker account type
       if (workerFirebaseUid != null) {
         try {
           final accountTypeResponse = await ApiService.get(
@@ -271,7 +268,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // If account type is not yet loaded or not Client, show loading or redirect
     if (_accountType == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -637,6 +633,35 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                           budget: double.tryParse(_budgetController.text) ?? 0,
                         ),
                         child: const Text('Confirmar Contratación'),
+                      ),
+                    const SizedBox(height: 8),
+                    if (_serviceRequest!['status'] == 'Completado')
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        onPressed: _workerFirebaseUid == null
+                            ? null
+                            : () {
+                                print(
+                                  'DEBUG: Navigating to ReviewServiceScreen for workerId: $_workerFirebaseUid',
+                                );
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ReviewServiceScreen(
+                                      requestId: widget.requestId,
+                                      workerId: _workerFirebaseUid!,
+                                      workerName: _workerName != 'Cargando...'
+                                          ? _workerName
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              },
+                        child: const Text('Calificar Servicio'),
                       ),
                     const SizedBox(height: 8),
                     ElevatedButton(

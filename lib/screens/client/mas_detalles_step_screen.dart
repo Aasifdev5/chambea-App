@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/service_request.dart';
-import 'package:chambea/screens/client/bandeja_screen.dart';
+import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/services/api_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -99,7 +99,7 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
         );
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => BandejaScreen()),
+          MaterialPageRoute(builder: (context) => ClientHomeScreen()),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

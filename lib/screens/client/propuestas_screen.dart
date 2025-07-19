@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/client/contratado_screen.dart';
+import 'package:chambea/screens/client/review.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/blocs/client/proposals_state.dart';
@@ -23,18 +24,15 @@ class PropuestasScreen extends StatefulWidget {
 }
 
 class _PropuestasScreenState extends State<PropuestasScreen> {
-  // Cache for worker names to avoid redundant API calls
   final Map<int, String> _workerNameCache = {};
 
   @override
   void initState() {
     super.initState();
-    FcmService.initialize(context); // Initialize FCM for notifications
-    // Clear cache for testing (remove after confirming fix)
+    FcmService.initialize(context);
     _workerNameCache.clear();
   }
 
-  // Fetch worker name for a given workerId
   Future<String> _fetchWorkerName(int workerId) async {
     if (_workerNameCache.containsKey(workerId)) {
       print(
@@ -44,7 +42,6 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
     }
 
     try {
-      // Verify authentication
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('ERROR: No authenticated user for workerId $workerId');
@@ -53,7 +50,6 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
       }
       print('DEBUG: Authenticated user: ${user.uid}');
 
-      // Step 1: Map worker_id to Firebase UID
       final uidResponse = await ApiService.get(
         '/api/users/map-id-to-uid/$workerId',
       );
@@ -68,7 +64,6 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         return 'Usuario $workerId';
       }
 
-      // Step 2: Fetch user data using Firebase UID
       final userResponse = await ApiService.get(
         '/api/users/$workerFirebaseUid',
       );
@@ -133,7 +128,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text(
                 'Cancelar',
-                style: TextStyle(color: Colors.green, fontSize: 16),
+                style: TextStyle(color: Color(0xFF22c55e), fontSize: 16),
               ),
             ),
           ],
@@ -158,6 +153,9 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                 return Center(child: Text('Error: ${state.message}'));
               } else if (state is ProposalsLoaded) {
                 print('DEBUG: Proposals loaded: ${state.proposals}');
+                print(
+                  'DEBUG: Service request status: ${state.serviceRequest['status']}',
+                );
                 if (state.proposals.isEmpty) {
                   return const Center(
                     child: Text(
@@ -175,8 +173,11 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                   itemBuilder: (context, index) {
                     final proposal = state.proposals[index];
                     print(
-                      'DEBUG: Rendering proposal ${proposal['id']} with worker_id: ${proposal['worker_id']}',
+                      'DEBUG: Proposal ${proposal['id']}: status=${proposal['status']}, worker_id=${proposal['worker_id']}, service_status=${state.serviceRequest['status']}',
                     );
+                    final isCompleted =
+                        state.serviceRequest['status'] == 'Completado' &&
+                        proposal['status'] == 'accepted';
                     return FutureBuilder<String>(
                       future: _fetchWorkerName(proposal['worker_id']),
                       builder: (context, snapshot) {
@@ -281,6 +282,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Icon(
                                       Icons.location_on,
@@ -288,11 +290,15 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                       color: Colors.black54,
                                     ),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      '${state.serviceRequest['location'] ?? 'Sin ubicación'}, ${state.serviceRequest['location_details'] ?? ''}',
-                                      style: const TextStyle(
-                                        color: Colors.black54,
-                                        fontSize: 14,
+                                    Flexible(
+                                      child: Text(
+                                        '${state.serviceRequest['location'] ?? 'Sin ubicación'}, ${state.serviceRequest['location_details'] ?? ''}',
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                          fontSize: 14,
+                                        ),
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -385,9 +391,11 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                       child: OutlinedButton(
                                         style: OutlinedButton.styleFrom(
                                           side: const BorderSide(
-                                            color: Colors.green,
+                                            color: Color(0xFF22c55e),
                                           ),
-                                          foregroundColor: Colors.green,
+                                          foregroundColor: const Color(
+                                            0xFF22c55e,
+                                          ),
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 12,
                                           ),
@@ -424,7 +432,9 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                     Expanded(
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
+                                          backgroundColor: const Color(
+                                            0xFF22c55e,
+                                          ),
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 12,
@@ -435,10 +445,12 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                             ),
                                           ),
                                         ),
-                                        onPressed:
-                                            proposal['status'] == 'accepted'
+                                        onPressed: proposal['worker_id'] == null
                                             ? null
                                             : () {
+                                                print(
+                                                  'DEBUG: Navigating to ContratadoScreen for workerId: ${proposal['worker_id']}',
+                                                );
                                                 Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
@@ -465,6 +477,55 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                     ),
                                   ],
                                 ),
+                                if (isCompleted)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF22c55e,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        print(
+                                          'DEBUG: Navigating to ReviewServiceScreen for workerId: ${proposal['worker_id']}',
+                                        );
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ReviewServiceScreen(
+                                                  requestId: widget.requestId,
+                                                  workerId:
+                                                      proposal['worker_id']
+                                                          .toString(),
+                                                  workerName:
+                                                      workerName !=
+                                                          'Cargando...'
+                                                      ? workerName
+                                                      : null,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      child: const Text(
+                                        'Calificar',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),

@@ -1,9 +1,7 @@
-import 'dart:async'; // Added to resolve TimeoutException
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:chambea/services/api_service.dart';
 import 'package:retry/retry.dart';
-
-// Placeholder imports for navigation (adjust paths as needed)
+import 'package:chambea/services/api_service.dart';
 import 'package:chambea/screens/client/bandeja_screen.dart';
 import 'package:chambea/screens/client/chats_screen.dart';
 import 'package:chambea/screens/client/menu_screen.dart';
@@ -69,11 +67,12 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         _hasLoadedChambeadores = true;
         print('DEBUG: Loaded ${_chambeadores.length} chambeadores');
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
       setState(() {
         _isLoadingChambeadores = false;
         _chambeadoresError = 'Error loading chambeadores: $e';
-        print('DEBUG: Failed to load chambeadores: $e');
+        print('ERROR: Failed to load chambeadores: $e');
+        print('Stack trace: $stackTrace');
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -96,7 +95,26 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       'DEBUG: Building ClientHomeScreen, isLoading: $_isLoadingChambeadores, chambeadores: ${_chambeadores.length}',
     );
     return Scaffold(
-      body: SafeArea(child: _screens[_selectedIndex]),
+      body: SafeArea(
+        child: Builder(
+          builder: (context) {
+            try {
+              return _screens[_selectedIndex];
+            } catch (e, stackTrace) {
+              print(
+                'ERROR: Failed to render screen at index $_selectedIndex: $e',
+              );
+              print('Stack trace: $stackTrace');
+              return Center(
+                child: Text(
+                  'Error rendering screen: $e',
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                ),
+              );
+            }
+          },
+        ),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.green,
@@ -119,7 +137,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   final List<Widget> _screens = [
     ClientHomeContent(key: const ValueKey('home_content')),
     BandejaScreen(),
-    const SolicitarServicioScreen(subcategoryName: ''),
+    const SolicitarServicioScreen(), // Updated to use default constructor
     ChatsScreen(),
     MenuScreen(),
   ];
@@ -312,10 +330,22 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                   ),
                   onPressed: () {
                     print('DEBUG: Navigating to BusquedaScreen');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => BusquedaScreen()),
-                    );
+                    try {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BusquedaScreen(),
+                        ),
+                      );
+                    } catch (e, stackTrace) {
+                      print('ERROR: Navigation to BusquedaScreen failed: $e');
+                      print('Stack trace: $stackTrace');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Navigation error: $e')),
+                        );
+                      }
+                    }
                   },
                 ),
               ],
@@ -362,12 +392,22 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                 TextButton(
                   onPressed: () {
                     print('DEBUG: Navigating to CercaDeMiScreen');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CercaDeMiScreen(),
-                      ),
-                    );
+                    try {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CercaDeMiScreen(),
+                        ),
+                      );
+                    } catch (e, stackTrace) {
+                      print('ERROR: Navigation to CercaDeMiScreen failed: $e');
+                      print('Stack trace: $stackTrace');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Navigation error: $e')),
+                        );
+                      }
+                    }
                   },
                   child: const Text(
                     'Ver más',
@@ -387,26 +427,57 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: state._chambeadores.map((profile) {
-                        final name = profile['name'] as String;
+                        final name = profile['name'] as String? ?? 'Unknown';
                         final lastName = profile['last_name'] as String? ?? '';
                         final fullName =
                             '$name${lastName.isNotEmpty ? ' $lastName' : ''}';
-                        final profession = profile['profession'] as String;
+                        final profession =
+                            profile['profession'] as String? ?? 'No profession';
                         final rating = profile['rating'] != null
-                            ? double.parse(profile['rating'].toString())
+                            ? double.tryParse(profile['rating'].toString()) ??
+                                  0.0
                             : 0.0;
-                        final uid = profile['uid'] as String;
-                        print('DEBUG: Rendering chambeador card: $fullName');
+                        final uid = profile['uid'] as String? ?? '';
+                        print(
+                          'DEBUG: Rendering chambeador card: $fullName, uid: $uid',
+                        );
                         return GestureDetector(
                           onTap: () {
+                            if (uid.isEmpty) {
+                              print(
+                                'ERROR: Invalid UID for chambeador: $fullName',
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Error: Invalid chambeador profile',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
                             print(
                               'DEBUG: Navigating to chambeador_profile with uid: $uid',
                             );
-                            Navigator.pushNamed(
-                              context,
-                              '/chambeador_profile',
-                              arguments: {'uid': uid},
-                            );
+                            try {
+                              Navigator.pushNamed(
+                                context,
+                                '/chambeador_profile',
+                                arguments: {'uid': uid},
+                              );
+                            } catch (e, stackTrace) {
+                              print(
+                                'ERROR: Navigation to chambeador_profile failed: $e',
+                              );
+                              print('Stack trace: $stackTrace');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Navigation error: $e'),
+                                  ),
+                                );
+                              }
+                            }
                           },
                           child: _buildChambeadorCard(
                             context: context,
@@ -432,7 +503,7 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                 ),
                 TextButton(
                   onPressed: () {
-                    print('DEBUG: Navigating to ServiciosScreen');
+                    print('DEBUG: Attempting to navigate to ServiciosScreen');
                     try {
                       Navigator.push(
                         context,
@@ -440,8 +511,9 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                           builder: (context) => ServiciosScreen(),
                         ),
                       );
-                    } catch (e) {
-                      print('DEBUG: Navigation error: $e');
+                    } catch (e, stackTrace) {
+                      print('ERROR: Navigation to ServiciosScreen failed: $e');
+                      print('Stack trace: $stackTrace');
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Navigation error: $e')),
@@ -573,15 +645,25 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
     return GestureDetector(
       onTap: () {
         print('DEBUG: Navigating to SubcategoriasScreen with category: $title');
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SubcategoriasScreen(
-              category: title,
-              subcategories: subcategories,
+        try {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SubcategoriasScreen(
+                category: title,
+                subcategories: subcategories,
+              ),
             ),
-          ),
-        );
+          );
+        } catch (e, stackTrace) {
+          print('ERROR: Navigation to SubcategoriasScreen failed: $e');
+          print('Stack trace: $stackTrace');
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Navigation error: $e')));
+          }
+        }
       },
       child: Card(
         elevation: 3,

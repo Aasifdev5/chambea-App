@@ -147,10 +147,14 @@ class SubcategoriasScreen extends StatelessWidget {
                           );
                           return;
                         }
+                        print(
+                          'DEBUG: Navigating to SolicitarServicioScreen with category: $category, subcategory: $customSubcategory',
+                        );
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => SolicitarServicioScreen(
+                              categoryName: category,
                               subcategoryName: customSubcategory,
                             ),
                           ),
@@ -201,13 +205,14 @@ class SubcategoriasScreen extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Seleccionado: $subcategory')),
+                    print(
+                      'DEBUG: Navigating to SolicitarServicioScreen with category: $category, subcategory: $subcategory',
                     );
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => SolicitarServicioScreen(
+                          categoryName: category,
                           subcategoryName: subcategory,
                         ),
                       ),
