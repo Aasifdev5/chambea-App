@@ -57,32 +57,32 @@ class MenuScreen extends StatelessWidget {
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.notifications, color: Colors.green),
-              title: const Text('Notificación'),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => NotificacionesScreen(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings, color: Colors.green),
-              title: const Text('Configuración'),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ConfiguracionScreen(),
-                  ),
-                );
-              },
-            ),
+            // ListTile(
+            //   leading: const Icon(Icons.notifications, color: Colors.green),
+            //   title: const Text('Notificación'),
+            //   trailing: const Icon(Icons.arrow_forward_ios),
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //         builder: (context) => NotificacionesScreen(),
+            //       ),
+            //     );
+            //   },
+            // ),
+            // ListTile(
+            //   leading: const Icon(Icons.settings, color: Colors.green),
+            //   title: const Text('Configuración'),
+            //   trailing: const Icon(Icons.arrow_forward_ios),
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //         builder: (context) => ConfiguracionScreen(),
+            //       ),
+            //     );
+            //   },
+            // ),
             ListTile(
               leading: const Icon(Icons.support_agent, color: Colors.green),
               title: const Text('Soporte técnico'),

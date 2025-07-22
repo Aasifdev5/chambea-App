@@ -5,6 +5,7 @@ import 'package:chambea/screens/chambeador/perfil_chambeador_screen.dart';
 import 'package:chambea/screens/chambeador/notification_screen.dart';
 import 'package:chambea/screens/chambeador/billetera_screen.dart';
 import 'package:chambea/screens/chambeador/configuracion_screen.dart';
+import 'package:chambea/screens/client/supportscreen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/main.dart';
@@ -146,24 +147,24 @@ class MasScreen extends StatelessWidget {
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.notifications, color: Colors.green),
-              title: const Text(
-                'Notificación',
-                style: TextStyle(fontSize: 16, color: Colors.black87),
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.black54,
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => NotificationScreen()),
-                );
-              },
-            ),
+            // ListTile(
+            //   leading: const Icon(Icons.notifications, color: Colors.green),
+            //   title: const Text(
+            //     'Notificación',
+            //     style: TextStyle(fontSize: 16, color: Colors.black87),
+            //   ),
+            //   trailing: const Icon(
+            //     Icons.arrow_forward_ios,
+            //     size: 16,
+            //     color: Colors.black54,
+            //   ),
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(builder: (_) => NotificationScreen()),
+            //     );
+            //   },
+            // ),
             ListTile(
               leading: const Icon(
                 Icons.account_balance_wallet,
@@ -185,24 +186,24 @@ class MasScreen extends StatelessWidget {
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.settings, color: Colors.green),
-              title: const Text(
-                'Configuración',
-                style: TextStyle(fontSize: 16, color: Colors.black87),
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.black54,
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => ConfiguracionScreen()),
-                );
-              },
-            ),
+            // ListTile(
+            //   leading: const Icon(Icons.settings, color: Colors.green),
+            //   title: const Text(
+            //     'Configuración',
+            //     style: TextStyle(fontSize: 16, color: Colors.black87),
+            //   ),
+            //   trailing: const Icon(
+            //     Icons.arrow_forward_ios,
+            //     size: 16,
+            //     color: Colors.black54,
+            //   ),
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(builder: (_) => ConfiguracionScreen()),
+            //     );
+            //   },
+            // ),
             ListTile(
               leading: const Icon(Icons.support, color: Colors.green),
               title: const Text(
@@ -215,8 +216,11 @@ class MasScreen extends StatelessWidget {
                 color: Colors.black54,
               ),
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Soporte técnico contactado')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SupportScreen(),
+                  ),
                 );
               },
             ),

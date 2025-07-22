@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:chambea/screens/chambeador/buscar_screen.dart';
 import 'package:chambea/screens/chambeador/chat_screen.dart';
 import 'package:chambea/screens/chambeador/mas_screen.dart';
@@ -10,6 +11,8 @@ import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
 import 'package:chambea/blocs/chambeador/jobs_event.dart';
 import 'package:chambea/blocs/chambeador/jobs_state.dart';
+import 'package:chambea/services/review_service.dart';
+import 'package:chambea/services/user_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -92,6 +95,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  final ReviewService _reviewService = ReviewService();
+  final UserService _userService = UserService();
+  List<dynamic> _reviews = [];
+  List<dynamic> _clients = [];
+  bool _isLoadingReviews = false;
+  bool _isLoadingClients = false;
+  String? _reviewError;
+  String? _clientError;
 
   @override
   void initState() {
@@ -105,6 +116,57 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.forward();
+    _fetchReviews();
+    _fetchClients();
+  }
+
+  Future<void> _fetchReviews() async {
+    setState(() {
+      _isLoadingReviews = true;
+      _reviewError = null;
+    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      print('DEBUG: Fetching reviews for workerId ${user.uid}');
+      final reviews = await _reviewService.fetchWorkerReviews(user.uid);
+      print('DEBUG: Received ${reviews.length} reviews: $reviews');
+      setState(() {
+        _reviews = reviews;
+        _isLoadingReviews = false;
+      });
+    } catch (e, stackTrace) {
+      print('ERROR: Failed to fetch reviews: $e');
+      print(stackTrace);
+      setState(() {
+        _reviewError = 'No se pudieron cargar los comentarios: $e';
+        _isLoadingReviews = false;
+      });
+    }
+  }
+
+  Future<void> _fetchClients() async {
+    setState(() {
+      _isLoadingClients = true;
+      _clientError = null;
+    });
+    try {
+      final clients = await _userService.fetchClients();
+      print('DEBUG: Received ${clients.length} clients: $clients');
+      setState(() {
+        _clients = clients;
+        _isLoadingClients = false;
+      });
+    } catch (e, stackTrace) {
+      print('ERROR: Failed to fetch clients: $e');
+      print(stackTrace);
+      setState(() {
+        _clientError = 'No se pudieron cargar los clientes: $e';
+        _isLoadingClients = false;
+      });
+    }
   }
 
   @override
@@ -500,8 +562,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                   final job = state.jobs[index];
                                   return _buildJobCard(
                                     context: context,
-                                    requestId:
-                                        job['id'] as int?, // Handle null ID
+                                    requestId: job['id'] as int?,
                                     timeAgo: _formatTimeAgo(
                                       job['created_at'] ??
                                           DateTime.now().toIso8601String(),
@@ -578,45 +639,45 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           ],
                         ),
                         SizedBox(height: screenHeight * 0.015),
-                        SizedBox(
-                          height: screenHeight * 0.18,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                _buildClientCard(
-                                  context: context,
-                                  name: 'Rosa Elena Pérez',
-                                  rating: 4.1,
-                                  screenWidth: screenWidth,
-                                  screenHeight: screenHeight,
-                                  textScaleFactor: textScaleFactor,
-                                  baseFontSize: baseFontSize,
-                                ),
-                                SizedBox(width: screenWidth * 0.02),
-                                _buildClientCard(
-                                  context: context,
-                                  name: 'Julio César Suarez',
-                                  rating: 4.1,
-                                  screenWidth: screenWidth,
-                                  screenHeight: screenHeight,
-                                  textScaleFactor: textScaleFactor,
-                                  baseFontSize: baseFontSize,
-                                ),
-                                SizedBox(width: screenWidth * 0.02),
-                                _buildClientCard(
-                                  context: context,
-                                  name: 'Pedro Castillo',
-                                  rating: 4.1,
-                                  screenWidth: screenWidth,
-                                  screenHeight: screenHeight,
-                                  textScaleFactor: textScaleFactor,
-                                  baseFontSize: baseFontSize,
-                                ),
-                              ],
+                        if (_isLoadingClients)
+                          const Center(child: CircularProgressIndicator())
+                        else if (_clientError != null)
+                          Center(child: Text('Error: $_clientError'))
+                        else if (_clients.isEmpty)
+                          const Center(
+                            child: Text('No hay clientes disponibles'),
+                          )
+                        else
+                          SizedBox(
+                            height: screenHeight * 0.18,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _clients.map((client) {
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                      right: screenWidth * 0.02,
+                                    ),
+                                    child: _buildClientCard(
+                                      context: context,
+                                      name:
+                                          client['name'] ??
+                                          client['client_name'] ??
+                                          'Usuario Desconocido',
+                                      rating:
+                                          client['rating']?.toDouble() ??
+                                          client['rate']?.toDouble() ??
+                                          0.0,
+                                      screenWidth: screenWidth,
+                                      screenHeight: screenHeight,
+                                      textScaleFactor: textScaleFactor,
+                                      baseFontSize: baseFontSize,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ),
-                        ),
                         SizedBox(height: screenHeight * 0.02),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -652,42 +713,40 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           ],
                         ),
                         SizedBox(height: screenHeight * 0.015),
-                        _buildReviewCard(
-                          context: context,
-                          client: 'Julio Sequeira',
-                          rating: 4,
-                          timeAgo: 'Hace 2 horas',
-                          comment:
-                              'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
-                          screenWidth: screenWidth,
-                          screenHeight: screenHeight,
-                          textScaleFactor: textScaleFactor,
-                          baseFontSize: baseFontSize,
-                        ),
-                        _buildReviewCard(
-                          context: context,
-                          client: 'Julio Sequeira',
-                          rating: 4,
-                          timeAgo: 'Hace 2 horas',
-                          comment:
-                              'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
-                          screenWidth: screenWidth,
-                          screenHeight: screenHeight,
-                          textScaleFactor: textScaleFactor,
-                          baseFontSize: baseFontSize,
-                        ),
-                        _buildReviewCard(
-                          context: context,
-                          client: 'Julio Sequeira',
-                          rating: 4,
-                          timeAgo: 'Hace 2 horas',
-                          comment:
-                              'Andrés realizó un excelente trabajo instalando el sistema de iluminación de mi casa. Fue puntual, muy profesional y todo funcionó perfectamente. ¡Muy recomendable!',
-                          screenWidth: screenWidth,
-                          screenHeight: screenHeight,
-                          textScaleFactor: textScaleFactor,
-                          baseFontSize: baseFontSize,
-                        ),
+                        if (_isLoadingReviews)
+                          const Center(child: CircularProgressIndicator())
+                        else if (_reviewError != null)
+                          Center(child: Text('Error: $_reviewError'))
+                        else if (_reviews.isEmpty)
+                          const Center(
+                            child: Text('No hay comentarios disponibles'),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _reviews.length,
+                            itemBuilder: (context, index) {
+                              final review = _reviews[index];
+                              return _buildReviewCard(
+                                context: context,
+                                client:
+                                    review['client']?['name'] ??
+                                    review['client_name'] ??
+                                    'Usuario Desconocido',
+                                rating: review['rating']?.toDouble() ?? 0.0,
+                                timeAgo: _formatTimeAgo(
+                                  review['created_at'] ??
+                                      DateTime.now().toIso8601String(),
+                                ),
+                                comment: review['comment'] ?? 'Sin comentario',
+                                screenWidth: screenWidth,
+                                screenHeight: screenHeight,
+                                textScaleFactor: textScaleFactor,
+                                baseFontSize: baseFontSize,
+                              );
+                            },
+                          ),
                         SizedBox(height: screenHeight * 0.02),
                       ],
                     ),
@@ -703,7 +762,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
 
   Widget _buildJobCard({
     required BuildContext context,
-    required int? requestId, // Nullable to handle invalid IDs
+    required int? requestId,
     required String timeAgo,
     required String title,
     required String budget,

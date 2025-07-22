@@ -31,36 +31,23 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   @override
   void initState() {
     super.initState();
-    print(
-      'DEBUG: ReviewServiceScreen initState - requestId: ${widget.requestId}, workerId: ${widget.workerId}, workerName: ${widget.workerName}',
-    );
     _fetchWorkerName();
   }
 
   Future<void> _fetchWorkerName() async {
     if (widget.workerName == null || widget.workerName!.isEmpty) {
       try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) {
-          setState(() {
-            _workerName = 'Trabajador Desconocido';
-          });
-          return;
-        }
         final response = await ApiService.get('/api/users/${widget.workerId}');
-        print('DEBUG: Fetch worker name response: ${response.toString()}');
         if (response['status'] == 'success') {
           setState(() {
             _workerName = response['data']['name'] ?? 'Trabajador Desconocido';
           });
         } else {
-          print('DEBUG: Error fetching worker profile: ${response['message']}');
           setState(() {
             _workerName = 'Trabajador Desconocido';
           });
         }
       } catch (e) {
-        print('DEBUG: Error fetching worker name: $e');
         setState(() {
           _workerName = 'Trabajador Desconocido';
         });
@@ -100,27 +87,33 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
     });
 
     try {
+      // ✅ Obtener client_id interno del backend mediante UID de Firebase
+      final profileResponse = await ApiService.get('/api/users/${user.uid}');
+      if (profileResponse['status'] != 'success') {
+        throw Exception('No se pudo obtener perfil del usuario.');
+      }
+      final clientInternalId = profileResponse['data']['id'];
+
       final payload = {
         'service_request_id': widget.requestId,
         'worker_id': widget.workerId,
-        'client_id': user.uid,
+        'client_id': clientInternalId,
         'rating': _rating,
-        'comment': _commentController.text.isEmpty
+        'comment': _commentController.text.trim().isEmpty
             ? 'Sin comentario'
-            : _commentController.text,
+            : _commentController.text.trim(),
       };
-      print('DEBUG: Submitting Review: $payload');
+
       final response = await ApiService.post('/api/reviews', payload);
 
-      print(
-        'DEBUG: Review Response: ${response['statusCode']} - ${response['body']}',
-      );
       if (response['statusCode'] == 201 &&
           response['body']['status'] == 'success') {
         context.read<ProposalsBloc>().add(FetchServiceRequests());
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Reseña enviada con éxito')),
         );
+
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -129,13 +122,13 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
           );
         }
       } else {
-        final error = response['body']['message'] ?? 'Error desconocido';
+        final error =
+            response['body']['message'] ?? 'Error desconocido al enviar reseña';
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $error')));
       }
     } catch (e) {
-      print('DEBUG: Error submitting review: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
