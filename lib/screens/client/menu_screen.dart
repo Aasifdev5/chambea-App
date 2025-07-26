@@ -5,6 +5,7 @@ import 'package:chambea/screens/client/perfil_screen.dart';
 import 'package:chambea/screens/client/notificaciones_screen.dart';
 import 'package:chambea/screens/client/billetera_screen.dart';
 import 'package:chambea/screens/client/configuracion_screen.dart';
+import 'package:chambea/screens/chambeador/chambeadorregister_screen.dart';
 import 'package:chambea/screens/client/supportscreen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/main.dart'; // Import for SplashScreen
@@ -112,7 +113,9 @@ class MenuScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => HomeScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => ChambeadorRegisterScreen(),
+                  ),
                 );
               },
               child: const Text('Modo chambeador'),

@@ -951,8 +951,8 @@ class MapPickerScreen extends StatefulWidget {
 class _MapPickerScreenState extends State<MapPickerScreen> {
   GoogleMapController? _mapController;
   LatLng _selectedLocation = const LatLng(
-    -12.046374,
-    -77.042793,
+    -16.2902,
+    -63.5887,
   ); // Default: Lima, Peru
   String _address = '';
 

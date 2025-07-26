@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "268154597894-nfdes402mbmji2fulqugiftqq8aa25fn.apps.googleusercontent.com",
+          "client_id": "268154597894-h3mdnh0ufue9qlsvh7a528rn2v7hhitu.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.newchambea.com",
-            "certificate_hash": "fa4daffe7d9f7de01cc079244aba852cd4e58dba"
+            "certificate_hash": "31c7510355ce6d7886b797547de3e779ba5025fd"
           }
         },
         {

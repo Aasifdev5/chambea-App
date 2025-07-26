@@ -128,18 +128,23 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception('User not authenticated');
+        throw Exception('Usuario no autenticado');
       }
-      print('DEBUG: Fetching reviews for workerId ${user.uid}');
+      print('DEBUG: Current User UID: ${user.uid}');
+      print('DEBUG: Fetching reviews for workerId: ${user.uid}');
       final reviews = await _reviewService.fetchWorkerReviews(user.uid);
-      print('DEBUG: Received ${reviews.length} reviews: $reviews');
+      print('DEBUG: Received ${reviews.length} reviews');
+      print('DEBUG: Reviews Data: $reviews');
       setState(() {
         _reviews = reviews;
         _isLoadingReviews = false;
       });
+      if (reviews.isEmpty) {
+        print('DEBUG: No reviews returned for workerId: ${user.uid}');
+      }
     } catch (e, stackTrace) {
       print('ERROR: Failed to fetch reviews: $e');
-      print(stackTrace);
+      print('Stack Trace: $stackTrace');
       setState(() {
         _reviewError = 'No se pudieron cargar los comentarios: $e';
         _isLoadingReviews = false;
@@ -728,13 +733,20 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             itemCount: _reviews.length,
                             itemBuilder: (context, index) {
                               final review = _reviews[index];
+                              print('DEBUG: Rendering review $index: $review');
                               return _buildReviewCard(
                                 context: context,
-                                client:
-                                    review['client']?['name'] ??
-                                    review['client_name'] ??
-                                    'Usuario Desconocido',
-                                rating: review['rating']?.toDouble() ?? 0.0,
+                                client: review['client'] != null
+                                    ? review['client']['name'] ??
+                                          'Usuario Desconocido'
+                                    : review['client_name'] ??
+                                          'Usuario Desconocido',
+                                rating:
+                                    (review['rating'] is String
+                                        ? double.tryParse(review['rating']) ??
+                                              0.0
+                                        : review['rating']?.toDouble()) ??
+                                    0.0,
                                 timeAgo: _formatTimeAgo(
                                   review['created_at'] ??
                                       DateTime.now().toIso8601String(),

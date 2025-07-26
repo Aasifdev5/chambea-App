@@ -9,17 +9,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 class MasDetallesStepScreen extends StatefulWidget {
   final ServiceRequest serviceRequest;
 
-  const MasDetallesStepScreen({required this.serviceRequest});
+  const MasDetallesStepScreen({required this.serviceRequest, super.key});
 
   @override
-  _MasDetallesStepScreenState createState() => _MasDetallesStepScreenState();
+  State<MasDetallesStepScreen> createState() => _MasDetallesStepScreenState();
 }
 
 class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
   final _formKey = GlobalKey<FormState>();
   String? _selectedPaymentMethod;
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _budgetController = TextEditingController();
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _budgetController;
   File? _selectedImage;
   bool _isLoading = false;
 
@@ -27,12 +27,12 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
   void initState() {
     super.initState();
     _selectedPaymentMethod = widget.serviceRequest.paymentMethod;
-    if (widget.serviceRequest.description != null) {
-      _descriptionController.text = widget.serviceRequest.description!;
-    }
-    if (widget.serviceRequest.budget != null) {
-      _budgetController.text = widget.serviceRequest.budget!;
-    }
+    _descriptionController = TextEditingController(
+      text: widget.serviceRequest.description ?? '',
+    );
+    _budgetController = TextEditingController(
+      text: widget.serviceRequest.budget ?? '',
+    );
   }
 
   @override
@@ -43,19 +43,28 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar la imagen: $e')),
+      );
     }
   }
 
   Future<void> _submitServiceRequest() async {
-    if (_formKey.currentState!.validate()) {
+    if (_formKey.currentState?.validate() ?? false) {
       widget.serviceRequest.description = _descriptionController.text;
-      widget.serviceRequest.budget = _budgetController.text;
+      widget.serviceRequest.budget = _budgetController.text.isNotEmpty
+          ? _budgetController
+                .text // assign String to match your model
+          : null;
       widget.serviceRequest.paymentMethod = _selectedPaymentMethod;
 
       if (!widget.serviceRequest.isStep3Complete()) {
@@ -73,11 +82,11 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
 
       try {
         final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          widget.serviceRequest.createdBy = int.tryParse(user.uid) ?? 0;
-        } else {
-          throw Exception('User not authenticated');
+        if (user == null) {
+          throw Exception('Usuario no autenticado');
         }
+        final data = widget.serviceRequest.toJson();
+        data['created_by'] = user.uid;
 
         Map<String, dynamic> response;
         if (_selectedImage != null) {
@@ -85,22 +94,24 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
             '/api/service-requests',
             'image',
             _selectedImage!,
-            widget.serviceRequest.toJson(),
+            data,
           );
         } else {
-          response = await ApiService.post(
-            '/api/service-requests',
-            widget.serviceRequest.toJson(),
-          );
+          response = await ApiService.post('/api/service-requests', data);
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Solicitud enviada con éxito')),
-        );
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ClientHomeScreen()),
-        );
+        if (response['status'] == 'success') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Solicitud enviada con éxito')),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const ClientHomeScreen()),
+            (route) => false,
+          );
+        } else {
+          throw Exception(response['message'] ?? 'Error desconocido');
+        }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al enviar la solicitud: $e')),
@@ -111,6 +122,46 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
         });
       }
     }
+  }
+
+  // --- Stepper Widgets ---
+  Widget _buildStepCircle(dynamic content, {required bool isCompleted}) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: isCompleted
+          ? const Color(0xFF22c55e)
+          : Colors.grey.shade300,
+      child: content is IconData
+          ? Icon(content, color: Colors.white, size: 20)
+          : Text(
+              content.toString(),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: screenWidth * 0.035,
+              ),
+            ),
+    );
+  }
+
+  Widget _buildStepLine() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return Expanded(
+      child: Container(
+        height: 2,
+        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Colors.grey.shade300,
+              width: 2,
+              style: BorderStyle.solid,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -131,7 +182,7 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
             const Icon(Icons.location_on, color: Colors.black54, size: 16),
             SizedBox(width: screenWidth * 0.02),
             Text(
-              'Av. Benavides 4887',
+              widget.serviceRequest.location ?? 'Av. Benavides 4887',
               style: TextStyle(
                 color: Colors.black54,
                 fontSize: screenWidth * 0.035,
@@ -235,7 +286,7 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
                     ),
                     SizedBox(height: screenHeight * 0.01),
                     Text(
-                      'Ayuda de la persona que asignarás la tarea a comprender lo que se debe hacer.',
+                      'Ayuda a la persona asignada a comprender lo que se debe hacer.',
                       style: TextStyle(
                         fontSize: screenWidth * 0.035,
                         color: Colors.black54,
@@ -301,11 +352,16 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       style: TextStyle(fontSize: screenWidth * 0.035),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Por favor introduzca un presupuesto';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Por favor introduzca un número válido';
                         }
                         return null;
                       },
@@ -320,15 +376,16 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
                         ),
                       ),
                       value: _selectedPaymentMethod,
-                      items: ['Efectivo', 'Código QR'].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(
-                            value,
-                            style: TextStyle(fontSize: screenWidth * 0.035),
-                          ),
-                        );
-                      }).toList(),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Efectivo',
+                          child: Text('Efectivo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Código QR',
+                          child: Text('Código QR'),
+                        ),
+                      ],
                       onChanged: (value) =>
                           setState(() => _selectedPaymentMethod = value),
                       validator: (value) {
@@ -342,6 +399,16 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
                     Center(
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _submitServiceRequest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22c55e),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.1,
+                            vertical: screenHeight * 0.02,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                         child: _isLoading
                             ? const CircularProgressIndicator(
                                 color: Colors.white,
@@ -353,16 +420,6 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
                                   fontSize: screenWidth * 0.035,
                                 ),
                               ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF22c55e),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.1,
-                            vertical: screenHeight * 0.02,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.02),
@@ -377,45 +434,6 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
               child: const Center(child: CircularProgressIndicator()),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStepCircle(dynamic content, {required bool isCompleted}) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: isCompleted
-          ? const Color(0xFF22c55e)
-          : Colors.grey.shade300,
-      child: content is IconData
-          ? Icon(content, color: Colors.white, size: 20)
-          : Text(
-              content,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: screenWidth * 0.035,
-              ),
-            ),
-    );
-  }
-
-  Widget _buildStepLine() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    return Expanded(
-      child: Container(
-        height: 2,
-        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Colors.grey.shade300,
-              width: 2,
-              style: BorderStyle.solid,
-            ),
-          ),
-        ),
       ),
     );
   }

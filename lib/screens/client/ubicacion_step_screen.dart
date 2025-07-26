@@ -18,11 +18,11 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
   final Set<Marker> _markers = {};
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _locationController = TextEditingController(
-    text: 'La Paz',
+    text: 'Bolivia',
   );
   final TextEditingController _locationDetailsController =
       TextEditingController();
-  LatLng _selectedLocation = const LatLng(-12.0464, -77.0428);
+  LatLng _selectedLocation = const LatLng(-16.2902, -63.5887); // Bolivia center
 
   @override
   void initState() {
@@ -91,6 +91,36 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
       _locationController.text = 'Error retrieving address';
       print('Error in reverse geocoding: $e');
     }
+  }
+
+  Widget _buildStepCircle(dynamic content, {required bool isCompleted}) {
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: isCompleted ? Colors.green : Colors.grey.shade300,
+      child: content is IconData
+          ? Icon(content, color: Colors.white)
+          : Text(
+              content.toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+    );
+  }
+
+  Widget _buildStepLine() {
+    return Expanded(
+      child: Container(
+        height: 2,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade300, width: 2),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -196,8 +226,8 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                     _mapController = controller;
                   },
                   initialCameraPosition: CameraPosition(
-                    target: _selectedLocation,
-                    zoom: 15,
+                    target: _selectedLocation, // Now defaults to Bolivia
+                    zoom: 6.5,
                   ),
                   markers: _markers,
                   onTap: (position) {
@@ -307,36 +337,6 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
               ),
               const SizedBox(height: 16),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStepCircle(dynamic content, {required bool isCompleted}) {
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: isCompleted ? Colors.green : Colors.grey.shade300,
-      child: content is IconData
-          ? Icon(content, color: Colors.white)
-          : Text(
-              content,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-    );
-  }
-
-  Widget _buildStepLine() {
-    return Expanded(
-      child: Container(
-        height: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Colors.grey.shade300, width: 2),
           ),
         ),
       ),

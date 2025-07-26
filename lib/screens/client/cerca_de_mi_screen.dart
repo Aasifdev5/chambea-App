@@ -16,6 +16,9 @@ class _CercaDeMiScreenState extends State<CercaDeMiScreen> {
   bool _isLoading = true;
   String? _error;
 
+  // Bolivia default
+  static const LatLng boliviaCenter = LatLng(-16.2902, -63.5887);
+
   @override
   void initState() {
     super.initState();
@@ -101,8 +104,8 @@ class _CercaDeMiScreenState extends State<CercaDeMiScreen> {
           ? Center(child: Text(_error!))
           : GoogleMap(
               initialCameraPosition: const CameraPosition(
-                target: LatLng(-12.0464, -77.0428),
-                zoom: 13,
+                target: _CercaDeMiScreenState.boliviaCenter, // Bolivia default
+                zoom: 6.5, // Suitable for country view
               ),
               markers: _markers,
               myLocationButtonEnabled: true,

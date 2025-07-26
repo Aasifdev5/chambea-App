@@ -6,9 +6,7 @@ import 'package:chambea/screens/client/bandeja_screen.dart';
 import 'package:chambea/screens/client/chats_screen.dart';
 import 'package:chambea/screens/client/menu_screen.dart';
 import 'package:chambea/screens/client/subcategorias_screen.dart';
-import 'package:chambea/screens/client/servicios_screen.dart';
 import 'package:chambea/screens/client/solicitar_servicio_screen.dart';
-import 'package:chambea/screens/client/busqueda_screen.dart';
 import 'package:chambea/screens/client/cerca_de_mi_screen.dart';
 
 class ClientHomeScreen extends StatefulWidget {
@@ -20,67 +18,6 @@ class ClientHomeScreen extends StatefulWidget {
 
 class _ClientHomeScreenState extends State<ClientHomeScreen> {
   int _selectedIndex = 0;
-  List<dynamic> _chambeadores = [];
-  bool _isLoadingChambeadores = false;
-  bool _hasLoadedChambeadores = false;
-  String? _chambeadoresError;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadChambeadores();
-  }
-
-  Future<void> _loadChambeadores() async {
-    if (_hasLoadedChambeadores && _chambeadores.isNotEmpty) {
-      print('DEBUG: Skipping chambeadores fetch, data already loaded');
-      return;
-    }
-
-    try {
-      print('DEBUG: Starting chambeadores fetch');
-      setState(() {
-        _isLoadingChambeadores = true;
-        _chambeadoresError = null;
-      });
-
-      final response = await retry(
-        () => ApiService.get('/api/chambeadores/ratings?per_page=20&page=1')
-            .timeout(
-              const Duration(seconds: 10),
-              onTimeout: () => throw TimeoutException('API request timed out'),
-            ),
-        maxAttempts: 3,
-        delayFactor: const Duration(seconds: 1),
-        randomizationFactor: 0.5,
-      );
-
-      print('DEBUG: API response: $response');
-
-      if (response['status'] != 'success' || response['data'] == null) {
-        throw Exception(response['message'] ?? 'Failed to load chambeadores');
-      }
-
-      setState(() {
-        _chambeadores = response['data'];
-        _isLoadingChambeadores = false;
-        _hasLoadedChambeadores = true;
-        print('DEBUG: Loaded ${_chambeadores.length} chambeadores');
-      });
-    } catch (e, stackTrace) {
-      setState(() {
-        _isLoadingChambeadores = false;
-        _chambeadoresError = 'Error loading chambeadores: $e';
-        print('ERROR: Failed to load chambeadores: $e');
-        print('Stack trace: $stackTrace');
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load chambeadores: $e')),
-        );
-      }
-    }
-  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -91,28 +28,18 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print(
-      'DEBUG: Building ClientHomeScreen, isLoading: $_isLoadingChambeadores, chambeadores: ${_chambeadores.length}',
-    );
+    print('DEBUG: Building ClientHomeScreen, selectedIndex: $_selectedIndex');
     return Scaffold(
       body: SafeArea(
-        child: Builder(
-          builder: (context) {
-            try {
-              return _screens[_selectedIndex];
-            } catch (e, stackTrace) {
-              print(
-                'ERROR: Failed to render screen at index $_selectedIndex: $e',
-              );
-              print('Stack trace: $stackTrace');
-              return Center(
-                child: Text(
-                  'Error rendering screen: $e',
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              );
-            }
-          },
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            ClientHomeContent(key: const ValueKey('home_content')),
+            BandejaScreen(),
+            const SolicitarServicioScreen(),
+            ChatsScreen(),
+            MenuScreen(),
+          ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -133,14 +60,6 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       ),
     );
   }
-
-  final List<Widget> _screens = [
-    ClientHomeContent(key: const ValueKey('home_content')),
-    BandejaScreen(),
-    const SolicitarServicioScreen(), // Updated to use default constructor
-    ChatsScreen(),
-    MenuScreen(),
-  ];
 }
 
 class ClientHomeContent extends StatefulWidget {
@@ -151,6 +70,33 @@ class ClientHomeContent extends StatefulWidget {
 }
 
 class _ClientHomeContentState extends State<ClientHomeContent> {
+  Future<List<dynamic>> _fetchChambeadores() async {
+    try {
+      print('DEBUG: Starting chambeadores fetch');
+      final response = await retry(
+        () => ApiService.get('/api/chambeadores/ratings').timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => throw TimeoutException('API request timed out'),
+        ),
+        maxAttempts: 3,
+        delayFactor: const Duration(seconds: 1),
+        randomizationFactor: 0.5,
+      );
+
+      print('DEBUG: API response: $response');
+
+      if (response['status'] != 'success' || response['data'] == null) {
+        throw Exception(response['message'] ?? 'Failed to load chambeadores');
+      }
+
+      print('DEBUG: Loaded ${response['data'].length} chambeadores');
+      return response['data'];
+    } catch (e) {
+      print('ERROR: Failed to load chambeadores: $e');
+      rethrow;
+    }
+  }
+
   final List<Map<String, dynamic>> _categories = const [
     {
       'title': 'Construcción',
@@ -300,55 +246,20 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_ClientHomeScreenState>()!;
-    print(
-      'DEBUG: Building ClientHomeContent, isLoading: ${state._isLoadingChambeadores}, chambeadores: ${state._chambeadores.length}',
-    );
-
+    print('DEBUG: Building ClientHomeContent');
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '¿Qué servicio necesitas?',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.search,
-                    color: Colors.black87,
-                    size: 24,
-                  ),
-                  onPressed: () {
-                    print('DEBUG: Navigating to BusquedaScreen');
-                    try {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BusquedaScreen(),
-                        ),
-                      );
-                    } catch (e, stackTrace) {
-                      print('ERROR: Navigation to BusquedaScreen failed: $e');
-                      print('Stack trace: $stackTrace');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Navigation error: $e')),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ],
+            const Text(
+              '¿Qué servicio necesitas?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -390,25 +301,7 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {
-                    print('DEBUG: Navigating to CercaDeMiScreen');
-                    try {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CercaDeMiScreen(),
-                        ),
-                      );
-                    } catch (e, stackTrace) {
-                      print('ERROR: Navigation to CercaDeMiScreen failed: $e');
-                      print('Stack trace: $stackTrace');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Navigation error: $e')),
-                        );
-                      }
-                    }
-                  },
+                  onPressed: () => _navigateTo(context, CercaDeMiScreen()),
                   child: const Text(
                     'Ver más',
                     style: TextStyle(color: Colors.green, fontSize: 14),
@@ -417,222 +310,88 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
               ],
             ),
             const SizedBox(height: 8),
-            state._isLoadingChambeadores
-                ? const Center(child: CircularProgressIndicator())
-                : state._chambeadoresError != null
-                ? Center(child: Text(state._chambeadoresError!))
-                : state._chambeadores.isEmpty
-                ? const Center(child: Text('No chambeadores found'))
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: state._chambeadores.map((profile) {
-                        final name = profile['name'] as String? ?? 'Unknown';
-                        final lastName = profile['last_name'] as String? ?? '';
-                        final fullName =
-                            '$name${lastName.isNotEmpty ? ' $lastName' : ''}';
-                        final profession =
-                            profile['profession'] as String? ?? 'No profession';
-                        final rating = profile['rating'] != null
-                            ? double.tryParse(profile['rating'].toString()) ??
-                                  0.0
-                            : 0.0;
-                        final uid = profile['uid'] as String? ?? '';
-                        print(
-                          'DEBUG: Rendering chambeador card: $fullName, uid: $uid',
-                        );
-                        return GestureDetector(
-                          onTap: () {
-                            if (uid.isEmpty) {
-                              print(
-                                'ERROR: Invalid UID for chambeador: $fullName',
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Error: Invalid chambeador profile',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            print(
-                              'DEBUG: Navigating to chambeador_profile with uid: $uid',
-                            );
-                            try {
-                              Navigator.pushNamed(
-                                context,
-                                '/chambeador_profile',
-                                arguments: {'uid': uid},
-                              );
-                            } catch (e, stackTrace) {
-                              print(
-                                'ERROR: Navigation to chambeador_profile failed: $e',
-                              );
-                              print('Stack trace: $stackTrace');
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Navigation error: $e'),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          child: _buildChambeadorCard(
-                            context: context,
-                            name: fullName,
-                            profession: profession,
-                            rating: rating,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Servicios populares',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    print('DEBUG: Attempting to navigate to ServiciosScreen');
-                    try {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ServiciosScreen(),
+            FutureBuilder<List<dynamic>>(
+              future: _fetchChambeadores(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text('No chambeadores found'));
+                }
+
+                final chambeadores = snapshot.data!;
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: chambeadores.map((profile) {
+                      final name = profile['name'] as String? ?? 'Unknown';
+                      final lastName = profile['last_name'] as String? ?? '';
+                      final fullName =
+                          '$name${lastName.isNotEmpty ? ' $lastName' : ''}';
+                      final profession =
+                          profile['profession'] as String? ?? 'No profession';
+                      final rating = profile['rating'] != null
+                          ? double.tryParse(profile['rating'].toString()) ?? 0.0
+                          : 0.0;
+                      final uid = profile['uid'] as String? ?? '';
+                      print(
+                        'DEBUG: Rendering chambeador card: $fullName, uid: $uid',
+                      );
+                      return GestureDetector(
+                        onTap: () => _navigateToProfile(context, uid, fullName),
+                        child: _buildChambeadorCard(
+                          context: context,
+                          name: fullName,
+                          profession: profession,
+                          rating: rating,
                         ),
                       );
-                    } catch (e, stackTrace) {
-                      print('ERROR: Navigation to ServiciosScreen failed: $e');
-                      print('Stack trace: $stackTrace');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Navigation error: $e')),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text(
-                    'Ver más',
-                    style: TextStyle(color: Colors.green, fontSize: 14),
+                    }).toList(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Ayuda eléctrica',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: Colors.grey.shade300,
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Andrés Villamontes',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.star,
-                                          size: 14,
-                                          color: Colors.yellow.shade700,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Text(
-                                          '4.1',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          'Electricista',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(8),
-                        bottomRight: Radius.circular(8),
-                      ),
-                      color: Colors.grey.shade300,
-                    ),
-                    child: const Icon(
-                      Icons.electrical_services,
-                      size: 30,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 16),
           ],
         ),
       ),
     );
+  }
+
+  void _navigateTo(BuildContext context, Widget screen) {
+    print('DEBUG: Navigating to ${screen.runtimeType}');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => screen),
+    ).catchError((e) {
+      print('ERROR: Navigation to ${screen.runtimeType} failed: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Navigation error: $e')));
+    });
+  }
+
+  void _navigateToProfile(BuildContext context, String uid, String fullName) {
+    if (uid.isEmpty) {
+      print('ERROR: Invalid UID for chambeador: $fullName');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Invalid chambeador profile')),
+      );
+      return;
+    }
+    print('DEBUG: Navigating to chambeador_profile with uid: $uid');
+    Navigator.pushNamed(
+      context,
+      '/chambeador_profile',
+      arguments: {'uid': uid},
+    ).catchError((e) {
+      print('ERROR: Navigation to chambeador_profile failed: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Navigation error: $e')));
+    });
   }
 
   Widget _buildCategoryCard({
@@ -645,25 +404,10 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
     return GestureDetector(
       onTap: () {
         print('DEBUG: Navigating to SubcategoriasScreen with category: $title');
-        try {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SubcategoriasScreen(
-                category: title,
-                subcategories: subcategories,
-              ),
-            ),
-          );
-        } catch (e, stackTrace) {
-          print('ERROR: Navigation to SubcategoriasScreen failed: $e');
-          print('Stack trace: $stackTrace');
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Navigation error: $e')));
-          }
-        }
+        _navigateTo(
+          context,
+          SubcategoriasScreen(category: title, subcategories: subcategories),
+        );
       },
       child: Card(
         elevation: 3,

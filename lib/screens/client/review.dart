@@ -4,7 +4,9 @@ import 'package:chambea/screens/client/home.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
-import 'package:chambea/services/api_service.dart';
+import 'package:chambea/services/review_service.dart'; // Import ReviewService
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ReviewServiceScreen extends StatefulWidget {
   final int requestId;
@@ -27,27 +29,56 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   final TextEditingController _commentController = TextEditingController();
   String? _workerName;
   bool _isLoading = false;
+  final ReviewService _reviewService =
+      ReviewService(); // Initialize ReviewService
 
   @override
   void initState() {
     super.initState();
+    print(
+      'DEBUG: ReviewServiceScreen init: requestId=${widget.requestId}, workerId=${widget.workerId}, workerName=${widget.workerName}',
+    );
     _fetchWorkerName();
   }
 
   Future<void> _fetchWorkerName() async {
     if (widget.workerName == null || widget.workerName!.isEmpty) {
       try {
-        final response = await ApiService.get('/api/users/${widget.workerId}');
-        if (response['status'] == 'success') {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) {
+          print('ERROR: No authenticated user found');
           setState(() {
-            _workerName = response['data']['name'] ?? 'Trabajador Desconocido';
+            _workerName = 'Trabajador Desconocido';
+          });
+          return;
+        }
+        final token = await user.getIdToken();
+        final response = await http.get(
+          Uri.parse('https://chambea.lat/api/users/${widget.workerId}'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        );
+
+        print(
+          'DEBUG: Fetch worker name response: ${response.statusCode} - ${response.body}',
+        );
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body)['data'];
+          setState(() {
+            _workerName = data['name'] ?? 'Trabajador Desconocido';
           });
         } else {
+          print('ERROR: Failed to fetch worker profile: ${response.body}');
           setState(() {
             _workerName = 'Trabajador Desconocido';
           });
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        print('ERROR: Failed to fetch worker name: $e');
+        print('Stack Trace: $stackTrace');
         setState(() {
           _workerName = 'Trabajador Desconocido';
         });
@@ -62,6 +93,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   Future<void> _submitReview() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
+      print('ERROR: No authenticated user found');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
@@ -69,6 +101,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
     }
 
     if (_rating == 0) {
+      print('ERROR: No rating selected');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor selecciona una calificación')),
       );
@@ -76,6 +109,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
     }
 
     if (widget.requestId == 0 || widget.workerId.isEmpty) {
+      print(
+        'ERROR: Invalid service data: requestId=${widget.requestId}, workerId=${widget.workerId}',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error: Datos del servicio inválidos')),
       );
@@ -87,51 +123,57 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
     });
 
     try {
-      // ✅ Obtener client_id interno del backend mediante UID de Firebase
-      final profileResponse = await ApiService.get('/api/users/${user.uid}');
-      if (profileResponse['status'] != 'success') {
-        throw Exception('No se pudo obtener perfil del usuario.');
-      }
-      final clientInternalId = profileResponse['data']['id'];
+      // Fetch client internal ID from backend
+      final token = await user.getIdToken();
+      final profileResponse = await http.get(
+        Uri.parse('https://chambea.lat/api/users/${user.uid}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      );
 
-      final payload = {
-        'service_request_id': widget.requestId,
-        'worker_id': widget.workerId,
-        'client_id': clientInternalId,
-        'rating': _rating,
-        'comment': _commentController.text.trim().isEmpty
+      print(
+        'DEBUG: Fetch client profile response: ${profileResponse.statusCode} - ${profileResponse.body}',
+      );
+      if (profileResponse.statusCode != 200) {
+        throw Exception(
+          'No se pudo obtener perfil del usuario: ${profileResponse.body}',
+        );
+      }
+      final clientInternalId = json.decode(profileResponse.body)['data']['id'];
+
+      final review = await _reviewService.createReview(
+        serviceRequestId: widget.requestId,
+        workerId: widget.workerId,
+        clientId: clientInternalId.toString(),
+        rating: _rating,
+        comment: _commentController.text.trim().isEmpty
             ? 'Sin comentario'
             : _commentController.text.trim(),
-      };
+        reviewType: 'client_to_worker', // Specify client-to-worker review
+      );
 
-      final response = await ApiService.post('/api/reviews', payload);
-
-      if (response['statusCode'] == 201 &&
-          response['body']['status'] == 'success') {
-        context.read<ProposalsBloc>().add(FetchServiceRequests());
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reseña enviada con éxito')),
-        );
-
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-            (route) => false,
-          );
-        }
-      } else {
-        final error =
-            response['body']['message'] ?? 'Error desconocido al enviar reseña';
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $error')));
-      }
-    } catch (e) {
+      print('DEBUG: Review created successfully: $review');
+      context.read<ProposalsBloc>().add(FetchServiceRequests());
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ).showSnackBar(const SnackBar(content: Text('Reseña enviada con éxito')));
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e, stackTrace) {
+      print('ERROR: Failed to submit review: $e');
+      print('Stack Trace: $stackTrace');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al enviar reseña: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -150,6 +192,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.requestId == 0 || widget.workerId.isEmpty) {
+      print(
+        'ERROR: Invalid service data in build: requestId=${widget.requestId}, workerId=${widget.workerId}',
+      );
       return Scaffold(
         appBar: AppBar(title: const Text('Error')),
         body: const Center(

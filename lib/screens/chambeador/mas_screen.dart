@@ -7,6 +7,8 @@ import 'package:chambea/screens/chambeador/billetera_screen.dart';
 import 'package:chambea/screens/chambeador/configuracion_screen.dart';
 import 'package:chambea/screens/client/supportscreen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
+import 'package:chambea/screens/client/perfil_screen.dart';
+
 import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/main.dart';
 import 'package:chambea/screens/chambeador/informacion_basica_screen.dart';
@@ -249,9 +251,7 @@ class MasScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ClientHomeScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const PerfilScreen()),
                 );
               },
               child: const Text(

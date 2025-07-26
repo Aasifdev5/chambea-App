@@ -1,10 +1,7 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -12,6 +9,14 @@ android {
     namespace = "com.newchambea.com"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
+
+    defaultConfig {
+        applicationId = "com.newchambea.com"
+        minSdk = 23
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -22,48 +27,53 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.newchambea.com"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+    signingConfigs {
+        create("release") {
+            storeFile = file("C:/Users/Aasif/clientchambea_release.jks")
+            storePassword = "Chambea@2025"
+            keyAlias = "chambeaKey"
+            keyPassword = "Chambea@2025"
+        }
+        // ✅ No need to define debug — Flutter uses default debug config
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+
+        getByName("debug") {
+            // Default debug config
         }
     }
 }
-dependencies {
-    // Import the BoM for the Firebase platform
-    implementation(platform("com.google.firebase:firebase-bom:33.15.0"))
 
-    // Firebase Authentication
+dependencies {
+    // Firebase BoM (Bill of Materials) to align versions
+    implementation(platform("com.google.firebase:firebase-bom:33.5.0"))
+
+    // Firebase core services
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-messaging")
 
     // Firebase App Check
     implementation("com.google.firebase:firebase-appcheck")
-    implementation("com.google.firebase:firebase-appcheck-playintegrity")  // For Play Integrity
-    implementation("com.google.firebase:firebase-appcheck-debug")          // For debug mode
+    implementation("com.google.firebase:firebase-appcheck-playintegrity") // ✅ Required for real device
+    implementation("com.google.firebase:firebase-appcheck-debug")         // ✅ For dev/emulator only
 
-    // Cloud Firestore (optional, based on your Flutter dependencies)
-    implementation("com.google.firebase:firebase-firestore")
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
-    // Firebase Storage (optional, based on your Flutter dependencies)
-    implementation("com.google.firebase:firebase-storage")
-
-    // Firebase Messaging (if using push notifications)
-    implementation("com.google.firebase:firebase-messaging")
-
-    // Google Sign-In (required for Firebase Auth Google Sign-In)
-    implementation("com.google.android.gms:play-services-auth")
+    // Optional: Legacy App Check fallback
+    implementation("com.google.android.gms:play-services-safetynet:18.1.0")
 }
 
 flutter {

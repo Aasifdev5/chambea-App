@@ -24,6 +24,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io';
 
+// Registers FCM token for push notifications
 Future<void> registerFcmToken() async {
   try {
     final messaging = FirebaseMessaging.instance;
@@ -31,7 +32,6 @@ Future<void> registerFcmToken() async {
       alert: true,
       announcement: false,
       badge: true,
-
       criticalAlert: false,
       provisional: false,
       sound: true,
@@ -75,33 +75,36 @@ Future<void> registerFcmToken() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Handle Flutter errors
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.dumpErrorToConsole(details);
     print('Flutter Error: ${details.exceptionAsString()}\n${details.stack}');
-    // Removed exit(1) to prevent crashes in release mode
   };
 
   try {
+    // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print("✅ Firebase initialized");
 
+    // Activate App Check
     await FirebaseAppCheck.instance.activate(
-      androidProvider: kReleaseMode
-          ? AndroidProvider.playIntegrity
-          : AndroidProvider.debug,
+      androidProvider: AndroidProvider.playIntegrity,
     );
     print("✅ App Check activated");
 
+    // Configure Firestore persistence
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
     print("✅ Firestore persistence enabled");
 
+    // Run the app
     runApp(const ChambeaApp());
 
+    // Register FCM token and handle notifications
     Future.microtask(() async {
       await registerFcmToken();
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -124,6 +127,7 @@ void main() async {
   }
 }
 
+// API Service for handling HTTP requests
 class ApiService {
   static const String baseUrl = 'https://chambea.lat';
 
@@ -162,7 +166,7 @@ class ApiService {
         'DEBUG: GET $endpoint response: ${response.statusCode} ${response.body}',
       );
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
       }
       throw Exception(
         'Failed to load data: ${response.statusCode} - ${response.body}',
@@ -190,7 +194,7 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {
           'statusCode': response.statusCode,
-          'body': json.decode(response.body),
+          'body': json.decode(response.body) as Map<String, dynamic>,
         };
       }
       throw Exception(
@@ -219,7 +223,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return {
           'statusCode': response.statusCode,
-          'body': json.decode(response.body),
+          'body': json.decode(response.body) as Map<String, dynamic>,
         };
       }
       throw Exception(
@@ -244,7 +248,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return {
           'statusCode': response.statusCode,
-          'body': json.decode(response.body),
+          'body': json.decode(response.body) as Map<String, dynamic>,
         };
       }
       throw Exception(
@@ -278,7 +282,7 @@ class ApiService {
         'DEBUG: UPLOAD $endpoint response: ${response.statusCode} ${response.body}',
       );
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
       }
       throw Exception(
         'Failed to upload file: ${response.statusCode} - ${response.body}',
@@ -293,57 +297,60 @@ class ApiService {
 class ChambeaApp extends StatelessWidget {
   const ChambeaApp({super.key});
 
+  // Determines the initial screen based on authentication and account type
   Future<Widget> _getInitialScreen() async {
+    print('DEBUG: Checking if user is logged in');
     final isLoggedIn = await ApiService.isLoggedIn();
     if (!isLoggedIn) {
       print('DEBUG: User not logged in, redirecting to SplashScreen');
       return const SplashScreen();
     }
 
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('DEBUG: No authenticated user, redirecting to SplashScreen');
-        return const SplashScreen();
-      }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('DEBUG: No authenticated user, redirecting to SplashScreen');
+      return const SplashScreen();
+    }
 
+    print('DEBUG: Fetching account type for UID: ${user.uid}');
+    try {
       final response = await ApiService.get('/api/account-type/${user.uid}');
       print('DEBUG: Fetch account type response: $response');
-      if (response['status'] == 'success' && response['data'] != null) {
-        final accountType = response['data']['account_type']?.toString();
-        print('DEBUG: Account type received: $accountType');
+
+      // Validate response structure and account type
+      if (response['status'] == 'success' &&
+          response['data'] != null &&
+          response['data']['account_type'] is String &&
+          (response['data']['account_type'] == 'Client' ||
+              response['data']['account_type'] == 'Chambeador')) {
+        final accountType = response['data']['account_type'] as String;
+        print('DEBUG: Valid account type received: $accountType');
+        // Save account type to SharedPreferences for fallback
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('account_type', accountType);
         if (accountType == 'Client') {
           print('DEBUG: User is Client, redirecting to ClientHomeScreen');
           return const ClientHomeScreen();
-        } else if (accountType == 'Chambeador') {
+        } else {
           print('DEBUG: User is Chambeador, redirecting to HomeScreen');
           return const HomeScreen();
         }
+      } else {
+        // Handle invalid or missing account type
+        print('DEBUG: Invalid or missing account type in response: $response');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        print(
+          'DEBUG: Cleared SharedPreferences, redirecting to ProfileSelectionScreen',
+        );
+        return const ProfileSelectionScreen();
       }
-
-      print(
-        'DEBUG: No valid account type found, redirecting to ProfileSelectionScreen',
-      );
-      return const ProfileSelectionScreen();
     } catch (e) {
       print('DEBUG: Error fetching account type: $e');
+      // Clear SharedPreferences on error to avoid stale data
       final prefs = await SharedPreferences.getInstance();
-      final accountType = prefs.getString('account_type');
-      print('DEBUG: Local account type: $accountType');
-      if (accountType == 'Client') {
-        print(
-          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
-        );
-        return const ClientHomeScreen();
-      } else if (accountType == 'Chambeador') {
-        print(
-          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
-        );
-        return const HomeScreen();
-      }
-      print(
-        'DEBUG: No local account type, redirecting to ProfileSelectionScreen',
-      );
+      await prefs.remove('account_type');
+      print('DEBUG: API error, redirecting to ProfileSelectionScreen');
       return const ProfileSelectionScreen();
     }
   }
@@ -443,7 +450,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
         );
@@ -536,7 +543,7 @@ class OnboardingOneScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacement(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const LoginScreen(),
@@ -650,7 +657,7 @@ class OnboardingTwoScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacement(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const LoginScreen(),
@@ -764,7 +771,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacement(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const LoginScreen(),
@@ -807,7 +814,7 @@ class OnboardingThreeScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
@@ -865,7 +872,7 @@ class _LoginScreenState extends State<LoginScreen> {
         'DEBUG: Google Sign-In successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -931,7 +938,7 @@ class _LoginScreenState extends State<LoginScreen> {
             print(
               'DEBUG: Navigating to ActiveServiceScreen after auto-verification',
             );
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1263,7 +1270,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         'DEBUG: OTP verification successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -1298,7 +1305,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           await _auth.signInWithCredential(credential);
           if (mounted) {
             print('DEBUG: Navigating to ActiveServiceScreen after resend');
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1317,7 +1324,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         codeSent: (String verificationId, int? resendToken) {
           print('DEBUG: New OTP code sent, verificationId: $verificationId');
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => OTPScreen(
@@ -1494,6 +1501,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 class ActiveServiceScreen extends StatelessWidget {
   const ActiveServiceScreen({super.key});
 
+  // Requests location permission
   Future<void> requestLocationPermission(BuildContext context) async {
     final status = await Permission.location.request();
     print('DEBUG: Location permission status: $status');
@@ -1513,53 +1521,55 @@ class ActiveServiceScreen extends StatelessWidget {
     }
   }
 
+  // Determines the next screen after location permission
   Future<Widget> _getNextScreen() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('DEBUG: No authenticated user, redirecting to SplashScreen');
-        return const SplashScreen();
-      }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('DEBUG: No authenticated user, redirecting to SplashScreen');
+      return const SplashScreen();
+    }
 
+    print('DEBUG: Fetching account type for UID: ${user.uid}');
+    try {
       final response = await ApiService.get('/api/account-type/${user.uid}');
       print(
         'DEBUG: ActiveServiceScreen fetch account type response: $response',
       );
-      if (response['status'] == 'success' && response['data'] != null) {
-        final accountType = response['data']['account_type']?.toString();
-        print('DEBUG: Account type received: $accountType');
+
+      // Validate response structure and account type
+      if (response['status'] == 'success' &&
+          response['data'] != null &&
+          response['data']['account_type'] is String &&
+          (response['data']['account_type'] == 'Client' ||
+              response['data']['account_type'] == 'Chambeador')) {
+        final accountType = response['data']['account_type'] as String;
+        print('DEBUG: Valid account type received: $accountType');
+        // Save account type to SharedPreferences for fallback
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('account_type', accountType);
         if (accountType == 'Client') {
           print('DEBUG: User is Client, redirecting to ClientHomeScreen');
           return const ClientHomeScreen();
-        } else if (accountType == 'Chambeador') {
+        } else {
           print('DEBUG: User is Chambeador, redirecting to HomeScreen');
           return const HomeScreen();
         }
+      } else {
+        // Handle invalid or missing account type
+        print('DEBUG: Invalid or missing account type in response: $response');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        print(
+          'DEBUG: Cleared SharedPreferences, redirecting to ProfileSelectionScreen',
+        );
+        return const ProfileSelectionScreen();
       }
-
-      print(
-        'DEBUG: No valid account type found, redirecting to ProfileSelectionScreen',
-      );
-      return const ProfileSelectionScreen();
     } catch (e) {
       print('DEBUG: Error fetching account type in ActiveServiceScreen: $e');
+      // Clear SharedPreferences on error to avoid stale data
       final prefs = await SharedPreferences.getInstance();
-      final accountType = prefs.getString('account_type');
-      print('DEBUG: Local account type: $accountType');
-      if (accountType == 'Client') {
-        print(
-          'DEBUG: Local account type is Client, redirecting to ClientHomeScreen',
-        );
-        return const ClientHomeScreen();
-      } else if (accountType == 'Chambeador') {
-        print(
-          'DEBUG: Local account type is Chambeador, redirecting to HomeScreen',
-        );
-        return const HomeScreen();
-      }
-      print(
-        'DEBUG: No local account type, redirecting to ProfileSelectionScreen',
-      );
+      await prefs.remove('account_type');
+      print('DEBUG: API error, redirecting to ProfileSelectionScreen');
       return const ProfileSelectionScreen();
     }
   }
