@@ -7,6 +7,8 @@ abstract class JobsEvent extends Equatable {
   List<Object> get props => [];
 }
 
+class FetchHomeData extends JobsEvent {}
+
 class FetchJobs extends JobsEvent {}
 
 class FetchWorkerProfile extends JobsEvent {}

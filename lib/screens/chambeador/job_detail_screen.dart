@@ -1,18 +1,40 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:chambea/screens/chambeador/propuesta_screen.dart';
-import 'package:chambea/screens/chambeador/chat_detail_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chambea/blocs/chambeador/job_detail_bloc.dart';
 import 'package:chambea/blocs/chambeador/job_detail_event.dart';
 import 'package:chambea/blocs/chambeador/job_detail_state.dart';
 import 'package:chambea/models/job.dart';
+import 'package:chambea/screens/chambeador/chat_detail_screen.dart';
+import 'package:chambea/screens/chambeador/propuesta_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final int requestId;
 
-  const JobDetailScreen({required this.requestId, Key? key}) : super(key: key);
+  const JobDetailScreen({required this.requestId, super.key});
+
+  // Normalize image URL to remove /storage/ and handle case sensitivity
+  String _normalizeImagePath(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return '';
+    }
+    String normalized = imagePath
+        .replaceAll('https://chambea.lat/storage/', 'https://chambea.lat/')
+        .replaceAll(
+          'https://chambea.lat/Uploads/',
+          'https://chambea.lat/uploads/',
+        )
+        .replaceAll(
+          'https://chambea.lat/https://chambea.lat/',
+          'https://chambea.lat/',
+        );
+    if (!normalized.startsWith('http')) {
+      return 'https://chambea.lat/$normalized';
+    }
+    return normalized;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,12 +49,18 @@ class JobDetailScreen extends StatelessWidget {
                 ImageProvider image = const AssetImage(
                   'assets/images/led_installation.jpg',
                 );
-                if (state is JobDetailLoaded && state.job.image != null) {
+                if (state is JobDetailLoaded &&
+                    state.job.image != null &&
+                    state.job.image!.isNotEmpty) {
+                  String imagePath = _normalizeImagePath(state.job.image);
+                  print(
+                    'DEBUG: Normalized job image for requestId: $requestId, URL: $imagePath',
+                  );
                   try {
-                    image = NetworkImage(state.job.image!);
+                    image = CachedNetworkImageProvider(imagePath);
                   } catch (e, stackTrace) {
                     print(
-                      'ERROR: Failed to load job image for requestId: $requestId, Error: $e',
+                      'ERROR: Failed to load job image for requestId: $requestId, URL: $imagePath, Error: $e',
                     );
                     print('Stack trace: $stackTrace');
                   }

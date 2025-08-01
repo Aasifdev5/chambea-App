@@ -1,18 +1,19 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:chambea/screens/chambeador/buscar_screen.dart';
-import 'package:chambea/screens/chambeador/chat_screen.dart';
-import 'package:chambea/screens/chambeador/mas_screen.dart';
-import 'package:chambea/screens/chambeador/propuesta_screen.dart';
-import 'package:chambea/screens/chambeador/job_detail_screen.dart';
-import 'package:chambea/screens/chambeador/trabajos.dart';
-import 'package:chambea/screens/client/home.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
 import 'package:chambea/blocs/chambeador/jobs_event.dart';
 import 'package:chambea/blocs/chambeador/jobs_state.dart';
+import 'package:chambea/screens/chambeador/buscar_screen.dart';
+import 'package:chambea/screens/chambeador/chat_screen.dart';
+import 'package:chambea/screens/chambeador/job_detail_screen.dart';
+import 'package:chambea/screens/chambeador/mas_screen.dart';
+import 'package:chambea/screens/chambeador/propuesta_screen.dart';
+import 'package:chambea/screens/chambeador/trabajos.dart';
+import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/services/review_service.dart';
 import 'package:chambea/services/user_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,10 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     BlocProvider(
-      create: (context) => JobsBloc()
-        ..add(FetchJobs())
-        ..add(FetchWorkerProfile())
-        ..add(FetchContractSummary()),
+      create: (context) => JobsBloc()..add(FetchHomeData()),
       child: const HomeScreenContent(),
     ),
     const TrabajosContent(),
@@ -598,6 +596,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                       job['subcategory']?.toUpperCase() ??
                                           'GENERAL',
                                     ],
+                                    imagePath: job['image'],
                                     screenWidth: screenWidth,
                                     screenHeight: screenHeight,
                                     textScaleFactor: textScaleFactor,
@@ -783,14 +782,21 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required String clientId,
     required double clientRating,
     required List<String> tags,
+    required String? imagePath,
     required double screenWidth,
     required double screenHeight,
     required double textScaleFactor,
     required double baseFontSize,
   }) {
     print(
-      'DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, Location: $location',
+      'DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, '
+      'Location: $location, Image Path: $imagePath',
     );
+    // Validate imagePath to catch malformed URLs
+    if (imagePath != null &&
+        imagePath.contains('https://chambea.lat/https://')) {
+      print('WARNING: Malformed imagePath detected: $imagePath');
+    }
     return GestureDetector(
       onTap: () {
         if (requestId == null) {
@@ -828,12 +834,44 @@ class _HomeScreenContentState extends State<HomeScreenContent>
           children: [
             Container(
               height: (screenHeight * 0.2).clamp(120, 180),
+              width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.vertical(
                   top: Radius.circular(screenWidth * 0.03),
                 ),
                 color: Colors.grey.shade300,
               ),
+              child: imagePath != null && imagePath.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(screenWidth * 0.03),
+                      ),
+                      child: CachedNetworkImage(
+                        imageUrl: imagePath,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) =>
+                            const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) {
+                          print(
+                            'ERROR: Image load failed for URL $imagePath: $error',
+                          );
+                          return Center(
+                            child: Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                              size: (screenWidth * 0.1).clamp(40, 60),
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                  : Center(
+                      child: Icon(
+                        Icons.image,
+                        color: Colors.grey,
+                        size: (screenWidth * 0.1).clamp(40, 60),
+                      ),
+                    ),
             ),
             Padding(
               padding: EdgeInsets.all(screenWidth * 0.04),

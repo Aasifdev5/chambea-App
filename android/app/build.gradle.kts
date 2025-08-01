@@ -29,7 +29,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("C:/Users/Aasif/clientchambea_release.jks")
+            storeFile = file("../clientchambea_release.jks")
             storePassword = "Chambea@2025"
             keyAlias = "chambeaKey"
             keyPassword = "Chambea@2025"

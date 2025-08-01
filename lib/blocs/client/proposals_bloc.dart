@@ -11,6 +11,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     on<RejectServiceRequest>(_onRejectServiceRequest);
     on<RejectProposal>(_onRejectProposal);
     on<HireWorker>(_onHireWorker);
+    on<RecontractWorker>(_onRecontractWorker);
   }
 
   Future<void> _onFetchServiceRequests(
@@ -30,7 +31,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         }
       }
 
-      // Batch fetch worker data using Firebase UIDs
       final workerData = await _fetchWorkerData(workerIds);
       for (var request in requests) {
         for (var proposal in (request['proposals'] ?? [])) {
@@ -70,7 +70,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         }
       }
 
-      // Batch fetch worker data using Firebase UIDs
       final workerData = await _fetchWorkerData(workerIds);
       for (var proposal in proposals) {
         final workerId = proposal['worker_id'];
@@ -132,7 +131,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     try {
       String? workerFirebaseUid = event.workerId;
       if (workerFirebaseUid == null && event.proposalId != null) {
-        // Fetch proposal to get worker_id if not provided
         final response = await ApiService.get(
           '/api/service-requests/${event.requestId}',
         );
@@ -156,7 +154,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         throw Exception('Worker ID not provided and could not be resolved');
       }
 
-      // Verify worker is a Chambeador
       final accountTypeResponse = await ApiService.get(
         '/api/account-type/$workerFirebaseUid',
       );
@@ -164,14 +161,12 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         throw Exception('Selected worker is not a Chambeador');
       }
 
-      // Hire worker
       await ApiService.post('/api/service-requests/${event.requestId}/hire', {
         'agreed_budget': event.budget,
         if (event.proposalId != null) 'proposal_id': event.proposalId,
         'worker_id': workerFirebaseUid,
       });
 
-      // Initialize chat
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await ApiService.post('/api/chats/initialize', {
@@ -190,24 +185,70 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     }
   }
 
+  Future<void> _onRecontractWorker(
+    RecontractWorker event,
+    Emitter<ProposalsState> emit,
+  ) async {
+    emit(ProposalsLoading());
+    try {
+      // Ensure workerId is numeric
+      final numericWorkerId = event.workerId;
+      print(
+        'DEBUG: RecontractWorker event.workerId: $numericWorkerId (type: ${numericWorkerId.runtimeType})',
+      );
+
+      if (numericWorkerId <= 0) {
+        throw Exception('Invalid worker_id: $numericWorkerId');
+      }
+
+      // Log the payload before sending
+      final payload = {
+        'worker_id': numericWorkerId,
+        'subcategory': event.subcategory,
+      };
+      print(
+        'DEBUG: Sending POST /api/contracts/rehire/${event.requestId} with payload: $payload',
+      );
+
+      final response = await ApiService.post(
+        '/api/contracts/rehire/${event.requestId}',
+        payload,
+      );
+
+      print('DEBUG: Recontract response: $response');
+
+      if (response['status'] == 'success') {
+        emit(ProposalsActionSuccess('Recontratación iniciada exitosamente'));
+        emit(
+          ProposalsLoaded({
+            'id': response['contract']['service_request_id'],
+          }, []),
+        );
+      } else {
+        emit(ProposalsError(response['message'] ?? 'Error al recontratar'));
+      }
+    } catch (e) {
+      final errorMessage = _handleError(e);
+      print('RecontractWorker error: $errorMessage');
+      emit(ProposalsError(errorMessage));
+    }
+  }
+
   Future<Map<int, Map<String, dynamic>>> _fetchWorkerData(
     Set<int> workerIds,
   ) async {
     final workerData = <int, Map<String, dynamic>>{};
     for (var workerId in workerIds) {
       try {
-        // Map numeric ID to Firebase UID
         final uidResponse = await ApiService.get(
           '/api/users/map-id-to-uid/$workerId',
         );
         final workerFirebaseUid = uidResponse['data']['uid'];
         if (workerFirebaseUid != null) {
-          // Fetch worker profile
           final userResponse = await ApiService.get(
             '/api/users/$workerFirebaseUid',
           );
           final userData = userResponse['data'] ?? {};
-          // Verify account_type
           if (userData['account_type'] == 'Chambeador') {
             workerData[workerId] = {
               'uid': workerFirebaseUid,
@@ -251,6 +292,8 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       return 'Recurso no encontrado.';
     } else if (e.toString().contains('403')) {
       return 'Acceso denegado.';
+    } else if (e.toString().contains('422')) {
+      return 'Datos inválidos enviados al servidor.';
     } else {
       return 'Error inesperado: $e';
     }

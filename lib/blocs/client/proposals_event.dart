@@ -53,8 +53,23 @@ class HireWorker extends ProposalsEvent {
   @override
   List<Object> get props => [
     requestId,
-    proposalId ?? 0, // Default to 0 if null
-    workerId ?? '', // Default to empty string if null
+    proposalId ?? 0,
+    workerId ?? '',
     budget,
   ];
+}
+
+class RecontractWorker extends ProposalsEvent {
+  final int workerId;
+  final int requestId;
+  final String subcategory;
+
+  const RecontractWorker({
+    required this.workerId,
+    required this.requestId,
+    required this.subcategory,
+  });
+
+  @override
+  List<Object> get props => [workerId, requestId, subcategory];
 }

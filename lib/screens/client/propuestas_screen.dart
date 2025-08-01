@@ -25,6 +25,7 @@ class PropuestasScreen extends StatefulWidget {
 
 class _PropuestasScreenState extends State<PropuestasScreen> {
   final Map<int, String> _workerNameCache = {};
+  int? _newRequestId;
 
   @override
   void initState() {
@@ -143,6 +144,27 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text(state.message)));
+              if (state.message == 'Recontratación iniciada exitosamente') {
+                setState(() {
+                  _newRequestId = null;
+                });
+              }
+            } else if (state is ProposalsLoaded && _newRequestId == null) {
+              if (state.serviceRequest['id'] != widget.requestId) {
+                setState(() {
+                  _newRequestId = state.serviceRequest['id'];
+                });
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ContratadoScreen(
+                      requestId: state.serviceRequest['id'],
+                      proposalId: null,
+                      workerId: null,
+                    ),
+                  ),
+                );
+              }
             }
           },
           child: BlocBuilder<ProposalsBloc, ProposalsState>(
@@ -480,50 +502,132 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                 if (isCompleted)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 8),
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF22c55e,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        print(
-                                          'DEBUG: Navigating to ReviewServiceScreen for workerId: ${proposal['worker_id']}',
-                                        );
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                ReviewServiceScreen(
-                                                  requestId: widget.requestId,
-                                                  workerId:
-                                                      proposal['worker_id']
-                                                          .toString(),
-                                                  workerName:
-                                                      workerName !=
-                                                          'Cargando...'
-                                                      ? workerName
-                                                      : null,
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(
+                                                0xFF22c55e,
+                                              ),
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              print(
+                                                'DEBUG: Navigating to ReviewServiceScreen for workerId: ${proposal['worker_id']}',
+                                              );
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      ReviewServiceScreen(
+                                                        requestId:
+                                                            widget.requestId,
+                                                        workerId:
+                                                            proposal['worker_id']
+                                                                .toString(),
+                                                        workerName:
+                                                            workerName !=
+                                                                'Cargando...'
+                                                            ? workerName
+                                                            : null,
+                                                      ),
                                                 ),
+                                              );
+                                            },
+                                            child: const Text(
+                                              'Calificar',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
                                           ),
-                                        );
-                                      },
-                                      child: const Text(
-                                        'Calificar',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(
+                                                0xFF1e40af,
+                                              ),
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  title: const Text(
+                                                    'Confirmar Recontratación',
+                                                  ),
+                                                  content: const Text(
+                                                    '¿Desea recontratar a este trabajador?',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                            context,
+                                                          ),
+                                                      child: const Text(
+                                                        'Cancelar',
+                                                      ),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        Navigator.pop(context);
+                                                        print(
+                                                          'DEBUG: Initiating recontract for workerId: ${proposal['worker_id']}, type: ${proposal['worker_id'].runtimeType}, requestId: ${widget.requestId}',
+                                                        );
+                                                        context
+                                                            .read<
+                                                              ProposalsBloc
+                                                            >()
+                                                            .add(
+                                                              RecontractWorker(
+                                                                workerId:
+                                                                    proposal['worker_id'],
+                                                                requestId: widget
+                                                                    .requestId,
+                                                                subcategory: widget
+                                                                    .subcategory,
+                                                              ),
+                                                            );
+                                                      },
+                                                      child: const Text(
+                                                        'Confirmar',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                            child: const Text(
+                                              'Recontratar',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                               ],

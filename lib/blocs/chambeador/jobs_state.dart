@@ -7,9 +7,13 @@ abstract class JobsState extends Equatable {
   List<Object?> get props => [];
 }
 
-class JobsInitial extends JobsState {}
+class JobsInitial extends JobsState {
+  const JobsInitial();
+}
 
-class JobsLoading extends JobsState {}
+class JobsLoading extends JobsState {
+  const JobsLoading();
+}
 
 class JobsLoaded extends JobsState {
   final List<dynamic> jobs;
