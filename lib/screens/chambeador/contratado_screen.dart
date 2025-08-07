@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
-import 'package:chambea/screens/chambeador/trabajos.dart';
+import 'package:chambea/screens/chambeador/home_screen.dart';
 
 class ContratadoScreen extends StatelessWidget {
   final Job job;
@@ -157,7 +157,7 @@ class ContratadoScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TrabajosContent(),
+                        builder: (context) => const HomeScreen(),
                       ),
                     );
                   },

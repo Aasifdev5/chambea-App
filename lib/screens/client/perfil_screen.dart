@@ -44,9 +44,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       Navigator.pushNamed(context, '/login');
       return;
     }
-    print(
-      'DEBUG: Authenticated user: ${FirebaseAuth.instance.currentUser?.uid}',
-    );
+    print('DEBUG: Authenticated user: ${FirebaseAuth.instance.currentUser?.uid}');
     context.read<ClientBloc>().add(FetchClientProfileEvent());
   }
 
@@ -63,9 +61,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       print('DEBUG: Image selected: ${pickedFile.path}');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Imagen seleccionada. Puedes subirla ahora o más tarde.',
-          ),
+          content: Text('Imagen seleccionada. Puedes subirla ahora o más tarde.'),
         ),
       );
     } else {
@@ -96,15 +92,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
     } catch (e) {
       print('DEBUG: Image upload error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al subir la imagen: $e')));
-      }
-    } finally {
-      if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al subir la imagen: $e')),
+        );
       }
     }
   }
@@ -119,9 +112,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       print('DEBUG: No authenticated user found in _saveProfile');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Por favor inicia sesión para continuar'),
-          ),
+          const SnackBar(content: Text('Por favor inicia sesión para continuar')),
         );
       }
       return;
@@ -141,27 +132,15 @@ class _PerfilScreenState extends State<PerfilScreen> {
           location: _locationController.text,
         ),
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil actualizado con éxito')),
-        );
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
-        );
-      }
     } catch (e) {
       print('DEBUG: Profile update error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al actualizar el perfil: $e')),
-        );
-      }
-    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al actualizar el perfil: $e')),
+        );
       }
     }
   }
@@ -181,9 +160,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
     return BlocConsumer<ClientBloc, ClientState>(
       listener: (context, state) {
         if (state.error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.error!)));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.error!)),
+            );
+          }
         }
         if (!state.isLoading && state.name.isNotEmpty) {
           _nameController.text = state.name;
@@ -191,6 +172,31 @@ class _PerfilScreenState extends State<PerfilScreen> {
           _birthDateController.text = state.birthDate;
           _phoneController.text = state.phone;
           _locationController.text = state.location;
+        }
+        if (!state.isLoading && state.profilePhotoPath != null && _imageFile != null) {
+          if (mounted) {
+            setState(() {
+              _imageFile = null; // Clear local image after successful upload
+              _isLoading = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Imagen subida con éxito')),
+            );
+          }
+        }
+        if (!state.isLoading && state.name.isNotEmpty && state.wasUpdated) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Perfil actualizado con éxito')),
+            );
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+            );
+          }
         }
       },
       builder: (context, state) {
@@ -221,10 +227,15 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                     ? FileImage(_imageFile!)
                                     : state.profilePhotoPath != null &&
                                           state.profilePhotoPath!.isNotEmpty
-                                    ? NetworkImage(state.profilePhotoPath!)
+                                    ? NetworkImage('https://chambea.lat/${state.profilePhotoPath!}')
                                     : null,
-                                child:
-                                    _imageFile == null &&
+                                onBackgroundImageError: state.profilePhotoPath != null &&
+                                        state.profilePhotoPath!.isNotEmpty
+                                    ? (exception, stackTrace) {
+                                        print('DEBUG: Error loading profile image: $exception');
+                                      }
+                                    : null,
+                                child: _imageFile == null &&
                                         (state.profilePhotoPath == null ||
                                             state.profilePhotoPath!.isEmpty)
                                     ? const Icon(
@@ -311,9 +322,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                             if (value == null || value.isEmpty) {
                               return 'Por favor ingrese su fecha de nacimiento';
                             }
-                            if (!RegExp(
-                              r'^\d{2}/\d{2}/\d{4}$',
-                            ).hasMatch(value)) {
+                            if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(value)) {
                               return 'Formato de fecha inválido (dd/mm/yyyy)';
                             }
                             return null;

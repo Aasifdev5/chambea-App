@@ -20,6 +20,8 @@ class ClientBloc extends Bloc<ClientEvent, ClientState> {
       final response = await ApiService.get('/api/profile');
       if (response['status'] == 'success') {
         final data = response['data'];
+        // Strip /storage from profile_photo if present
+        final profilePhoto = (data['profile_photo'] ?? '').replaceFirst('storage/', '');
         emit(
           state.copyWith(
             name: data['name'] ?? '',
@@ -27,9 +29,10 @@ class ClientBloc extends Bloc<ClientEvent, ClientState> {
             birthDate: data['birth_date'] ?? '',
             phone: data['phone'] ?? '',
             location: data['location'] ?? '',
-            profilePhotoPath: data['profile_image'],
+            profilePhotoPath: profilePhoto.isNotEmpty ? profilePhoto : null,
             isLoading: false,
             error: null,
+            wasUpdated: false,
           ),
         );
       } else {
@@ -64,6 +67,7 @@ class ClientBloc extends Bloc<ClientEvent, ClientState> {
             location: event.location,
             isLoading: false,
             error: null,
+            wasUpdated: true,
           ),
         );
       } else {
@@ -86,9 +90,11 @@ class ClientBloc extends Bloc<ClientEvent, ClientState> {
         event.image,
       );
       if (response['status'] == 'success') {
+        // Strip /storage from image_path if present
+        final imagePath = (response['image_path'] ?? '').replaceFirst('storage/', '');
         emit(
           state.copyWith(
-            profilePhotoPath: response['image_path'],
+            profilePhotoPath: imagePath.isNotEmpty ? imagePath : null,
             isLoading: false,
             error: null,
           ),

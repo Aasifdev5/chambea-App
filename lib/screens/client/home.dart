@@ -336,8 +336,9 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                           ? double.tryParse(profile['rating'].toString()) ?? 0.0
                           : 0.0;
                       final uid = profile['uid'] as String? ?? '';
+                      final profilePhotoPath = profile['profile_photo_path'] as String?;
                       print(
-                        'DEBUG: Rendering chambeador card: $fullName, uid: $uid',
+                        'DEBUG: Rendering chambeador card: $fullName, uid: $uid, profile_photo_path: $profilePhotoPath',
                       );
                       return GestureDetector(
                         onTap: () => _navigateToProfile(context, uid, fullName),
@@ -346,6 +347,7 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
                           name: fullName,
                           profession: profession,
                           rating: rating,
+                          profilePhotoPath: profilePhotoPath,
                         ),
                       );
                     }).toList(),
@@ -447,6 +449,7 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
     required String name,
     required String profession,
     required double rating,
+    required String? profilePhotoPath,
   }) {
     return Container(
       width: 120,
@@ -456,7 +459,17 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.grey.shade300,
-            child: const Icon(Icons.person, size: 30, color: Colors.white),
+            backgroundImage: profilePhotoPath != null
+                ? NetworkImage('https://chambea.lat/$profilePhotoPath')
+                : null,
+            onBackgroundImageError: profilePhotoPath != null
+                ? (exception, stackTrace) {
+                    print('ERROR: Failed to load profile image for $name: $exception');
+                  }
+                : null,
+            child: profilePhotoPath == null
+                ? const Icon(Icons.person, size: 30, color: Colors.white)
+                : null,
           ),
           const SizedBox(height: 8),
           Text(

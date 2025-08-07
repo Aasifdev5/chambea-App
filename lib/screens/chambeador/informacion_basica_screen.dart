@@ -4,6 +4,7 @@ import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_event.dart';
 import 'package:chambea/blocs/chambeador/chambeador_state.dart';
 import 'package:chambea/screens/chambeador/profile_photo_upload_screen.dart';
+import 'package:chambea/screens/chambeador/identity_card_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,8 +13,7 @@ class InformacionBasicaScreen extends StatefulWidget {
   const InformacionBasicaScreen({super.key});
 
   @override
-  _InformacionBasicaScreenState createState() =>
-      _InformacionBasicaScreenState();
+  _InformacionBasicaScreenState createState() => _InformacionBasicaScreenState();
 }
 
 class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
@@ -139,9 +139,9 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
       listener: (context, state) {
         print('[InformacionBasicaScreen] Listener received state: $state');
         if (state.error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.error!)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.error!)),
+          );
         }
         if (!state.isLoading && _isInitialLoad) {
           setState(() {
@@ -198,29 +198,29 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                       _profession!.isNotEmpty) {
                     print('[InformacionBasicaScreen] Applying changes');
                     context.read<ChambeadorBloc>().add(
-                      UpdateProfileEvent(
-                        name: _nameController.text,
-                        lastName: _lastNameController.text,
-                        profession: _profession!,
-                        birthDate: _birthDateController.text,
-                        phone: _phoneController.text,
-                        email: _emailController.text.isNotEmpty
-                            ? _emailController.text
-                            : null,
-                        gender: _gender,
-                        address: _addressController.text.isNotEmpty
-                            ? _addressController.text
-                            : null,
-                        aboutMe: state.aboutMe,
-                        skills: state.skills,
-                        category: state.category,
-                        subcategories: state.subcategories.keys
-                            .where((key) => state.subcategories[key]!)
-                            .toList(),
-                        lat: state.lat,
-                        lng: state.lng,
-                      ),
-                    );
+                          UpdateProfileEvent(
+                            name: _nameController.text,
+                            lastName: _lastNameController.text,
+                            profession: _profession!,
+                            birthDate: _birthDateController.text,
+                            phone: _phoneController.text,
+                            email: _emailController.text.isNotEmpty
+                                ? _emailController.text
+                                : null,
+                            gender: _gender,
+                            address: _addressController.text.isNotEmpty
+                                ? _addressController.text
+                                : null,
+                            aboutMe: state.aboutMe,
+                            skills: state.skills,
+                            category: state.category,
+                            subcategories: state.subcategories.keys
+                                .where((key) => state.subcategories[key]!)
+                                .toList(),
+                            lat: state.lat,
+                            lng: state.lng,
+                          ),
+                        );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Cambios aplicados')),
                     );
@@ -287,8 +287,8 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                   '[InformacionBasicaScreen] Uploading profile photo: $result',
                                 );
                                 context.read<ChambeadorBloc>().add(
-                                  UploadProfilePhotoEvent(image: result),
-                                );
+                                      UploadProfilePhotoEvent(image: result),
+                                    );
                               }
                             },
                             child: Stack(
@@ -296,10 +296,18 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                 CircleAvatar(
                                   radius: screenWidth * 0.13,
                                   backgroundColor: Colors.grey.shade300,
-                                  backgroundImage:
-                                      state.profilePhotoPath != null
-                                      ? NetworkImage(state.profilePhotoPath!)
+                                  backgroundImage: state.profilePhotoPath != null
+                                      ? NetworkImage(
+                                          '${state.profilePhotoPath!}')
                                       : null,
+                                  onBackgroundImageError:
+                                      state.profilePhotoPath != null
+                                          ? (exception, stackTrace) {
+                                              print(
+                                                '[InformacionBasicaScreen] Error loading profile image: $exception',
+                                              );
+                                            }
+                                          : null,
                                   child: state.profilePhotoPath == null
                                       ? Icon(
                                           Icons.person,
@@ -522,29 +530,29 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                 _profession!.isNotEmpty) {
                               print('[InformacionBasicaScreen] Saving profile');
                               context.read<ChambeadorBloc>().add(
-                                UpdateProfileEvent(
-                                  name: _nameController.text,
-                                  lastName: _lastNameController.text,
-                                  profession: _profession!,
-                                  birthDate: _birthDateController.text,
-                                  phone: _phoneController.text,
-                                  email: _emailController.text.isNotEmpty
-                                      ? _emailController.text
-                                      : null,
-                                  gender: _gender,
-                                  address: _addressController.text.isNotEmpty
-                                      ? _addressController.text
-                                      : null,
-                                  aboutMe: state.aboutMe,
-                                  skills: state.skills,
-                                  category: state.category,
-                                  subcategories: state.subcategories.keys
-                                      .where((key) => state.subcategories[key]!)
-                                      .toList(),
-                                  lat: state.lat,
-                                  lng: state.lng,
-                                ),
-                              );
+                                    UpdateProfileEvent(
+                                      name: _nameController.text,
+                                      lastName: _lastNameController.text,
+                                      profession: _profession!,
+                                      birthDate: _birthDateController.text,
+                                      phone: _phoneController.text,
+                                      email: _emailController.text.isNotEmpty
+                                          ? _emailController.text
+                                          : null,
+                                      gender: _gender,
+                                      address: _addressController.text.isNotEmpty
+                                          ? _addressController.text
+                                          : null,
+                                      aboutMe: state.aboutMe,
+                                      skills: state.skills,
+                                      category: state.category,
+                                      subcategories: state.subcategories.keys
+                                          .where((key) => state.subcategories[key]!)
+                                          .toList(),
+                                      lat: state.lat,
+                                      lng: state.lng,
+                                    ),
+                                  );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
@@ -552,9 +560,11 @@ class _InformacionBasicaScreenState extends State<InformacionBasicaScreen> {
                                   ),
                                 ),
                               );
-                              Navigator.pushNamed(
+                              Navigator.push(
                                 context,
-                                '/perfil_chambeador',
+                                MaterialPageRoute(
+                                  builder: (_) => const IdentityCardScreen(),
+                                ),
                               );
                             } else {
                               print(

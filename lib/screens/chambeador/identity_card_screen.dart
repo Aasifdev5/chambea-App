@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:chambea/screens/chambeador/antecedentes_screen.dart';
 import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_event.dart';
 import 'package:chambea/blocs/chambeador/chambeador_state.dart';
@@ -267,45 +268,51 @@ class _IdentityCardScreenState extends State<IdentityCardScreen> {
                         ),
                         SizedBox(height: screenHeight * 0.03),
                         ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onPressed: () {
-                            if (_formKey.currentState!.validate() &&
-                                _frontImage != null &&
-                                _backImage != null) {
-                              context.read<ChambeadorBloc>().add(
-                                UploadIdentityCardEvent(
-                                  idNumber: _idNumberController.text,
-                                  frontImage: _frontImage!,
-                                  backImage: _backImage!,
-                                ),
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Cédula de identidad guardada'),
-                                ),
-                              );
-                              Navigator.pushNamed(context, '/client_home');
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Por favor, completa todos los campos requeridos y sube ambas imágenes',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          child: const Text(
-                            'Siguiente',
-                            style: TextStyle(fontSize: 16, color: Colors.white),
-                          ),
-                        ),
+  style: ElevatedButton.styleFrom(
+    backgroundColor: Colors.green,
+    minimumSize: const Size(double.infinity, 50),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+    ),
+  ),
+  onPressed: () {
+    if (_formKey.currentState!.validate() &&
+        _frontImage != null &&
+        _backImage != null) {
+      context.read<ChambeadorBloc>().add(
+        UploadIdentityCardEvent(
+          idNumber: _idNumberController.text,
+          frontImage: _frontImage!,
+          backImage: _backImage!,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cédula de identidad guardada'),
+        ),
+      );
+
+      // ✅ Navigate to AntecedentesScreen
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AntecedentesScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Por favor, completa todos los campos requeridos y sube ambas imágenes',
+          ),
+        ),
+      );
+    }
+  },
+  child: const Text(
+    'Siguiente',
+    style: TextStyle(fontSize: 16, color: Colors.white),
+  ),
+),
+
                         SizedBox(height: screenHeight * 0.02),
                         const Center(
                           child: Text(

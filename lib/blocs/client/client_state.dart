@@ -7,6 +7,7 @@ class ClientState {
   final String? profilePhotoPath;
   final bool isLoading;
   final String? error;
+  final bool wasUpdated;
 
   ClientState({
     this.name = '',
@@ -17,6 +18,7 @@ class ClientState {
     this.profilePhotoPath,
     this.isLoading = false,
     this.error,
+    this.wasUpdated = false,
   });
 
   ClientState copyWith({
@@ -28,6 +30,7 @@ class ClientState {
     String? profilePhotoPath,
     bool? isLoading,
     String? error,
+    bool? wasUpdated,
   }) {
     return ClientState(
       name: name ?? this.name,
@@ -38,6 +41,7 @@ class ClientState {
       profilePhotoPath: profilePhotoPath ?? this.profilePhotoPath,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      wasUpdated: wasUpdated ?? this.wasUpdated,
     );
   }
 }

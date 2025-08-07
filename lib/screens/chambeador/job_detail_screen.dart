@@ -3,7 +3,6 @@ import 'package:chambea/blocs/chambeador/job_detail_bloc.dart';
 import 'package:chambea/blocs/chambeador/job_detail_event.dart';
 import 'package:chambea/blocs/chambeador/job_detail_state.dart';
 import 'package:chambea/models/job.dart';
-import 'package:chambea/screens/chambeador/chat_detail_screen.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -330,147 +329,63 @@ class JobDetailScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            // Buttons (Show only for Pendiente status)
+                            // Button (Show only for Pendiente status)
                             if (job.status == 'Pendiente')
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        minimumSize: const Size(
-                                          double.infinity,
-                                          50,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        elevation: 3,
-                                        shadowColor: Colors.green.withOpacity(
-                                          0.3,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        print(
-                                          'DEBUG: Navigating to PropuestaScreen for requestId: $requestId',
-                                        );
-                                        try {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  PropuestaScreen(
-                                                    requestId: requestId,
-                                                  ),
-                                            ),
-                                          );
-                                        } catch (e, stackTrace) {
-                                          print(
-                                            'ERROR: Failed to navigate to PropuestaScreen for requestId: $requestId, Error: $e',
-                                          );
-                                          print('Stack trace: $stackTrace');
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Navigation error: $e',
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      child: const Text(
-                                        'Enviar propuesta',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  minimumSize: const Size(
+                                    double.infinity,
+                                    50,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      10,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(
-                                          color: Colors.green,
-                                          width: 1.5,
-                                        ),
-                                        minimumSize: const Size(
-                                          double.infinity,
-                                          50,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        final user =
-                                            FirebaseAuth.instance.currentUser;
-                                        if (user != null &&
-                                            job.clientId != null) {
-                                          print(
-                                            'DEBUG: Navigating to ChatDetailScreen for clientId: ${job.clientId}, requestId: $requestId',
-                                          );
-                                          try {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    ChatDetailScreen(
-                                                      clientId: job.clientId!
-                                                          .toString(),
-                                                      requestId: job.id,
-                                                    ),
-                                              ),
-                                            );
-                                          } catch (e, stackTrace) {
-                                            print(
-                                              'ERROR: Failed to navigate to ChatDetailScreen: $e',
-                                            );
-                                            print('Stack trace: $stackTrace');
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Navigation error: $e',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } else {
-                                          print(
-                                            'ERROR: Missing clientId or user not authenticated for requestId: $requestId',
-                                          );
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Error: No se encontró el ID del cliente o usuario no autenticado',
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      child: const Text(
-                                        'Consultar',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.green,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
+                                  elevation: 3,
+                                  shadowColor: Colors.green.withOpacity(
+                                    0.3,
                                   ),
-                                ],
+                                ),
+                                onPressed: () {
+                                  print(
+                                    'DEBUG: Navigating to PropuestaScreen for requestId: $requestId',
+                                  );
+                                  try {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            PropuestaScreen(
+                                              requestId: requestId,
+                                            ),
+                                      ),
+                                    );
+                                  } catch (e, stackTrace) {
+                                    print(
+                                      'ERROR: Failed to navigate to PropuestaScreen for requestId: $requestId, Error: $e',
+                                    );
+                                    print('Stack trace: $stackTrace');
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Navigation error: $e',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text(
+                                  'Enviar propuesta',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                           ],
                         ),

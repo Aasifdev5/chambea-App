@@ -45,9 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
             try {
               return _screens[_selectedIndex];
             } catch (e, stackTrace) {
-              print(
-                'ERROR: Failed to render screen at index $_selectedIndex: $e',
-              );
+              print('ERROR: Failed to render screen at index $_selectedIndex: $e');
               print(stackTrace);
               return Center(
                 child: Text(
@@ -109,10 +107,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
     _controller.forward();
     _fetchReviews();
     _fetchClients();
@@ -184,9 +181,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       builder: (context, constraints) {
         final double screenWidth = constraints.maxWidth;
         final double screenHeight = constraints.maxHeight;
-        final double textScaleFactor = MediaQuery.of(
-          context,
-        ).textScaler.scale(1.0);
+        final double textScaleFactor = MediaQuery.of(context).textScaler.scale(1.0);
         final double baseFontSize = screenWidth * 0.035;
 
         return Column(
@@ -195,8 +190,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
               title: Text(
                 'Inicio',
                 style: TextStyle(
-                  fontSize:
-                      (baseFontSize * 1.4).clamp(16, 20) * textScaleFactor,
+                  fontSize: (baseFontSize * 1.4).clamp(16, 20) * textScaleFactor,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
@@ -215,17 +209,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                     try {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const ClientHomeScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
                       );
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Error navigating to ClientHomeScreen: $e',
-                          ),
-                        ),
+                        SnackBar(content: Text('Error navigating to ClientHomeScreen: $e')),
                       );
                     }
                   },
@@ -244,9 +232,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       );
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error navigating to BuscarScreen: $e'),
-                        ),
+                        SnackBar(content: Text('Error navigating to BuscarScreen: $e')),
                       );
                     }
                   },
@@ -279,48 +265,27 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             int ongoingServices = 0;
 
                             if (state is JobsLoading) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
+                              return const Center(child: CircularProgressIndicator());
                             } else if (state is JobsError) {
-                              return Center(
-                                child: Text('Error: ${state.message}'),
-                              );
+                              return Center(child: Text('Error: ${state.message}'));
                             } else if (state is JobsLoaded) {
-                              workerName =
-                                  state.workerProfile?['name'] ?? 'Usuario';
-                              workerRating =
-                                  state.workerProfile?['rating']?.toDouble() ??
-                                  0.0;
-                              totalBalance =
-                                  state.contractSummary?['total_balance']
-                                      ?.toDouble() ??
-                                  0.0;
-                              ongoingServices =
-                                  state.contractSummary?['ongoing_services'] ??
-                                  0;
+                              workerName = state.workerProfile?['name'] ?? 'Usuario';
+                              workerRating = state.workerProfile?['rating']?.toDouble() ?? 0.0;
+                              totalBalance = state.contractSummary?['total_balance']?.toDouble() ?? 0.0;
+                              ongoingServices = state.contractSummary?['ongoing_services'] ?? 0;
                             }
 
                             return FadeTransition(
                               opacity: _fadeAnimation,
                               child: Container(
-                                padding: EdgeInsets.all(
-                                  screenWidth < 360
-                                      ? screenWidth * 0.03
-                                      : screenWidth * 0.04,
-                                ),
+                                padding: EdgeInsets.all(screenWidth < 360 ? screenWidth * 0.03 : screenWidth * 0.04),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.green.shade50,
-                                      Colors.green.shade100.withOpacity(0.8),
-                                    ],
+                                    colors: [Colors.green.shade50, Colors.green.shade100.withOpacity(0.8)],
                                   ),
-                                  borderRadius: BorderRadius.circular(
-                                    screenWidth * 0.04,
-                                  ),
+                                  borderRadius: BorderRadius.circular(screenWidth * 0.04),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.1),
@@ -330,66 +295,44 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                   ],
                                 ),
                                 child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Flexible(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             '¡Ofrece tu servicio hoy mismo!',
                                             style: TextStyle(
                                               fontSize: screenWidth < 360
-                                                  ? (baseFontSize * 1.1).clamp(
-                                                          12,
-                                                          16,
-                                                        ) *
-                                                        textScaleFactor
-                                                  : (baseFontSize * 1.2).clamp(
-                                                          14,
-                                                          18,
-                                                        ) *
-                                                        textScaleFactor,
+                                                  ? (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor
+                                                  : (baseFontSize * 1.2).clamp(14, 18) * textScaleFactor,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.black87,
                                             ),
                                           ),
-                                          SizedBox(
-                                            height: screenHeight * 0.015,
-                                          ),
+                                          SizedBox(height: screenHeight * 0.015),
                                           Row(
                                             children: [
                                               CircleAvatar(
-                                                radius: (screenWidth * 0.045)
-                                                    .clamp(12, 16),
-                                                backgroundColor:
-                                                    Colors.grey.shade400,
+                                                radius: (screenWidth * 0.045).clamp(12, 16),
+                                                backgroundColor: Colors.grey.shade400,
                                                 child: Icon(
                                                   Icons.person,
-                                                  size: (screenWidth * 0.035)
-                                                      .clamp(10, 14),
+                                                  size: (screenWidth * 0.035).clamp(10, 14),
                                                   color: Colors.white,
                                                 ),
                                               ),
-                                              SizedBox(
-                                                width: screenWidth * 0.02,
-                                              ),
+                                              SizedBox(width: screenWidth * 0.02),
                                               Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     workerName,
                                                     style: TextStyle(
-                                                      fontSize:
-                                                          (baseFontSize * 1.0)
-                                                              .clamp(10, 14) *
-                                                          textScaleFactor,
-                                                      fontWeight:
-                                                          FontWeight.w600,
+                                                      fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                                                      fontWeight: FontWeight.w600,
                                                       color: Colors.black87,
                                                     ),
                                                   ),
@@ -397,30 +340,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                     children: [
                                                       Icon(
                                                         Icons.star,
-                                                        size:
-                                                            (screenWidth *
-                                                                    0.035)
-                                                                .clamp(10, 14),
-                                                        color: Colors
-                                                            .yellow
-                                                            .shade700,
+                                                        size: (screenWidth * 0.035).clamp(10, 14),
+                                                        color: Colors.yellow.shade700,
                                                       ),
-                                                      SizedBox(
-                                                        width:
-                                                            screenWidth * 0.01,
-                                                      ),
+                                                      SizedBox(width: screenWidth * 0.01),
                                                       Text(
-                                                        workerRating
-                                                            .toStringAsFixed(1),
+                                                        workerRating.toStringAsFixed(1),
                                                         style: TextStyle(
-                                                          fontSize:
-                                                              (baseFontSize *
-                                                                      0.8)
-                                                                  .clamp(
-                                                                    10,
-                                                                    12,
-                                                                  ) *
-                                                              textScaleFactor,
+                                                          fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                                                           color: Colors.black54,
                                                         ),
                                                       ),
@@ -430,65 +357,45 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                               ),
                                             ],
                                           ),
-                                          SizedBox(
-                                            height: screenHeight * 0.015,
-                                          ),
+                                          SizedBox(height: screenHeight * 0.015),
                                           Row(
                                             children: [
                                               Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     'BOB: ${totalBalance.toStringAsFixed(2)}',
                                                     style: TextStyle(
-                                                      fontSize:
-                                                          (baseFontSize * 1.0)
-                                                              .clamp(10, 14) *
-                                                          textScaleFactor,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                      fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                                                      fontWeight: FontWeight.bold,
                                                       color: Colors.black87,
                                                     ),
                                                   ),
                                                   Text(
                                                     'Saldo Actual',
                                                     style: TextStyle(
-                                                      fontSize:
-                                                          (baseFontSize * 0.7)
-                                                              .clamp(8, 10) *
-                                                          textScaleFactor,
+                                                      fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
                                                       color: Colors.black54,
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                              SizedBox(
-                                                width: screenWidth * 0.04,
-                                              ),
+                                              SizedBox(width: screenWidth * 0.04),
                                               Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     '$ongoingServices',
                                                     style: TextStyle(
-                                                      fontSize:
-                                                          (baseFontSize * 1.0)
-                                                              .clamp(10, 14) *
-                                                          textScaleFactor,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                      fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                                                      fontWeight: FontWeight.bold,
                                                       color: Colors.black87,
                                                     ),
                                                   ),
                                                   Text(
                                                     'Servicios en curso',
                                                     style: TextStyle(
-                                                      fontSize:
-                                                          (baseFontSize * 0.7)
-                                                              .clamp(8, 10) *
-                                                          textScaleFactor,
+                                                      fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
                                                       color: Colors.black54,
                                                     ),
                                                   ),
@@ -501,24 +408,15 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                     ),
                                     TextButton(
                                       onPressed: () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Ver más'),
-                                          ),
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Ver más')),
                                         );
                                       },
                                       child: Text(
                                         'Ver más',
                                         style: TextStyle(
                                           color: const Color(0xFF22c55e),
-                                          fontSize:
-                                              (baseFontSize * 0.8).clamp(
-                                                10,
-                                                12,
-                                              ) *
-                                              textScaleFactor,
+                                          fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -533,9 +431,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         Text(
                           'Trabajos recomendados para ti',
                           style: TextStyle(
-                            fontSize:
-                                (baseFontSize * 1.1).clamp(12, 16) *
-                                textScaleFactor,
+                            fontSize: (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87,
                           ),
@@ -544,18 +440,12 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         BlocBuilder<JobsBloc, JobsState>(
                           builder: (context, state) {
                             if (state is JobsLoading) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
+                              return const Center(child: CircularProgressIndicator());
                             } else if (state is JobsError) {
-                              return Center(
-                                child: Text('Error: ${state.message}'),
-                              );
+                              return Center(child: Text('Error: ${state.message}'));
                             } else if (state is JobsLoaded) {
                               if (state.jobs.isEmpty) {
-                                return const Center(
-                                  child: Text('No hay trabajos disponibles'),
-                                );
+                                return const Center(child: Text('No hay trabajos disponibles'));
                               }
                               return ListView.builder(
                                 shrinkWrap: true,
@@ -566,36 +456,16 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                   return _buildJobCard(
                                     context: context,
                                     requestId: job['id'] as int?,
-                                    timeAgo: _formatTimeAgo(
-                                      job['created_at'] ??
-                                          DateTime.now().toIso8601String(),
-                                    ),
-                                    title:
-                                        '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
-                                    budget:
-                                        job['budget'] != null &&
-                                            double.tryParse(
-                                                  job['budget'].toString(),
-                                                ) !=
-                                                null
+                                    timeAgo: _formatTimeAgo(job['created_at'] ?? DateTime.now().toIso8601String()),
+                                    title: '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
+                                    budget: job['budget'] != null && double.tryParse(job['budget'].toString()) != null
                                         ? 'BOB: ${job['budget']}/Hora'
                                         : 'BOB: No especificado',
-                                    location:
-                                        '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
-                                    clientName:
-                                        job['client_name'] ??
-                                        'Usuario ${job['created_by'] ?? 'Desconocido'}',
-                                    clientId:
-                                        job['created_by']?.toString() ??
-                                        'Desconocido',
-                                    clientRating:
-                                        job['client_rating']?.toDouble() ?? 0.0,
-                                    tags: [
-                                      job['category']?.toUpperCase() ??
-                                          'SERVICIO',
-                                      job['subcategory']?.toUpperCase() ??
-                                          'GENERAL',
-                                    ],
+                                    location: '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
+                                    clientName: job['client_name'] ?? 'Usuario ${job['created_by'] ?? 'Desconocido'}',
+                                    clientId: job['created_by']?.toString() ?? 'Desconocido',
+                                    clientRating: job['client_rating']?.toDouble() ?? 0.0,
+                                    tags: [job['category']?.toUpperCase() ?? 'SERVICIO', job['subcategory']?.toUpperCase() ?? 'GENERAL'],
                                     imagePath: job['image'],
                                     screenWidth: screenWidth,
                                     screenHeight: screenHeight,
@@ -615,9 +485,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             Text(
                               'Clientes Recomendados',
                               style: TextStyle(
-                                fontSize:
-                                    (baseFontSize * 1.1).clamp(12, 16) *
-                                    textScaleFactor,
+                                fontSize: (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -625,18 +493,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             TextButton(
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Ver más clientes'),
-                                  ),
+                                  const SnackBar(content: Text('Ver más clientes')),
                                 );
                               },
                               child: Text(
                                 'Ver más',
                                 style: TextStyle(
                                   color: const Color(0xFF22c55e),
-                                  fontSize:
-                                      (baseFontSize * 0.8).clamp(10, 12) *
-                                      textScaleFactor,
+                                  fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                                 ),
                               ),
                             ),
@@ -648,9 +512,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         else if (_clientError != null)
                           Center(child: Text('Error: $_clientError'))
                         else if (_clients.isEmpty)
-                          const Center(
-                            child: Text('No hay clientes disponibles'),
-                          )
+                          const Center(child: Text('No hay clientes disponibles'))
                         else
                           SizedBox(
                             height: screenHeight * 0.18,
@@ -659,19 +521,12 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               child: Row(
                                 children: _clients.map((client) {
                                   return Padding(
-                                    padding: EdgeInsets.only(
-                                      right: screenWidth * 0.02,
-                                    ),
+                                    padding: EdgeInsets.only(right: screenWidth * 0.02),
                                     child: _buildClientCard(
                                       context: context,
-                                      name:
-                                          client['name'] ??
-                                          client['client_name'] ??
-                                          'Usuario Desconocido',
-                                      rating:
-                                          client['rating']?.toDouble() ??
-                                          client['rate']?.toDouble() ??
-                                          0.0,
+                                      name: client['name'] ?? client['client_name'] ?? 'Usuario Desconocido',
+                                      rating: client['rating']?.toDouble() ?? client['rate']?.toDouble() ?? 0.0,
+                                      profilePhoto: client['profile_photo'],
                                       screenWidth: screenWidth,
                                       screenHeight: screenHeight,
                                       textScaleFactor: textScaleFactor,
@@ -689,9 +544,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             Text(
                               'Últimos comentarios',
                               style: TextStyle(
-                                fontSize:
-                                    (baseFontSize * 1.1).clamp(12, 16) *
-                                    textScaleFactor,
+                                fontSize: (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -699,18 +552,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             TextButton(
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Ver todos los comentarios'),
-                                  ),
+                                  const SnackBar(content: Text('Ver todos los comentarios')),
                                 );
                               },
                               child: Text(
                                 'Ver todos',
                                 style: TextStyle(
                                   color: const Color(0xFF22c55e),
-                                  fontSize:
-                                      (baseFontSize * 0.8).clamp(10, 12) *
-                                      textScaleFactor,
+                                  fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                                 ),
                               ),
                             ),
@@ -722,9 +571,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         else if (_reviewError != null)
                           Center(child: Text('Error: $_reviewError'))
                         else if (_reviews.isEmpty)
-                          const Center(
-                            child: Text('No hay comentarios disponibles'),
-                          )
+                          const Center(child: Text('No hay comentarios disponibles'))
                         else
                           ListView.builder(
                             shrinkWrap: true,
@@ -736,20 +583,13 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               return _buildReviewCard(
                                 context: context,
                                 client: review['client'] != null
-                                    ? review['client']['name'] ??
-                                          'Usuario Desconocido'
-                                    : review['client_name'] ??
-                                          'Usuario Desconocido',
-                                rating:
-                                    (review['rating'] is String
-                                        ? double.tryParse(review['rating']) ??
-                                              0.0
+                                    ? review['client']['name'] ?? 'Usuario Desconocido'
+                                    : review['client_name'] ?? 'Usuario Desconocido',
+                                rating: (review['rating'] is String
+                                        ? double.tryParse(review['rating']) ?? 0.0
                                         : review['rating']?.toDouble()) ??
                                     0.0,
-                                timeAgo: _formatTimeAgo(
-                                  review['created_at'] ??
-                                      DateTime.now().toIso8601String(),
-                                ),
+                                timeAgo: _formatTimeAgo(review['created_at'] ?? DateTime.now().toIso8601String()),
                                 comment: review['comment'] ?? 'Sin comentario',
                                 screenWidth: screenWidth,
                                 screenHeight: screenHeight,
@@ -788,21 +628,15 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double textScaleFactor,
     required double baseFontSize,
   }) {
-    print(
-      'DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, '
-      'Location: $location, Image Path: $imagePath',
-    );
-    // Validate imagePath to catch malformed URLs
-    if (imagePath != null &&
-        imagePath.contains('https://chambea.lat/https://')) {
+    print('DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, '
+        'Location: $location, Image Path: $imagePath');
+    if (imagePath != null && imagePath.contains('https://chambea.lat/https://')) {
       print('WARNING: Malformed imagePath detected: $imagePath');
     }
     return GestureDetector(
       onTap: () {
         if (requestId == null) {
-          print(
-            'ERROR: Attempted to navigate to JobDetailScreen with null requestId',
-          );
+          print('ERROR: Attempted to navigate to JobDetailScreen with null requestId');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Error: Invalid job ID')),
           );
@@ -811,14 +645,10 @@ class _HomeScreenContentState extends State<HomeScreenContent>
         try {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => JobDetailScreen(requestId: requestId),
-            ),
+            MaterialPageRoute(builder: (_) => JobDetailScreen(requestId: requestId)),
           );
         } catch (e) {
-          print(
-            'ERROR: Failed to navigate to JobDetailScreen for requestId: $requestId, Error: $e',
-          );
+          print('ERROR: Failed to navigate to JobDetailScreen for requestId: $requestId, Error: $e');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error navigating to job details: $e')),
           );
@@ -826,9 +656,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       },
       child: Card(
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(screenWidth * 0.03),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(screenWidth * 0.03)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -836,25 +664,18 @@ class _HomeScreenContentState extends State<HomeScreenContent>
               height: (screenHeight * 0.2).clamp(120, 180),
               width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(screenWidth * 0.03),
-                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(screenWidth * 0.03)),
                 color: Colors.grey.shade300,
               ),
               child: imagePath != null && imagePath.isNotEmpty
                   ? ClipRRect(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(screenWidth * 0.03),
-                      ),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(screenWidth * 0.03)),
                       child: CachedNetworkImage(
                         imageUrl: imagePath,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) =>
-                            const Center(child: CircularProgressIndicator()),
+                        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                         errorWidget: (context, url, error) {
-                          print(
-                            'ERROR: Image load failed for URL $imagePath: $error',
-                          );
+                          print('ERROR: Image load failed for URL $imagePath: $error');
                           return Center(
                             child: Icon(
                               Icons.broken_image,
@@ -884,18 +705,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       Text(
                         timeAgo,
                         style: TextStyle(
-                          fontSize:
-                              (baseFontSize * 0.7).clamp(8, 10) *
-                              textScaleFactor,
+                          fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
                           color: Colors.black54,
                         ),
                       ),
                       Text(
                         budget,
                         style: TextStyle(
-                          fontSize:
-                              (baseFontSize * 1.0).clamp(10, 14) *
-                              textScaleFactor,
+                          fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -906,8 +723,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize:
-                          (baseFontSize * 1.2).clamp(12, 16) * textScaleFactor,
+                      fontSize: (baseFontSize * 1.2).clamp(12, 16) * textScaleFactor,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
@@ -916,22 +732,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   Wrap(
                     spacing: screenWidth * 0.02,
                     children: tags
-                        .map(
-                          (tag) => Chip(
-                            label: Text(
-                              tag,
-                              style: TextStyle(
-                                fontSize:
-                                    (baseFontSize * 0.7).clamp(8, 10) *
-                                    textScaleFactor,
+                        .map((tag) => Chip(
+                              label: Text(
+                                tag,
+                                style: TextStyle(fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor),
                               ),
-                            ),
-                            backgroundColor: Colors.grey.shade200,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: screenWidth * 0.02,
-                            ),
-                          ),
-                        )
+                              backgroundColor: Colors.grey.shade200,
+                              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.02),
+                            ))
                         .toList(),
                   ),
                   SizedBox(height: screenHeight * 0.01),
@@ -948,9 +756,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         child: Text(
                           location,
                           style: TextStyle(
-                            fontSize:
-                                (baseFontSize * 0.8).clamp(10, 12) *
-                                textScaleFactor,
+                            fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                             color: Colors.black54,
                           ),
                         ),
@@ -977,9 +783,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             Text(
                               clientName,
                               style: TextStyle(
-                                fontSize:
-                                    (baseFontSize * 1.0).clamp(10, 14) *
-                                    textScaleFactor,
+                                fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -997,9 +801,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                 Text(
                                   clientRating.toStringAsFixed(1),
                                   style: TextStyle(
-                                    fontSize:
-                                        (baseFontSize * 0.8).clamp(10, 12) *
-                                        textScaleFactor,
+                                    fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                                     color: Colors.black54,
                                   ),
                                 ),
@@ -1023,14 +825,13 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required BuildContext context,
     required String name,
     required double rating,
+    String? profilePhoto,
     required double screenWidth,
     required double screenHeight,
     required double textScaleFactor,
     required double baseFontSize,
   }) {
-    print(
-      'DEBUG: Building client card for name: $name, width: ${(screenWidth * 0.22).clamp(90.0, 110.0)}',
-    );
+    print('DEBUG: Building client card for name: $name, profilePhoto: $profilePhoto');
     return SizedBox(
       width: (screenWidth * 0.22).clamp(90.0, 110.0),
       child: Column(
@@ -1039,11 +840,27 @@ class _HomeScreenContentState extends State<HomeScreenContent>
           CircleAvatar(
             radius: (screenWidth * 0.07).clamp(22, 32),
             backgroundColor: Colors.grey,
-            child: Icon(
-              Icons.person,
-              size: (screenWidth * 0.05).clamp(18, 26),
-              color: Colors.white,
-            ),
+            child: profilePhoto != null && profilePhoto.isNotEmpty
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: 'https://chambea.lat/$profilePhoto',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const CircularProgressIndicator(),
+                      errorWidget: (context, url, error) {
+                        print('ERROR: Image load failed for URL https://chambea.lat/$profilePhoto: $error');
+                        return Icon(
+                          Icons.person,
+                          size: (screenWidth * 0.05).clamp(18, 26),
+                          color: Colors.white,
+                        );
+                      },
+                    ),
+                  )
+                : Icon(
+                    Icons.person,
+                    size: (screenWidth * 0.05).clamp(18, 26),
+                    color: Colors.white,
+                  ),
           ),
           SizedBox(height: screenHeight * 0.01),
           Flexible(
@@ -1071,8 +888,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
               Text(
                 rating.toStringAsFixed(1),
                 style: TextStyle(
-                  fontSize:
-                      (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                  fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                   color: Colors.black54,
                 ),
               ),
@@ -1096,9 +912,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
   }) {
     return Card(
       margin: EdgeInsets.only(bottom: screenHeight * 0.02),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(screenWidth * 0.03),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(screenWidth * 0.03)),
       child: Padding(
         padding: EdgeInsets.all(screenWidth * 0.04),
         child: Column(
@@ -1123,9 +937,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       Text(
                         client,
                         style: TextStyle(
-                          fontSize:
-                              (baseFontSize * 1.0).clamp(10, 14) *
-                              textScaleFactor,
+                          fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -1143,9 +955,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           Text(
                             rating.toStringAsFixed(1),
                             style: TextStyle(
-                              fontSize:
-                                  (baseFontSize * 0.8).clamp(10, 12) *
-                                  textScaleFactor,
+                              fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                               color: Colors.black54,
                             ),
                           ),
@@ -1158,8 +968,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 Text(
                   timeAgo,
                   style: TextStyle(
-                    fontSize:
-                        (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
+                    fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
                     color: Colors.black54,
                   ),
                 ),
