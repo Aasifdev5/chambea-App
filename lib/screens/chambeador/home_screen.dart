@@ -263,6 +263,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             double workerRating = 0.0;
                             double totalBalance = 0.0;
                             int ongoingServices = 0;
+                            String? workerProfilePhoto;
 
                             if (state is JobsLoading) {
                               return const Center(child: CircularProgressIndicator());
@@ -271,6 +272,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             } else if (state is JobsLoaded) {
                               workerName = state.workerProfile?['name'] ?? 'Usuario';
                               workerRating = state.workerProfile?['rating']?.toDouble() ?? 0.0;
+                              workerProfilePhoto = state.workerProfile?['profile_photo'];
                               totalBalance = state.contractSummary?['total_balance']?.toDouble() ?? 0.0;
                               ongoingServices = state.contractSummary?['ongoing_services'] ?? 0;
                             }
@@ -318,11 +320,27 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                               CircleAvatar(
                                                 radius: (screenWidth * 0.045).clamp(12, 16),
                                                 backgroundColor: Colors.grey.shade400,
-                                                child: Icon(
-                                                  Icons.person,
-                                                  size: (screenWidth * 0.035).clamp(10, 14),
-                                                  color: Colors.white,
-                                                ),
+                                                child: workerProfilePhoto != null && workerProfilePhoto.isNotEmpty
+                                                    ? ClipOval(
+                                                        child: CachedNetworkImage(
+                                                          imageUrl: workerProfilePhoto,
+                                                          fit: BoxFit.cover,
+                                                          placeholder: (context, url) => const CircularProgressIndicator(),
+                                                          errorWidget: (context, url, error) {
+                                                            print('ERROR: Worker profile image load failed for URL $workerProfilePhoto: $error');
+                                                            return Icon(
+                                                              Icons.person,
+                                                              size: (screenWidth * 0.035).clamp(10, 14),
+                                                              color: Colors.white,
+                                                            );
+                                                          },
+                                                        ),
+                                                      )
+                                                    : Icon(
+                                                        Icons.person,
+                                                        size: (screenWidth * 0.035).clamp(10, 14),
+                                                        color: Colors.white,
+                                                      ),
                                               ),
                                               SizedBox(width: screenWidth * 0.02),
                                               Column(
@@ -465,6 +483,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                     clientName: job['client_name'] ?? 'Usuario ${job['created_by'] ?? 'Desconocido'}',
                                     clientId: job['created_by']?.toString() ?? 'Desconocido',
                                     clientRating: job['client_rating']?.toDouble() ?? 0.0,
+                                    clientProfilePhoto: job['client_profile_photo'],
                                     tags: [job['category']?.toUpperCase() ?? 'SERVICIO', job['subcategory']?.toUpperCase() ?? 'GENERAL'],
                                     imagePath: job['image'],
                                     screenWidth: screenWidth,
@@ -621,6 +640,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required String clientName,
     required String clientId,
     required double clientRating,
+    required String? clientProfilePhoto,
     required List<String> tags,
     required String? imagePath,
     required double screenWidth,
@@ -629,7 +649,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double baseFontSize,
   }) {
     print('DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, '
-        'Location: $location, Image Path: $imagePath');
+        'Location: $location, Image Path: $imagePath, Client Profile Photo: $clientProfilePhoto');
     if (imagePath != null && imagePath.contains('https://chambea.lat/https://')) {
       print('WARNING: Malformed imagePath detected: $imagePath');
     }
@@ -769,11 +789,27 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       CircleAvatar(
                         radius: (screenWidth * 0.045).clamp(12, 16),
                         backgroundColor: Colors.grey,
-                        child: Icon(
-                          Icons.person,
-                          size: (screenWidth * 0.035).clamp(10, 14),
-                          color: Colors.white,
-                        ),
+                        child: clientProfilePhoto != null && clientProfilePhoto.isNotEmpty
+                            ? ClipOval(
+                                child: CachedNetworkImage(
+                                  imageUrl: clientProfilePhoto,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const CircularProgressIndicator(),
+                                  errorWidget: (context, url, error) {
+                                    print('ERROR: Client profile image load failed for URL $clientProfilePhoto: $error');
+                                    return Icon(
+                                      Icons.person,
+                                      size: (screenWidth * 0.035).clamp(10, 14),
+                                      color: Colors.white,
+                                    );
+                                  },
+                                ),
+                              )
+                            : Icon(
+                                Icons.person,
+                                size: (screenWidth * 0.035).clamp(10, 14),
+                                color: Colors.white,
+                              ),
                       ),
                       SizedBox(width: screenWidth * 0.02),
                       Flexible(
@@ -843,11 +879,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
             child: profilePhoto != null && profilePhoto.isNotEmpty
                 ? ClipOval(
                     child: CachedNetworkImage(
-                      imageUrl: 'https://chambea.lat/$profilePhoto',
+                      imageUrl: profilePhoto.startsWith('http') ? profilePhoto : 'https://chambea.lat/$profilePhoto',
                       fit: BoxFit.cover,
                       placeholder: (context, url) => const CircularProgressIndicator(),
                       errorWidget: (context, url, error) {
-                        print('ERROR: Image load failed for URL https://chambea.lat/$profilePhoto: $error');
+                        print('ERROR: Client profile image load failed for URL $url: $error');
                         return Icon(
                           Icons.person,
                           size: (screenWidth * 0.05).clamp(18, 26),

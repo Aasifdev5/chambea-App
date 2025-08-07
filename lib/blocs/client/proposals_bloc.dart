@@ -161,22 +161,13 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         throw Exception('Selected worker is not a Chambeador');
       }
 
-      await ApiService.post('/api/service-requests/${event.requestId}/hire', {
+      final response = await ApiService.post('/api/service-requests/${event.requestId}/hire', {
         'agreed_budget': event.budget,
         if (event.proposalId != null) 'proposal_id': event.proposalId,
         'worker_id': workerFirebaseUid,
       });
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await ApiService.post('/api/chats/initialize', {
-          'request_id': event.requestId,
-          'worker_id': workerFirebaseUid,
-          'account_type': 'Client',
-        });
-      }
-
-      emit(ProposalsActionSuccess('Contrato creado exitosamente'));
+      emit(ProposalsActionSuccess('Contrato creado exitosamente', contractData: response['contract']));
       add(FetchServiceRequests());
     } catch (e) {
       final errorMessage = _handleError(e);

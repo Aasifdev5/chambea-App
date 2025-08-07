@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+
 class Job {
   final int id;
   final String category;
@@ -53,6 +55,14 @@ class Job {
     required this.timeAgo,
   });
 
+  // Getter to check if the current user has applied
+  bool get hasApplied {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return false;
+    return proposals.any((proposal) =>
+        proposal['worker_id']?.toString() == currentUserId);
+  }
+
   factory Job.fromJson(Map<String, dynamic> json) {
     final proposals = json['proposals'] != null
         ? List<Map<String, dynamic>>.from(json['proposals'])
@@ -89,37 +99,32 @@ class Job {
       workerId: json['worker_id'] is int
           ? json['worker_id']
           : selectedProposal != null && selectedProposal.isNotEmpty
-          ? selectedProposal['worker_id'] is int
-                ? selectedProposal['worker_id']
-                : null
-          : null,
-      workerName:
-          json['worker_name']?.toString() ??
+              ? selectedProposal['worker_id'] is int
+                  ? selectedProposal['worker_id']
+                  : null
+              : null,
+      workerName: json['worker_name']?.toString() ??
           (selectedProposal != null && selectedProposal.isNotEmpty
               ? selectedProposal['worker_name']?.toString()
               : null),
       workerRating: json['worker_rating'] != null
           ? double.tryParse(json['worker_rating'].toString()) ?? 0.0
           : (selectedProposal != null &&
-                    selectedProposal.isNotEmpty &&
-                    selectedProposal['worker_rating'] != null
-                ? double.tryParse(
-                        selectedProposal['worker_rating'].toString(),
-                      ) ??
-                      0.0
-                : null),
+                  selectedProposal.isNotEmpty &&
+                  selectedProposal['worker_rating'] != null
+              ? double.tryParse(selectedProposal['worker_rating'].toString()) ??
+                  0.0
+              : null),
       clientId: json['created_by'] is int
           ? json['created_by']
           : json['client_id'] is int
-          ? json['client_id']
-          : null,
+              ? json['client_id']
+              : null,
       proposals: proposals,
       status: json['status']?.toString() ?? 'Pendiente',
-      title:
-          json['title']?.toString() ??
+      title: json['title']?.toString() ??
           '${json['category']?.toString() ?? 'Servicio'} - ${json['subcategory']?.toString() ?? 'General'}',
-      categories:
-          json['categories'] != null &&
+      categories: json['categories'] != null &&
               json['categories'] is List &&
               (json['categories'] as List).isNotEmpty
           ? List<String>.from(json['categories'].map((e) => e.toString()))
@@ -127,8 +132,7 @@ class Job {
               json['category']?.toString() ?? 'Servicio',
               json['subcategory']?.toString() ?? 'General',
             ],
-      priceRange:
-          json['price_range']?.toString() ??
+      priceRange: json['price_range']?.toString() ??
           (json['budget'] != null
               ? 'BOB ${json['budget'].toString()}'
               : 'BOB No especificado'),

@@ -329,64 +329,99 @@ class JobDetailScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            // Button (Show only for Pendiente status)
+                            // Application Status
                             if (job.status == 'Pendiente')
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  minimumSize: const Size(
-                                    double.infinity,
-                                    50,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      10,
-                                    ),
-                                  ),
-                                  elevation: 3,
-                                  shadowColor: Colors.green.withOpacity(
-                                    0.3,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  print(
-                                    'DEBUG: Navigating to PropuestaScreen for requestId: $requestId',
-                                  );
-                                  try {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            PropuestaScreen(
-                                              requestId: requestId,
-                                            ),
+                              job.hasApplied
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
                                       ),
-                                    );
-                                  } catch (e, stackTrace) {
-                                    print(
-                                      'ERROR: Failed to navigate to PropuestaScreen for requestId: $requestId, Error: $e',
-                                    );
-                                    print('Stack trace: $stackTrace');
-                                    ScaffoldMessenger.of(
-                                      context,
-                                    ).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Navigation error: $e',
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: Colors.blue.shade200,
+                                          width: 1,
                                         ),
                                       ),
-                                    );
-                                  }
-                                },
-                                child: const Text(
-                                  'Enviar propuesta',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.check_circle,
+                                            color: Colors.blue.shade600,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Aplicado',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.blue.shade600,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        minimumSize: const Size(
+                                          double.infinity,
+                                          50,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        elevation: 3,
+                                        shadowColor: Colors.green.withOpacity(
+                                          0.3,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        print(
+                                          'DEBUG: Navigating to PropuestaScreen for requestId: $requestId',
+                                        );
+                                        try {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  PropuestaScreen(
+                                                requestId: requestId,
+                                              ),
+                                            ),
+                                          );
+                                        } catch (e, stackTrace) {
+                                          print(
+                                            'ERROR: Failed to navigate to PropuestaScreen for requestId: $requestId, Error: $e',
+                                          );
+                                          print('Stack trace: $stackTrace');
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Navigation error: $e',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: const Text(
+                                        'Enviar propuesta',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
                           ],
                         ),
                       );

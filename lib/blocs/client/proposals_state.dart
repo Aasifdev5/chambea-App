@@ -1,8 +1,7 @@
 import 'package:equatable/equatable.dart';
 
-class ProposalsState extends Equatable {
+abstract class ProposalsState extends Equatable {
   const ProposalsState();
-
   @override
   List<Object?> get props => [];
 }
@@ -23,11 +22,12 @@ class ProposalsLoaded extends ProposalsState {
 
 class ProposalsActionSuccess extends ProposalsState {
   final String message;
+  final Map<String, dynamic>? contractData;
 
-  const ProposalsActionSuccess(this.message);
+  const ProposalsActionSuccess(this.message, {this.contractData});
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, contractData];
 }
 
 class ProposalsError extends ProposalsState {
