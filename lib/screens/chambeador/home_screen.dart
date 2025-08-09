@@ -175,6 +175,69 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     super.dispose();
   }
 
+  String _normalizeImagePath(String? imagePath, {bool isProfilePhoto = false}) {
+    if (imagePath == null || imagePath.trim().isEmpty) {
+      print('DEBUG: Image path is null or empty');
+      return '';
+    }
+
+    String normalized = imagePath.trim();
+
+    // Remove duplicate or incorrect prefixes
+    normalized = normalized.replaceAll(
+      RegExp(r'^https://chambea\.lat/https://chambea\.lat/'),
+      'https://chambea.lat/',
+    );
+
+    // Remove 'storage/' prefix
+    normalized = normalized.replaceFirst(RegExp(r'^storage/'), '');
+
+    // Normalize case for prefix checks
+    String lowerCasePath = normalized.toLowerCase();
+
+    // Define expected prefixes
+    const profilePrefix = 'uploads/profile_photos/';
+    const jobPrefix = 'uploads/service_requests/';
+
+    // Remove existing prefix if present to avoid duplication
+    if (isProfilePhoto && lowerCasePath.contains(profilePrefix.toLowerCase())) {
+      normalized = normalized.substring(normalized.toLowerCase().indexOf(profilePrefix.toLowerCase()) + profilePrefix.length);
+    } else if (!isProfilePhoto && lowerCasePath.contains(jobPrefix.toLowerCase())) {
+      normalized = normalized.substring(normalized.toLowerCase().indexOf(jobPrefix.toLowerCase()) + jobPrefix.length);
+    } else if (isProfilePhoto && (lowerCasePath.contains('uploads/user_profiles/') || lowerCasePath.contains('uploads/chambeador_profiles/'))) {
+      print('WARNING: Unexpected profile photo path: $normalized');
+      normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+    } else if (!isProfilePhoto && lowerCasePath.contains('service_requests/')) {
+      print('WARNING: Unexpected job image path: $normalized');
+      normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+    }
+
+    // Add correct prefix
+    normalized = isProfilePhoto ? 'uploads/profile_photos/$normalized' : 'uploads/service_requests/$normalized';
+
+    // Prepend base URL for relative paths
+    if (!normalized.startsWith('http')) {
+      normalized = 'https://chambea.lat/$normalized';
+    }
+
+    // Convert 'Uploads/' to 'uploads/' for consistency
+    normalized = normalized.replaceAll('Uploads/', 'uploads/');
+
+    // Validate URL
+    try {
+      final uri = Uri.parse(normalized);
+      if (!uri.isAbsolute || uri.host.isEmpty) {
+        print('ERROR: Invalid URL format: $normalized');
+        return '';
+      }
+      print('DEBUG: Normalized image path: $normalized');
+      return normalized;
+    } catch (e, stackTrace) {
+      print('ERROR: Failed to parse URL $normalized: $e\nStack Trace: $stackTrace');
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -272,7 +335,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             } else if (state is JobsLoaded) {
                               workerName = state.workerProfile?['name'] ?? 'Usuario';
                               workerRating = state.workerProfile?['rating']?.toDouble() ?? 0.0;
-                              workerProfilePhoto = state.workerProfile?['profile_photo'];
+                              workerProfilePhoto = _normalizeImagePath(state.workerProfile?['profile_photo'], isProfilePhoto: true);
                               totalBalance = state.contractSummary?['total_balance']?.toDouble() ?? 0.0;
                               ongoingServices = state.contractSummary?['ongoing_services'] ?? 0;
                             }
@@ -483,9 +546,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                     clientName: job['client_name'] ?? 'Usuario ${job['created_by'] ?? 'Desconocido'}',
                                     clientId: job['created_by']?.toString() ?? 'Desconocido',
                                     clientRating: job['client_rating']?.toDouble() ?? 0.0,
-                                    clientProfilePhoto: job['client_profile_photo'],
+                                    clientProfilePhoto: _normalizeImagePath(job['client_profile_photo'], isProfilePhoto: true),
                                     tags: [job['category']?.toUpperCase() ?? 'SERVICIO', job['subcategory']?.toUpperCase() ?? 'GENERAL'],
-                                    imagePath: job['image'],
+                                    imagePath: _normalizeImagePath(job['image']),
                                     screenWidth: screenWidth,
                                     screenHeight: screenHeight,
                                     textScaleFactor: textScaleFactor,
@@ -545,7 +608,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                       context: context,
                                       name: client['name'] ?? client['client_name'] ?? 'Usuario Desconocido',
                                       rating: client['rating']?.toDouble() ?? client['rate']?.toDouble() ?? 0.0,
-                                      profilePhoto: client['profile_photo'],
+                                      profilePhoto: _normalizeImagePath(client['profile_photo'], isProfilePhoto: true),
                                       screenWidth: screenWidth,
                                       screenHeight: screenHeight,
                                       textScaleFactor: textScaleFactor,
@@ -648,11 +711,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double textScaleFactor,
     required double baseFontSize,
   }) {
+    final normalizedImagePath = _normalizeImagePath(imagePath);
+    final normalizedClientPhoto = _normalizeImagePath(clientProfilePhoto, isProfilePhoto: true);
     print('DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, '
-        'Location: $location, Image Path: $imagePath, Client Profile Photo: $clientProfilePhoto');
-    if (imagePath != null && imagePath.contains('https://chambea.lat/https://')) {
-      print('WARNING: Malformed imagePath detected: $imagePath');
-    }
+        'Location: $location, Image Path: $normalizedImagePath, Client Profile Photo: $normalizedClientPhoto');
+
     return GestureDetector(
       onTap: () {
         if (requestId == null) {
@@ -687,15 +750,15 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 borderRadius: BorderRadius.vertical(top: Radius.circular(screenWidth * 0.03)),
                 color: Colors.grey.shade300,
               ),
-              child: imagePath != null && imagePath.isNotEmpty
+              child: normalizedImagePath.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.vertical(top: Radius.circular(screenWidth * 0.03)),
                       child: CachedNetworkImage(
-                        imageUrl: imagePath,
+                        imageUrl: normalizedImagePath,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                         errorWidget: (context, url, error) {
-                          print('ERROR: Image load failed for URL $imagePath: $error');
+                          print('ERROR: Image load failed for URL $normalizedImagePath: $error');
                           return Center(
                             child: Icon(
                               Icons.broken_image,
@@ -789,14 +852,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       CircleAvatar(
                         radius: (screenWidth * 0.045).clamp(12, 16),
                         backgroundColor: Colors.grey,
-                        child: clientProfilePhoto != null && clientProfilePhoto.isNotEmpty
+                        child: normalizedClientPhoto.isNotEmpty
                             ? ClipOval(
                                 child: CachedNetworkImage(
-                                  imageUrl: clientProfilePhoto,
+                                  imageUrl: normalizedClientPhoto,
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => const CircularProgressIndicator(),
                                   errorWidget: (context, url, error) {
-                                    print('ERROR: Client profile image load failed for URL $clientProfilePhoto: $error');
+                                    print('ERROR: Client profile image load failed for URL $normalizedClientPhoto: $error');
                                     return Icon(
                                       Icons.person,
                                       size: (screenWidth * 0.035).clamp(10, 14),
@@ -867,7 +930,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double textScaleFactor,
     required double baseFontSize,
   }) {
-    print('DEBUG: Building client card for name: $name, profilePhoto: $profilePhoto');
+    final normalizedProfilePhoto = _normalizeImagePath(profilePhoto, isProfilePhoto: true);
+    print('DEBUG: Building client card for name: $name, profilePhoto: $normalizedProfilePhoto');
+
     return SizedBox(
       width: (screenWidth * 0.22).clamp(90.0, 110.0),
       child: Column(
@@ -876,14 +941,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
           CircleAvatar(
             radius: (screenWidth * 0.07).clamp(22, 32),
             backgroundColor: Colors.grey,
-            child: profilePhoto != null && profilePhoto.isNotEmpty
+            child: normalizedProfilePhoto.isNotEmpty
                 ? ClipOval(
                     child: CachedNetworkImage(
-                      imageUrl: profilePhoto.startsWith('http') ? profilePhoto : 'https://chambea.lat/$profilePhoto',
+                      imageUrl: normalizedProfilePhoto,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => const CircularProgressIndicator(),
                       errorWidget: (context, url, error) {
-                        print('ERROR: Client profile image load failed for URL $url: $error');
+                        print('ERROR: Client profile image load failed for URL $normalizedProfilePhoto: $error');
                         return Icon(
                           Icons.person,
                           size: (screenWidth * 0.05).clamp(18, 26),

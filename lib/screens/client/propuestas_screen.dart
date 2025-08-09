@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/client/contratado_screen.dart';
@@ -24,30 +25,33 @@ class PropuestasScreen extends StatefulWidget {
 }
 
 class _PropuestasScreenState extends State<PropuestasScreen> {
-  final Map<int, String> _workerNameCache = {};
+  final Map<int, Map<String, String>> _workerCache = {};
   int? _newRequestId;
 
   @override
   void initState() {
     super.initState();
     FcmService.initialize(context);
-    _workerNameCache.clear();
+    _workerCache.clear();
   }
 
-  Future<String> _fetchWorkerName(int workerId) async {
-    if (_workerNameCache.containsKey(workerId)) {
+  Future<Map<String, String>> _fetchWorkerDetails(int workerId) async {
+    if (_workerCache.containsKey(workerId)) {
       print(
-        'DEBUG: Using cached worker name for workerId $workerId: ${_workerNameCache[workerId]}',
+        'DEBUG: Using cached worker details for workerId $workerId: ${_workerCache[workerId]}',
       );
-      return _workerNameCache[workerId]!;
+      return _workerCache[workerId]!;
     }
 
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('ERROR: No authenticated user for workerId $workerId');
-        _workerNameCache[workerId] = 'Usuario $workerId';
-        return 'Usuario $workerId';
+        _workerCache[workerId] = {
+          'name': 'Usuario $workerId',
+          'photo': '',
+        };
+        return _workerCache[workerId]!;
       }
       print('DEBUG: Authenticated user: ${user.uid}');
 
@@ -61,8 +65,11 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         print(
           'ERROR: No valid UID found for workerId $workerId in response: $uidResponse',
         );
-        _workerNameCache[workerId] = 'Usuario $workerId';
-        return 'Usuario $workerId';
+        _workerCache[workerId] = {
+          'name': 'Usuario $workerId',
+          'photo': '',
+        };
+        return _workerCache[workerId]!;
       }
 
       final userResponse = await ApiService.get(
@@ -70,36 +77,54 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
       );
       print('DEBUG: User response for UID $workerFirebaseUid: $userResponse');
 
+      final photoResponse = await ApiService.get(
+        '/api/profile-photo/$workerFirebaseUid',
+      );
+      print('DEBUG: Photo response for UID $workerFirebaseUid: $photoResponse');
+
+      String workerName = 'Usuario $workerId';
+      String profilePhotoUrl = '';
+
       if (userResponse['status'] == 'success' && userResponse['data'] != null) {
         final userData = userResponse['data'] as Map<String, dynamic>;
-        final workerName = userData['name']?.toString().trim();
-        if (workerName != null && workerName.isNotEmpty) {
-          _workerNameCache[workerId] = workerName;
-          print('DEBUG: Worker name for workerId $workerId: $workerName');
-          return workerName;
-        } else {
-          print(
-            'ERROR: Empty or null name for UID $workerFirebaseUid in response: $userResponse',
-          );
-          _workerNameCache[workerId] = 'Usuario $workerId';
-          return 'Usuario $workerId';
-        }
+        workerName = userData['name']?.toString().trim() ?? 'Usuario $workerId';
       } else {
         print(
           'ERROR: User API failed for UID $workerFirebaseUid: ${userResponse['message'] ?? 'No message'}',
         );
-        _workerNameCache[workerId] = 'Usuario $workerId';
-        return 'Usuario $workerId';
       }
+
+      if (photoResponse['status'] == 'success' && photoResponse['data'] != null) {
+        profilePhotoUrl = photoResponse['data']['profile_photo_url']?.toString() ?? '';
+        // Validate URL format
+        if (profilePhotoUrl.isNotEmpty && !Uri.parse(profilePhotoUrl).isAbsolute) {
+          print('ERROR: Invalid profile photo URL for workerId $workerId: $profilePhotoUrl');
+          profilePhotoUrl = '';
+        }
+      } else {
+        print(
+          'ERROR: Photo API failed for UID $workerFirebaseUid: ${photoResponse['message'] ?? 'No message'}',
+        );
+      }
+
+      _workerCache[workerId] = {
+        'name': workerName,
+        'photo': profilePhotoUrl,
+      };
+      print('DEBUG: Worker details for workerId $workerId: ${_workerCache[workerId]}');
+      return _workerCache[workerId]!;
     } catch (e) {
-      print('ERROR: Failed to fetch worker name for workerId $workerId: $e');
+      print('ERROR: Failed to fetch worker details for workerId $workerId: $e');
       if (e.toString().contains('404')) {
         print('ERROR: User not found for workerId $workerId');
       } else if (e.toString().contains('401')) {
         print('ERROR: Unauthorized request for workerId $workerId');
       }
-      _workerNameCache[workerId] = 'Usuario $workerId';
-      return 'Usuario $workerId';
+      _workerCache[workerId] = {
+        'name': 'Usuario $workerId',
+        'photo': '',
+      };
+      return _workerCache[workerId]!;
     }
   }
 
@@ -137,13 +162,11 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         body: BlocListener<ProposalsBloc, ProposalsState>(
           listener: (context, state) {
             if (state is ProposalsError) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(state.message)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(state.message)));
             } else if (state is ProposalsActionSuccess) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(state.message)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(state.message)));
               if (state.message == 'Recontratación iniciada exitosamente') {
                 setState(() {
                   _newRequestId = null;
@@ -200,20 +223,24 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                     final isCompleted =
                         state.serviceRequest['status'] == 'Completado' &&
                         proposal['status'] == 'accepted';
-                    return FutureBuilder<String>(
-                      future: _fetchWorkerName(proposal['worker_id']),
+                    return FutureBuilder<Map<String, String>>(
+                      future: _fetchWorkerDetails(proposal['worker_id']),
                       builder: (context, snapshot) {
                         final workerName =
                             snapshot.connectionState == ConnectionState.done
-                            ? (snapshot.data ??
-                                  'Usuario ${proposal['worker_id']}')
-                            : (proposal['worker_name']
-                                      ?.toString()
-                                      .trim()
-                                      .isNotEmpty ??
-                                  false)
-                            ? proposal['worker_name']
-                            : 'Cargando...';
+                                ? (snapshot.data?['name'] ??
+                                    'Usuario ${proposal['worker_id']}')
+                                : (proposal['worker_name']
+                                          ?.toString()
+                                          .trim()
+                                          .isNotEmpty ??
+                                      false)
+                                    ? proposal['worker_name']
+                                    : 'Cargando...';
+                        final profilePhotoUrl =
+                            snapshot.connectionState == ConnectionState.done
+                                ? (snapshot.data?['photo'] ?? '')
+                                : '';
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           child: Padding(
@@ -234,8 +261,8 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                         color: proposal['status'] == 'pending'
                                             ? Colors.yellow.shade100
                                             : proposal['status'] == 'accepted'
-                                            ? Colors.blue.shade100
-                                            : Colors.red.shade100,
+                                                ? Colors.blue.shade100
+                                                : Colors.red.shade100,
                                         borderRadius: BorderRadius.circular(4),
                                         border: proposal['status'] == 'accepted'
                                             ? Border.all(
@@ -258,21 +285,19 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                             proposal['status'] == 'pending'
                                                 ? 'Pendiente'
                                                 : proposal['status'] ==
-                                                      'accepted'
-                                                ? 'Contratado'
-                                                : 'Rechazada',
+                                                        'accepted'
+                                                    ? 'Contratado'
+                                                    : 'Rechazada',
                                             style: TextStyle(
-                                              color:
-                                                  proposal['status'] ==
+                                              color: proposal['status'] ==
                                                       'pending'
                                                   ? Colors.yellow.shade800
                                                   : proposal['status'] ==
-                                                        'accepted'
-                                                  ? Colors.blue.shade800
-                                                  : Colors.red.shade800,
+                                                          'accepted'
+                                                      ? Colors.blue.shade800
+                                                      : Colors.red.shade800,
                                               fontSize: 12,
-                                              fontWeight:
-                                                  proposal['status'] ==
+                                              fontWeight: proposal['status'] ==
                                                       'accepted'
                                                   ? FontWeight.bold
                                                   : FontWeight.normal,
@@ -349,19 +374,31 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                     CircleAvatar(
                                       radius: 16,
                                       backgroundColor: Colors.grey.shade300,
-                                      backgroundImage:
-                                          proposal['worker_image'] != null
-                                          ? NetworkImage(
-                                              proposal['worker_image'],
+                                      child: profilePhotoUrl.isNotEmpty
+                                          ? ClipOval(
+                                              child: CachedNetworkImage(
+                                                imageUrl: profilePhotoUrl,
+                                                placeholder: (context, url) =>
+                                                    const CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                                errorWidget:
+                                                    (context, url, error) =>
+                                                        const Icon(
+                                                  Icons.person,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                                width: 32,
+                                                height: 32,
+                                                fit: BoxFit.cover,
+                                              ),
                                             )
-                                          : null,
-                                      child: proposal['worker_image'] == null
-                                          ? const Icon(
+                                          : const Icon(
                                               Icons.person,
                                               color: Colors.white,
                                               size: 20,
-                                            )
-                                          : null,
+                                            ),
                                     ),
                                     const SizedBox(width: 8),
                                     Column(
@@ -415,32 +452,29 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                           side: const BorderSide(
                                             color: Color(0xFF22c55e),
                                           ),
-                                          foregroundColor: const Color(
-                                            0xFF22c55e,
-                                          ),
+                                          foregroundColor: const Color(0xFF22c55e),
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 12,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                           ),
                                         ),
                                         onPressed:
                                             proposal['status'] == 'accepted'
-                                            ? null
-                                            : () {
-                                                context
-                                                    .read<ProposalsBloc>()
-                                                    .add(
-                                                      RejectProposal(
-                                                        proposal['id'],
-                                                        requestId:
-                                                            widget.requestId,
-                                                      ),
-                                                    );
-                                              },
+                                                ? null
+                                                : () {
+                                                    context
+                                                        .read<ProposalsBloc>()
+                                                        .add(
+                                                          RejectProposal(
+                                                            proposal['id'],
+                                                            requestId:
+                                                                widget.requestId,
+                                                          ),
+                                                        );
+                                                  },
                                         child: const Text(
                                           'Rechazar',
                                           style: TextStyle(
@@ -454,17 +488,14 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                     Expanded(
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(
-                                            0xFF22c55e,
-                                          ),
+                                          backgroundColor: const Color(0xFF22c55e),
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 12,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                           ),
                                         ),
                                         onPressed: proposal['worker_id'] == null
@@ -478,13 +509,12 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                                   MaterialPageRoute(
                                                     builder: (context) =>
                                                         ContratadoScreen(
-                                                          requestId:
-                                                              widget.requestId,
-                                                          proposalId:
-                                                              proposal['id'],
-                                                          workerId:
-                                                              proposal['worker_id'],
-                                                        ),
+                                                      requestId:
+                                                          widget.requestId,
+                                                      proposalId: proposal['id'],
+                                                      workerId:
+                                                          proposal['worker_id'],
+                                                    ),
                                                   ),
                                                 );
                                               },
@@ -507,14 +537,12 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                         Expanded(
                                           child: ElevatedButton(
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(
-                                                0xFF22c55e,
-                                              ),
+                                              backgroundColor:
+                                                  const Color(0xFF22c55e),
                                               foregroundColor: Colors.white,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 12,
-                                                  ),
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 12,
+                                              ),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(4),
@@ -529,17 +557,16 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                                 MaterialPageRoute(
                                                   builder: (context) =>
                                                       ReviewServiceScreen(
-                                                        requestId:
-                                                            widget.requestId,
-                                                        workerId:
-                                                            proposal['worker_id']
-                                                                .toString(),
-                                                        workerName:
-                                                            workerName !=
+                                                    requestId: widget.requestId,
+                                                    workerId: proposal[
+                                                            'worker_id']
+                                                        .toString(),
+                                                    workerName:
+                                                        workerName !=
                                                                 'Cargando...'
                                                             ? workerName
                                                             : null,
-                                                      ),
+                                                  ),
                                                 ),
                                               );
                                             },
@@ -556,14 +583,12 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                         Expanded(
                                           child: ElevatedButton(
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(
-                                                0xFF1e40af,
-                                              ),
+                                              backgroundColor:
+                                                  const Color(0xFF1e40af),
                                               foregroundColor: Colors.white,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 12,
-                                                  ),
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 12,
+                                              ),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(4),
@@ -582,9 +607,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                                   actions: [
                                                     TextButton(
                                                       onPressed: () =>
-                                                          Navigator.pop(
-                                                            context,
-                                                          ),
+                                                          Navigator.pop(context),
                                                       child: const Text(
                                                         'Cancelar',
                                                       ),
@@ -596,13 +619,12 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                                           'DEBUG: Initiating recontract for workerId: ${proposal['worker_id']}, type: ${proposal['worker_id'].runtimeType}, requestId: ${widget.requestId}',
                                                         );
                                                         context
-                                                            .read<
-                                                              ProposalsBloc
-                                                            >()
+                                                            .read<ProposalsBloc>()
                                                             .add(
                                                               RecontractWorker(
                                                                 workerId:
-                                                                    proposal['worker_id'],
+                                                                    proposal[
+                                                                        'worker_id'],
                                                                 requestId: widget
                                                                     .requestId,
                                                                 subcategory: widget

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:chambea/screens/client/mas_detalles_step_screen.dart';
 import 'package:chambea/models/service_request.dart';
 
@@ -17,17 +18,15 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _locationController = TextEditingController(
-    text: 'Bolivia',
-  );
+  final TextEditingController _locationController = TextEditingController();
   final TextEditingController _locationDetailsController =
       TextEditingController();
-  LatLng _selectedLocation = const LatLng(-16.2902, -63.5887); // Bolivia center
+  LatLng _selectedLocation = const LatLng(-16.2902, -63.5887); // Bolivia center as fallback
 
   @override
   void initState() {
     super.initState();
-    _updateMarker(_selectedLocation);
+    _initializeLocation();
     if (widget.serviceRequest.location != null) {
       _locationController.text = widget.serviceRequest.location!;
     }
@@ -41,6 +40,50 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
         widget.serviceRequest.longitude!,
       );
       _updateMarker(_selectedLocation);
+    }
+  }
+
+  Future<void> _initializeLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Check if location services are enabled
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _locationController.text = 'Location services are disabled';
+      _updateMarker(_selectedLocation); // Use fallback location
+      return;
+    }
+
+    // Check location permissions
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _locationController.text = 'Location permissions are denied';
+        _updateMarker(_selectedLocation); // Use fallback location
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _locationController.text = 'Location permissions are permanently denied';
+      _updateMarker(_selectedLocation); // Use fallback location
+      return;
+    }
+
+    // Get current position
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      _selectedLocation = LatLng(position.latitude, position.longitude);
+      _updateMarker(_selectedLocation);
+      await _updateAddressFromCoordinates(_selectedLocation);
+    } catch (e) {
+      _locationController.text = 'Error retrieving location';
+      print('Error getting location: $e');
+      _updateMarker(_selectedLocation); // Use fallback location
     }
   }
 
@@ -72,6 +115,10 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
       _selectedLocation = position;
     });
 
+    await _updateAddressFromCoordinates(position);
+  }
+
+  Future<void> _updateAddressFromCoordinates(LatLng position) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
@@ -140,9 +187,14 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
           children: [
             const Icon(Icons.location_on, color: Colors.black54, size: 16),
             const SizedBox(width: 4),
-            const Text(
-              'Av. Benavides 4887',
-              style: TextStyle(color: Colors.black54, fontSize: 14),
+            Expanded(
+              child: Text(
+                _locationController.text.isEmpty
+                    ? 'Fetching location...'
+                    : _locationController.text,
+                style: const TextStyle(color: Colors.black54, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -224,10 +276,18 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
                 child: GoogleMap(
                   onMapCreated: (GoogleMapController controller) {
                     _mapController = controller;
+                    _mapController.animateCamera(
+                      CameraUpdate.newCameraPosition(
+                        CameraPosition(
+                          target: _selectedLocation,
+                          zoom: 15.0, // Closer zoom for user location
+                        ),
+                      ),
+                    );
                   },
                   initialCameraPosition: CameraPosition(
-                    target: _selectedLocation, // Now defaults to Bolivia
-                    zoom: 6.5,
+                    target: _selectedLocation,
+                    zoom: 15.0,
                   ),
                   markers: _markers,
                   onTap: (position) {
