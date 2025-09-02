@@ -608,9 +608,8 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    if (_serviceRequest!['status'] != 'accepted' &&
-                        _serviceRequest!['status'] != 'En curso' &&
-                        _serviceRequest!['status'] != 'Completado')
+                    if (_serviceRequest!['status'] == null ||
+                        _serviceRequest!['status'] == 'Pendiente')
                       TextField(
                         controller: _budgetController,
                         keyboardType: TextInputType.number,
@@ -666,15 +665,26 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                     const SizedBox(height: 8),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _workerFirebaseUid == null
-                            ? Colors.grey
-                            : Colors.green,
+                        backgroundColor:
+                            _workerFirebaseUid != null &&
+                                [
+                                  'accepted',
+                                  'En curso',
+                                  'Completado',
+                                ].contains(_serviceRequest!['status'])
+                            ? Colors.green
+                            : Colors.grey,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(double.infinity, 50),
                       ),
-                      onPressed: _workerFirebaseUid == null
-                          ? null
-                          : () {
+                      onPressed:
+                          _workerFirebaseUid != null &&
+                              [
+                                'accepted',
+                                'En curso',
+                                'Completado',
+                              ].contains(_serviceRequest!['status'])
+                          ? () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -684,11 +694,17 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                   ),
                                 ),
                               );
-                            },
+                            }
+                          : null,
                       child: Text(
-                        _workerFirebaseUid == null
-                            ? 'Seleccione un trabajador para chatear'
-                            : 'Ir al chat',
+                        _workerFirebaseUid != null &&
+                                [
+                                  'accepted',
+                                  'En curso',
+                                  'Completado',
+                                ].contains(_serviceRequest!['status'])
+                            ? 'Chat with your worker'
+                            : 'Seleccione un trabajador para chatear',
                       ),
                     ),
                     const SizedBox(height: 8),

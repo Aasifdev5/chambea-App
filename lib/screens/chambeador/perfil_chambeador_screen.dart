@@ -24,7 +24,7 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
   final _nameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _birthDateController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _phoneController = TextEditingController(text: '+591 ');
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _aboutMeController = TextEditingController();
@@ -78,14 +78,16 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
       final url = Uri.parse('https://chambea.lat/api/categories');
       print('[PerfilChambeadorScreen] Request URL: $url');
       final response = await http.get(url, headers: headers);
-      print('[PerfilChambeadorScreen] Categories API Response: ${response.body}');
+      print(
+        '[PerfilChambeadorScreen] Categories API Response: ${response.body}',
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         if (responseData['status'] == 'success') {
           setState(() {
-            _categories = List<Map<String, dynamic>>.from(responseData['data'])
-                .where((category) => category['name'] != 'Otros')
-                .toList();
+            _categories = List<Map<String, dynamic>>.from(
+              responseData['data'],
+            ).where((category) => category['name'] != 'Otros').toList();
             _isLoadingCategories = false;
             if (_categories.isNotEmpty && _selectedCategoryId == null) {
               _selectedCategoryId = _categories[0]['id'].toString();
@@ -97,16 +99,22 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
         } else {
           setState(() {
             _isLoadingCategories = false;
-            _categoryError = responseData['message'] ?? 'Error al cargar categorías';
+            _categoryError =
+                responseData['message'] ?? 'Error al cargar categorías';
           });
-          print('[PerfilChambeadorScreen] Error in category response: ${responseData['message']}');
+          print(
+            '[PerfilChambeadorScreen] Error in category response: ${responseData['message']}',
+          );
         }
       } else {
         setState(() {
           _isLoadingCategories = false;
-          _categoryError = 'Error al cargar categorías: Código ${response.statusCode}';
+          _categoryError =
+              'Error al cargar categorías: Código ${response.statusCode}';
         });
-        print('[PerfilChambeadorScreen] Error fetching categories: ${response.statusCode}');
+        print(
+          '[PerfilChambeadorScreen] Error fetching categories: ${response.statusCode}',
+        );
       }
     } catch (e) {
       setState(() {
@@ -139,10 +147,14 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
         });
         return;
       }
-      final url = Uri.parse('https://chambea.lat/api/subcategories/$categoryId');
+      final url = Uri.parse(
+        'https://chambea.lat/api/subcategories/$categoryId',
+      );
       print('[PerfilChambeadorScreen] Request URL: $url');
       final response = await http.get(url, headers: headers);
-      print('[PerfilChambeadorScreen] Subcategories API Response: ${response.body}');
+      print(
+        '[PerfilChambeadorScreen] Subcategories API Response: ${response.body}',
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         if (responseData['status'] == 'success') {
@@ -151,27 +163,37 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
           setState(() {
             _availableSubcategories = List<String>.from(subcategories);
             _subcategories = {
-              for (var sub in _availableSubcategories) sub: state.subcategories[sub] ?? _subcategories[sub] ?? false,
+              for (var sub in _availableSubcategories)
+                sub: state.subcategories[sub] ?? _subcategories[sub] ?? false,
             };
             _isLoadingSubcategories = false;
             if (subcategories.isEmpty) {
-              _subcategoryError = responseData['message'] ?? 'No se encontraron subcategorías';
+              _subcategoryError =
+                  responseData['message'] ?? 'No se encontraron subcategorías';
             }
           });
-          print('[PerfilChambeadorScreen] Fetched subcategories for category $categoryId: $_availableSubcategories');
+          print(
+            '[PerfilChambeadorScreen] Fetched subcategories for category $categoryId: $_availableSubcategories',
+          );
         } else {
           setState(() {
             _isLoadingSubcategories = false;
-            _subcategoryError = responseData['message'] ?? 'Error al cargar subcategorías';
+            _subcategoryError =
+                responseData['message'] ?? 'Error al cargar subcategorías';
           });
-          print('[PerfilChambeadorScreen] Error in subcategory response: ${responseData['message']}');
+          print(
+            '[PerfilChambeadorScreen] Error in subcategory response: ${responseData['message']}',
+          );
         }
       } else {
         setState(() {
           _isLoadingSubcategories = false;
-          _subcategoryError = 'Error del servidor al cargar subcategorías (Código: ${response.statusCode})';
+          _subcategoryError =
+              'Error del servidor al cargar subcategorías (Código: ${response.statusCode})';
         });
-        print('[PerfilChambeadorScreen] Error fetching subcategories: ${response.statusCode}');
+        print(
+          '[PerfilChambeadorScreen] Error fetching subcategories: ${response.statusCode}',
+        );
       }
     } catch (e) {
       setState(() {
@@ -186,10 +208,8 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MapPickerScreen(
-          initialLat: _lat,
-          initialLng: _lng,
-        ),
+        builder: (context) =>
+            MapPickerScreen(initialLat: _lat, initialLng: _lng),
       ),
     );
     if (result != null && result is Map<String, dynamic>) {
@@ -197,7 +217,9 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
         _addressController.text = result['address'] ?? '';
         _lat = result['lat'];
         _lng = result['lng'];
-        print('[PerfilChambeadorScreen] Selected location: address=${_addressController.text}, lat=$_lat, lng=$_lng');
+        print(
+          '[PerfilChambeadorScreen] Selected location: address=${_addressController.text}, lat=$_lat, lng=$_lng',
+        );
       });
     }
   }
@@ -207,15 +229,22 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
         Placemark placemark = placemarks.first;
-        String newAddress = '${placemark.street ?? ''}, ${placemark.locality ?? ''}, ${placemark.country ?? ''}';
-        newAddress = newAddress.trim().isEmpty ? 'Ubicación desconocida' : newAddress.trim();
+        String newAddress =
+            '${placemark.street ?? ''}, ${placemark.locality ?? ''}, ${placemark.country ?? ''}';
+        newAddress = newAddress.trim().isEmpty
+            ? 'Ubicación desconocida'
+            : newAddress.trim();
         setState(() {
           _addressController.text = newAddress;
-          print('[PerfilChambeadorScreen] Address updated from coordinates: $newAddress');
+          print(
+            '[PerfilChambeadorScreen] Address updated from coordinates: $newAddress',
+          );
         });
       }
     } catch (e) {
-      print('[PerfilChambeadorScreen] Error updating address from coordinates: $e');
+      print(
+        '[PerfilChambeadorScreen] Error updating address from coordinates: $e',
+      );
     }
   }
 
@@ -241,29 +270,45 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
       listener: (context, state) {
         print('[PerfilChambeadorScreen] Listener received state: $state');
         if (state.error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error!)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.error!)));
         }
         if (!state.isLoading && _isInitialLoad) {
           if (_nameController.text.isEmpty) _nameController.text = state.name;
-          if (_lastNameController.text.isEmpty) _lastNameController.text = state.lastName;
-          if (_birthDateController.text.isEmpty) _birthDateController.text = state.birthDate;
-          if (_phoneController.text.isEmpty) _phoneController.text = state.phone;
-          if (_emailController.text.isEmpty) _emailController.text = state.email ?? '';
-          if (_aboutMeController.text.isEmpty) _aboutMeController.text = state.aboutMe;
+          if (_lastNameController.text.isEmpty)
+            _lastNameController.text = state.lastName;
+          if (_birthDateController.text.isEmpty)
+            _birthDateController.text = state.birthDate;
+          if (_phoneController.text == '+591 ' && state.phone.isNotEmpty) {
+            _phoneController.text = state.phone;
+          }
+          if (_emailController.text.isEmpty)
+            _emailController.text = state.email ?? '';
+          if (_aboutMeController.text.isEmpty)
+            _aboutMeController.text = state.aboutMe;
           setState(() {
             _gender = state.gender.isNotEmpty ? state.gender : 'Masculino';
             _skills = state.skills.isNotEmpty ? List.from(state.skills) : [];
-            if (state.category.isNotEmpty && _categories.any((c) => c['name'] == state.category)) {
-              _selectedCategoryId = _categories.firstWhere((c) => c['name'] == state.category)['id'].toString();
+            if (state.category.isNotEmpty &&
+                _categories.any((c) => c['name'] == state.category)) {
+              _selectedCategoryId = _categories
+                  .firstWhere((c) => c['name'] == state.category)['id']
+                  .toString();
               _selectedCategoryName = state.category;
               if (_availableSubcategories.isEmpty) {
                 _fetchSubcategories(_selectedCategoryId!);
               }
             }
-            _subcategories = {for (var sub in _availableSubcategories) sub: state.subcategories[sub] ?? false};
+            _subcategories = {
+              for (var sub in _availableSubcategories)
+                sub: state.subcategories[sub] ?? false,
+            };
             _lat = state.lat;
             _lng = state.lng;
-            if (state.lat != null && state.lng != null && _addressController.text.isEmpty) {
+            if (state.lat != null &&
+                state.lng != null &&
+                _addressController.text.isEmpty) {
               _updateAddressFromCoordinates(state.lat!, state.lng!);
             } else {
               _addressController.text = state.address ?? '';
@@ -307,11 +352,16 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
               TextButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate() && _skills.isNotEmpty) {
-                    final subcategoriesList = _subcategories.keys.where((key) => _subcategories[key]!).toList();
-                    if (_availableSubcategories.isNotEmpty && subcategoriesList.isEmpty) {
+                    final subcategoriesList = _subcategories.keys
+                        .where((key) => _subcategories[key]!)
+                        .toList();
+                    if (_availableSubcategories.isNotEmpty &&
+                        subcategoriesList.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Por favor, selecciona al menos una subcategoría'),
+                          content: Text(
+                            'Por favor, selecciona al menos una subcategoría',
+                          ),
                         ),
                       );
                       return;
@@ -320,29 +370,35 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                       '[PerfilChambeadorScreen] Applying changes with subcategories: $subcategoriesList, skills: $_skills, lat: $_lat, lng: $_lng',
                     );
                     context.read<ChambeadorBloc>().add(
-                          UpdateProfileEvent(
-                            name: _nameController.text,
-                            lastName: _lastNameController.text,
-                            profession: _selectedCategoryName,
-                            birthDate: _birthDateController.text,
-                            phone: _phoneController.text,
-                            email: _emailController.text.isNotEmpty ? _emailController.text : null,
-                            gender: _gender,
-                            address: _addressController.text.isNotEmpty ? _addressController.text : null,
-                            aboutMe: _aboutMeController.text,
-                            skills: _skills,
-                            category: _selectedCategoryName,
-                            subcategories: subcategoriesList,
-                            lat: _lat,
-                            lng: _lng,
-                          ),
-                        );
+                      UpdateProfileEvent(
+                        name: _nameController.text,
+                        lastName: _lastNameController.text,
+                        profession: _selectedCategoryName,
+                        birthDate: _birthDateController.text,
+                        phone: _phoneController.text,
+                        email: _emailController.text.isNotEmpty
+                            ? _emailController.text
+                            : null,
+                        gender: _gender,
+                        address: _addressController.text.isNotEmpty
+                            ? _addressController.text
+                            : null,
+                        aboutMe: _aboutMeController.text,
+                        skills: _skills,
+                        category: _selectedCategoryName,
+                        subcategories: subcategoriesList,
+                        lat: _lat,
+                        lng: _lng,
+                      ),
+                    );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Cambios aplicados')),
                     );
                     Navigator.pushNamed(context, '/home');
                   } else {
-                    print('[PerfilChambeadorScreen] Form validation failed or no skills added');
+                    print(
+                      '[PerfilChambeadorScreen] Form validation failed or no skills added',
+                    );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
@@ -359,7 +415,8 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
               ),
             ],
           ),
-          body: state.isLoading || _isLoadingCategories || _isLoadingSubcategories
+          body:
+              state.isLoading || _isLoadingCategories || _isLoadingSubcategories
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
@@ -373,35 +430,50 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                       children: [
                         if (_categoryError != null)
                           Padding(
-                            padding: EdgeInsets.only(bottom: screenHeight * 0.02),
+                            padding: EdgeInsets.only(
+                              bottom: screenHeight * 0.02,
+                            ),
                             child: Text(
                               _categoryError!,
-                              style: const TextStyle(color: Colors.red, fontSize: 12),
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         if (_subcategoryError != null)
                           Padding(
-                            padding: EdgeInsets.only(bottom: screenHeight * 0.02),
+                            padding: EdgeInsets.only(
+                              bottom: screenHeight * 0.02,
+                            ),
                             child: Text(
                               _subcategoryError!,
-                              style: const TextStyle(color: Colors.red, fontSize: 12),
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         Center(
                           child: GestureDetector(
                             onTap: () async {
-                              print('[PerfilChambeadorScreen] Navigating to ProfilePhotoUploadScreen');
+                              print(
+                                '[PerfilChambeadorScreen] Navigating to ProfilePhotoUploadScreen',
+                              );
                               final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const ProfilePhotoUploadScreen(),
+                                  builder: (context) =>
+                                      const ProfilePhotoUploadScreen(),
                                 ),
                               );
                               if (result != null) {
-                                print('[PerfilChambeadorScreen] Uploading profile photo: $result');
+                                print(
+                                  '[PerfilChambeadorScreen] Uploading profile photo: $result',
+                                );
                                 context.read<ChambeadorBloc>().add(
-                                      UploadProfilePhotoEvent(image: result),
-                                    );
+                                  UploadProfilePhotoEvent(image: result),
+                                );
                               }
                             },
                             child: Stack(
@@ -409,12 +481,18 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                                 CircleAvatar(
                                   radius: screenWidth * 0.13,
                                   backgroundColor: Colors.grey.shade300,
-                                  backgroundImage: state.profilePhotoPath != null
-                                      ? NetworkImage('${state.profilePhotoPath!}')
+                                  backgroundImage:
+                                      state.profilePhotoPath != null
+                                      ? NetworkImage(
+                                          '${state.profilePhotoPath!}',
+                                        )
                                       : null,
-                                  onBackgroundImageError: state.profilePhotoPath != null
+                                  onBackgroundImageError:
+                                      state.profilePhotoPath != null
                                       ? (exception, stackTrace) {
-                                          print('[PerfilChambeadorScreen] Error loading profile image: $exception');
+                                          print(
+                                            '[PerfilChambeadorScreen] Error loading profile image: $exception',
+                                          );
                                         }
                                       : null,
                                   child: state.profilePhotoPath == null
@@ -452,7 +530,8 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          validator: (value) => value!.isEmpty ? 'Este campo es requerido' : null,
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         TextFormField(
@@ -464,7 +543,8 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          validator: (value) => value!.isEmpty ? 'Este campo es requerido' : null,
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         TextFormField(
@@ -487,10 +567,13 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               final month = int.parse(parts[1]);
                               final year = int.parse(parts[2]);
                               final date = DateTime(year, month, day);
-                              if (date.year != year || date.month != month || date.day != day) {
+                              if (date.year != year ||
+                                  date.month != month ||
+                                  date.day != day) {
                                 return 'Fecha inválida';
                               }
-                              _birthDateController.text = '${day.toString().padLeft(2, '0')}/${month.toString().padLeft(2, '0')}/$year';
+                              _birthDateController.text =
+                                  '${day.toString().padLeft(2, '0')}/${month.toString().padLeft(2, '0')}/$year';
                               return null;
                             } catch (e) {
                               return 'Formato inválido';
@@ -503,19 +586,48 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                           keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
                             labelText: 'Número telefónico*',
-                            hintText: '+1234567890',
+                            hintText: '+591 12345678',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(
+                                left: 10,
+                                right: 10,
+                              ),
+                              child: Text(
+                                '+591',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            prefixIconConstraints: BoxConstraints(
+                              minWidth: 0,
+                              minHeight: 0,
+                            ),
                           ),
                           validator: (value) {
-                            if (value!.isEmpty) {
+                            if (value!.isEmpty || value == '+591 ') {
                               return 'Este campo es requerido';
                             }
-                            if (!RegExp(r'^\+[1-9]\d{1,14}$').hasMatch(value)) {
-                              return 'Formato inválido (debe ser + seguido de 1-14 dígitos)';
+                            if (!RegExp(r'^\+591\s?\d{8}$').hasMatch(value)) {
+                              return 'El número debe tener 8 dígitos después de +591';
                             }
                             return null;
+                          },
+                          onChanged: (value) {
+                            if (!value.startsWith('+591 ')) {
+                              _phoneController.text = '+591 ';
+                              _phoneController.selection =
+                                  TextSelection.fromPosition(
+                                    TextPosition(
+                                      offset: _phoneController.text.length,
+                                    ),
+                                  );
+                            }
                           },
                         ),
                         SizedBox(height: screenHeight * 0.02),
@@ -530,7 +642,10 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                             ),
                           ),
                           validator: (value) {
-                            if (value!.isNotEmpty && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                            if (value!.isNotEmpty &&
+                                !RegExp(
+                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                ).hasMatch(value)) {
                               return 'Correo electrónico inválido';
                             }
                             return null;
@@ -546,11 +661,20 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          items: ['Masculino', 'Femenino', 'Otro'].map((gender) => DropdownMenuItem(value: gender, child: Text(gender))).toList(),
+                          items: ['Masculino', 'Femenino', 'Otro']
+                              .map(
+                                (gender) => DropdownMenuItem(
+                                  value: gender,
+                                  child: Text(gender),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (value) {
                             setState(() {
                               _gender = value!;
-                              print('[PerfilChambeadorScreen] Selected gender: $_gender');
+                              print(
+                                '[PerfilChambeadorScreen] Selected gender: $_gender',
+                              );
                             });
                           },
                         ),
@@ -577,7 +701,8 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          validator: (value) => value!.isEmpty ? 'Este campo es requerido' : null,
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         Text(
@@ -593,12 +718,14 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                           controller: _aboutMeController,
                           maxLines: 3,
                           decoration: InputDecoration(
-                            hintText: 'Describe tu experiencia y habilidades...',
+                            hintText:
+                                'Describe tu experiencia y habilidades...',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          validator: (value) => value!.isEmpty ? 'Este campo es requerido' : null,
+                          validator: (value) =>
+                              value!.isEmpty ? 'Este campo es requerido' : null,
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         Row(
@@ -631,10 +758,16 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                                       ),
                                       TextButton(
                                         onPressed: () {
-                                          if (_skillController.text.isNotEmpty) {
+                                          if (_skillController
+                                              .text
+                                              .isNotEmpty) {
                                             setState(() {
-                                              _skills.add(_skillController.text);
-                                              print('[PerfilChambeadorScreen] Added skill to UI: ${_skillController.text}');
+                                              _skills.add(
+                                                _skillController.text,
+                                              );
+                                              print(
+                                                '[PerfilChambeadorScreen] Added skill to UI: ${_skillController.text}',
+                                              );
                                               _skillController.clear();
                                             });
                                             Navigator.pop(context);
@@ -648,14 +781,19 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               },
                               child: const Text(
                                 'Añadir',
-                                style: TextStyle(color: Colors.green, fontSize: 14),
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         if (_skills.isEmpty)
                           Padding(
-                            padding: EdgeInsets.only(bottom: screenHeight * 0.01),
+                            padding: EdgeInsets.only(
+                              bottom: screenHeight * 0.01,
+                            ),
                             child: const Text(
                               'Debe añadir al menos una habilidad',
                               style: TextStyle(color: Colors.red, fontSize: 12),
@@ -670,7 +808,9 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               onDeleted: () {
                                 setState(() {
                                   _skills.removeAt(entry.key);
-                                  print('[PerfilChambeadorScreen] Removed skill from UI: ${entry.value}');
+                                  print(
+                                    '[PerfilChambeadorScreen] Removed skill from UI: ${entry.value}',
+                                  );
                                 });
                               },
                             );
@@ -694,17 +834,29 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          items: _categories.map((category) => DropdownMenuItem(value: category['id'].toString(), child: Text(category['name']))).toList(),
+                          items: _categories
+                              .map(
+                                (category) => DropdownMenuItem(
+                                  value: category['id'].toString(),
+                                  child: Text(category['name']),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (value) {
                             setState(() {
                               _selectedCategoryId = value!;
-                              _selectedCategoryName = _categories.firstWhere((c) => c['id'].toString() == value)['name'];
+                              _selectedCategoryName = _categories.firstWhere(
+                                (c) => c['id'].toString() == value,
+                              )['name'];
                               _availableSubcategories.clear();
-                              print('[PerfilChambeadorScreen] Selected category: $_selectedCategoryName (ID: $_selectedCategoryId)');
+                              print(
+                                '[PerfilChambeadorScreen] Selected category: $_selectedCategoryName (ID: $_selectedCategoryId)',
+                              );
                               _fetchSubcategories(_selectedCategoryId!);
                             });
                           },
-                          validator: (value) => value == null ? 'Este campo es requerido' : null,
+                          validator: (value) =>
+                              value == null ? 'Este campo es requerido' : null,
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         Text(
@@ -716,10 +868,14 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                           ),
                         ),
                         SizedBox(height: screenHeight * 0.01),
-                        _availableSubcategories.isEmpty && _subcategoryError == null
+                        _availableSubcategories.isEmpty &&
+                                _subcategoryError == null
                             ? const Text(
                                 'No hay subcategorías disponibles',
-                                style: TextStyle(color: Colors.grey, fontSize: 14),
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
                               )
                             : Column(
                                 children: _subcategories.entries.map((entry) {
@@ -729,10 +885,13 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                                     onChanged: (value) {
                                       setState(() {
                                         _subcategories[entry.key] = value!;
-                                        print('[PerfilChambeadorScreen] Updated subcategory in UI: ${entry.key} to $value');
+                                        print(
+                                          '[PerfilChambeadorScreen] Updated subcategory in UI: ${entry.key} to $value',
+                                        );
                                       });
                                     },
-                                    controlAffinity: ListTileControlAffinity.leading,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
                                   );
                                 }).toList(),
                               ),
@@ -748,32 +907,43 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                           onPressed: () {
                             if (_formKey.currentState!.validate() &&
                                 _skills.isNotEmpty &&
-                                (_availableSubcategories.isEmpty || _subcategories.values.any((selected) => selected))) {
-                              final subcategoriesList = _subcategories.keys.where((key) => _subcategories[key]!).toList();
+                                (_availableSubcategories.isEmpty ||
+                                    _subcategories.values.any(
+                                      (selected) => selected,
+                                    ))) {
+                              final subcategoriesList = _subcategories.keys
+                                  .where((key) => _subcategories[key]!)
+                                  .toList();
                               print(
                                 '[PerfilChambeadorScreen] Saving profile with subcategories: $subcategoriesList, skills: $_skills, lat: $_lat, lng: $_lng',
                               );
                               context.read<ChambeadorBloc>().add(
-                                    UpdateProfileEvent(
-                                      name: _nameController.text,
-                                      lastName: _lastNameController.text,
-                                      profession: _selectedCategoryName,
-                                      birthDate: _birthDateController.text,
-                                      phone: _phoneController.text,
-                                      email: _emailController.text.isNotEmpty ? _emailController.text : null,
-                                      gender: _gender,
-                                      address: _addressController.text.isNotEmpty ? _addressController.text : null,
-                                      aboutMe: _aboutMeController.text,
-                                      skills: _skills,
-                                      category: _selectedCategoryName,
-                                      subcategories: subcategoriesList,
-                                      lat: _lat,
-                                      lng: _lng,
-                                    ),
-                                  );
+                                UpdateProfileEvent(
+                                  name: _nameController.text,
+                                  lastName: _lastNameController.text,
+                                  profession: _selectedCategoryName,
+                                  birthDate: _birthDateController.text,
+                                  phone: _phoneController.text,
+                                  email: _emailController.text.isNotEmpty
+                                      ? _emailController.text
+                                      : null,
+                                  gender: _gender,
+                                  address: _addressController.text.isNotEmpty
+                                      ? _addressController.text
+                                      : null,
+                                  aboutMe: _aboutMeController.text,
+                                  skills: _skills,
+                                  category: _selectedCategoryName,
+                                  subcategories: subcategoriesList,
+                                  lat: _lat,
+                                  lng: _lng,
+                                ),
+                              );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Datos guardados, avanzando al siguiente paso'),
+                                  content: Text(
+                                    'Datos guardados, avanzando al siguiente paso',
+                                  ),
                                 ),
                               );
                               Navigator.push(
@@ -783,7 +953,9 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                                 ),
                               );
                             } else {
-                              print('[PerfilChambeadorScreen] Form validation failed, no skills, or no subcategories selected');
+                              print(
+                                '[PerfilChambeadorScreen] Form validation failed, no skills, or no subcategories selected',
+                              );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
@@ -856,7 +1028,9 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Por favor, habilita los servicios de ubicación')),
+          const SnackBar(
+            content: Text('Por favor, habilita los servicios de ubicación'),
+          ),
         );
         _setFallbackLocation();
         return;
@@ -876,7 +1050,11 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
       if (permission == LocationPermission.deniedForever) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('El permiso de ubicación está denegado permanentemente')),
+          const SnackBar(
+            content: Text(
+              'El permiso de ubicación está denegado permanentemente',
+            ),
+          ),
         );
         _setFallbackLocation();
         return;
@@ -888,12 +1066,16 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
       setState(() {
         _selectedLocation = LatLng(position.latitude, position.longitude);
-        print('[MapPickerScreen] Current location: lat=${position.latitude}, lng=${position.longitude}');
+        print(
+          '[MapPickerScreen] Current location: lat=${position.latitude}, lng=${position.longitude}',
+        );
       });
 
       await _updateAddress(position.latitude, position.longitude);
       if (_mapController != null && _selectedLocation != null) {
-        _mapController!.animateCamera(CameraUpdate.newLatLng(_selectedLocation!));
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLng(_selectedLocation!),
+        );
       }
     } catch (e) {
       print('[MapPickerScreen] Error getting current location: $e');
@@ -908,19 +1090,27 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     setState(() {
       _selectedLocation = const LatLng(-17.9833, -67.15); // Oruro, Bolivia
       _address = 'Ubicación desconocida';
-      print('[MapPickerScreen] Set fallback location: lat=-17.9833, lng=-67.15');
+      print(
+        '[MapPickerScreen] Set fallback location: lat=-17.9833, lng=-67.15',
+      );
     });
     _updateAddress(-17.9833, -67.15);
   }
 
   Future<void> _updateAddress(double latitude, double longitude) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        latitude,
+        longitude,
+      );
       if (placemarks.isNotEmpty) {
         Placemark placemark = placemarks.first;
         setState(() {
-          _address = '${placemark.street ?? ''}, ${placemark.locality ?? ''}, ${placemark.country ?? ''}';
-          _address = _address.trim().isEmpty ? 'Ubicación desconocida' : _address.trim();
+          _address =
+              '${placemark.street ?? ''}, ${placemark.locality ?? ''}, ${placemark.country ?? ''}';
+          _address = _address.trim().isEmpty
+              ? 'Ubicación desconocida'
+              : _address.trim();
           print('[MapPickerScreen] Address updated: $_address');
         });
       } else {
@@ -969,14 +1159,20 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               onMapCreated: (GoogleMapController controller) {
                 _mapController = controller;
                 if (_selectedLocation != null) {
-                  _mapController!.animateCamera(CameraUpdate.newLatLng(_selectedLocation!));
+                  _mapController!.animateCamera(
+                    CameraUpdate.newLatLng(_selectedLocation!),
+                  );
                 }
               },
               onTap: (LatLng location) {
                 setState(() {
                   _selectedLocation = location;
-                  _mapController?.animateCamera(CameraUpdate.newLatLng(location));
-                  print('[MapPickerScreen] Selected location on map: lat=${location.latitude}, lng=${location.longitude}');
+                  _mapController?.animateCamera(
+                    CameraUpdate.newLatLng(location),
+                  );
+                  print(
+                    '[MapPickerScreen] Selected location on map: lat=${location.latitude}, lng=${location.longitude}',
+                  );
                 });
                 _updateAddress(location.latitude, location.longitude);
               },

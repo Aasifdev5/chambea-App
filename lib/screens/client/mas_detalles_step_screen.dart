@@ -43,9 +43,47 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
   }
 
   Future<void> _pickImage() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Seleccionar imagen'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Tomar foto'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _selectImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Elegir de la galería'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _selectImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _selectImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      final pickedFile = await picker.pickImage(source: source);
       if (pickedFile != null) {
         setState(() {
           _selectedImage = File(pickedFile.path);
@@ -62,8 +100,7 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
     if (_formKey.currentState?.validate() ?? false) {
       widget.serviceRequest.description = _descriptionController.text;
       widget.serviceRequest.budget = _budgetController.text.isNotEmpty
-          ? _budgetController
-                .text // assign String to match your model
+          ? _budgetController.text
           : null;
       widget.serviceRequest.paymentMethod = _selectedPaymentMethod;
 
@@ -124,7 +161,6 @@ class _MasDetallesStepScreenState extends State<MasDetallesStepScreen> {
     }
   }
 
-  // --- Stepper Widgets ---
   Widget _buildStepCircle(dynamic content, {required bool isCompleted}) {
     final screenWidth = MediaQuery.of(context).size.width;
     return CircleAvatar(

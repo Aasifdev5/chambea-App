@@ -87,6 +87,29 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
     }
   }
 
+  Future<void> _goToCurrentLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      _selectedLocation = LatLng(position.latitude, position.longitude);
+      _mapController.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: _selectedLocation,
+            zoom: 15.0,
+          ),
+        ),
+      );
+      _updateMarker(_selectedLocation);
+      await _updateAddressFromCoordinates(_selectedLocation);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error retrieving current location')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _mapController.dispose();
@@ -208,197 +231,218 @@ class _UbicacionStepScreenState extends State<UbicacionStepScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'Ubicación',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 4),
-                  const Text(
-                    '[*] Campo obligatorio',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildStepCircle(Icons.check, isCompleted: true),
-                  _buildStepLine(),
-                  _buildStepCircle('02', isCompleted: false),
-                  _buildStepLine(),
-                  _buildStepCircle('03', isCompleted: false),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  const Text(
-                    'Paso 1',
-                    style: TextStyle(
-                      fontWeight: FontWeight.normal,
-                      color: Colors.grey,
+      body: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Ubicación',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const Text(
-                    'Paso 2',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                    const SizedBox(width: 4),
+                    const Text(
+                      '[*] Campo obligatorio',
+                      style: TextStyle(color: Colors.red, fontSize: 12),
                     ),
-                  ),
-                  const Text(
-                    'Paso 3',
-                    style: TextStyle(
-                      fontWeight: FontWeight.normal,
-                      color: Colors.grey,
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildStepCircle(Icons.check, isCompleted: true),
+                    _buildStepLine(),
+                    _buildStepCircle('02', isCompleted: false),
+                    _buildStepLine(),
+                    _buildStepCircle('03', isCompleted: false),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    const Text(
+                      'Paso 1',
+                      style: TextStyle(
+                        fontWeight: FontWeight.normal,
+                        color: Colors.grey,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '¿Dónde necesitas que realice el servicio?*',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                height: 200,
-                child: GoogleMap(
-                  onMapCreated: (GoogleMapController controller) {
-                    _mapController = controller;
-                    _mapController.animateCamera(
-                      CameraUpdate.newCameraPosition(
-                        CameraPosition(
+                    const Text(
+                      'Paso 2',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const Text(
+                      'Paso 3',
+                      style: TextStyle(
+                        fontWeight: FontWeight.normal,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '¿Dónde necesitas que realice el servicio?*',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                Stack(
+                  children: [
+                    Container(
+                      height: 200,
+                      child: GoogleMap(
+                        onMapCreated: (GoogleMapController controller) {
+                          _mapController = controller;
+                          _mapController.animateCamera(
+                            CameraUpdate.newCameraPosition(
+                              CameraPosition(
+                                target: _selectedLocation,
+                                zoom: 15.0,
+                              ),
+                            ),
+                          );
+                        },
+                        initialCameraPosition: CameraPosition(
                           target: _selectedLocation,
-                          zoom: 15.0, // Closer zoom for user location
+                          zoom: 15.0,
                         ),
+                        markers: _markers,
+                        onTap: (position) {
+                          _updateMarker(position);
+                        },
                       ),
-                    );
-                  },
-                  initialCameraPosition: CameraPosition(
-                    target: _selectedLocation,
-                    zoom: 15.0,
-                  ),
-                  markers: _markers,
-                  onTap: (position) {
-                    _updateMarker(position);
-                  },
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: FloatingActionButton(
+                        mini: true,
+                        backgroundColor: Colors.green,
+                        onPressed: _goToCurrentLocation,
+                        child: const Icon(Icons.my_location, color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _locationController,
-                      decoration: InputDecoration(
-                        labelText: 'Ubicación',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _locationController,
+                        decoration: InputDecoration(
+                          labelText: 'Ubicación',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor seleccione una ubicación';
+                          }
+                          return null;
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor seleccione una ubicación';
-                        }
-                        return null;
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () {
+                        // Add place picker logic if needed
                       },
+                      child: const Text(
+                        'Editar',
+                        style: TextStyle(color: Colors.green),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () {
-                      // Add place picker logic if needed
-                    },
-                    child: const Text(
-                      'Editar',
-                      style: TextStyle(color: Colors.green),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _locationDetailsController,
-                decoration: InputDecoration(
-                  labelText: 'Especifique la ubicación con más detalle*',
-                  hintText:
-                      'Número de la casa u oficina, número del piso (en caso de apartamento o edificio), color del portón o ref. etc.',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  ],
                 ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor especifique los detalles de la ubicación';
-                  }
-                  return null;
-                },
-              ),
-              const Spacer(),
-              Center(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      widget.serviceRequest.location = _locationController.text;
-                      widget.serviceRequest.locationDetails =
-                          _locationDetailsController.text;
-                      widget.serviceRequest.latitude =
-                          _selectedLocation.latitude;
-                      widget.serviceRequest.longitude =
-                          _selectedLocation.longitude;
-                      if (widget.serviceRequest.isStep2Complete()) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MasDetallesStepScreen(
-                              serviceRequest: widget.serviceRequest,
-                            ),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Por favor complete todos los campos requeridos',
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                  label: const Text(
-                    'Siguiente',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _locationDetailsController,
+                  decoration: InputDecoration(
+                    labelText: 'Especifique la ubicación con más detalle*',
+                    hintText:
+                        'Número de la casa u oficina, número del piso (en caso de apartamento o edificio), color del portón o ref. etc.',
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                  maxLines: 3,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor especifique los detalles de la ubicación';
+                    }
+                    return null;
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 16),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        widget.serviceRequest.location = _locationController.text;
+                        widget.serviceRequest.locationDetails =
+                            _locationDetailsController.text;
+                        widget.serviceRequest.latitude =
+                            _selectedLocation.latitude;
+                        widget.serviceRequest.longitude =
+                            _selectedLocation.longitude;
+                        if (widget.serviceRequest.isStep2Complete()) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MasDetallesStepScreen(
+                                serviceRequest: widget.serviceRequest,
+                              ),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Por favor complete todos los campos requeridos',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                    label: const Text(
+                      'Siguiente',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _goToCurrentLocation,
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.my_location, color: Colors.white),
       ),
     );
   }

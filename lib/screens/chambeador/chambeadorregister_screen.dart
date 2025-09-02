@@ -24,19 +24,19 @@ class ChambeadorRegisterScreen extends StatelessWidget {
             Expanded(
               child: ListView(
                 children: [
-                  ListTile(
-                    title: const Text('Información básica'),
-                    trailing: const Icon(Icons.arrow_forward),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => InformacionBasicaScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(),
+                  // ListTile(
+                  //   title: const Text('Información básica'),
+                  //   trailing: const Icon(Icons.arrow_forward),
+                  //   onTap: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(
+                  //         builder: (_) => InformacionBasicaScreen(),
+                  //       ),
+                  //     );
+                  //   },
+                  // ),
+                  // const Divider(),
                   ListTile(
                     title: const Text('Cédula de identidad'),
                     trailing: const Icon(Icons.arrow_forward),

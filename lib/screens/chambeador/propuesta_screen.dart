@@ -111,7 +111,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
               _buildTextField(
                 label: 'Presupuesto*',
                 hint: 'Introducir el presupuesto',
-                keyboardType: TextInputType.text,
+                keyboardType: TextInputType.number,
                 onChanged: (val) => setState(() => _budget = val),
               ),
               const SizedBox(height: 16),
@@ -211,11 +211,14 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
         children: [
           Row(
             children: [
-              Text(
-                _formatTimeAgo(job.timeAgo),
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              Expanded(
+                child: Text(
+                  _formatTimeAgo(job.timeAgo),
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -240,6 +243,8 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -254,16 +259,19 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
             children: [
               const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
               const SizedBox(width: 4),
-              Text(
-                job.isTimeUndefined
-                    ? '${job.date ?? 'Hoy'} · Flexible'
-                    : '${job.date ?? 'Hoy'} · ${job.startTime ?? 'Sin horario'}',
-                style: const TextStyle(color: Colors.black54),
+              Expanded(
+                child: Text(
+                  job.isTimeUndefined
+                      ? '${job.date ?? 'Hoy'} · Flexible'
+                      : '${job.date ?? 'Hoy'} · ${job.startTime ?? 'Sin horario'}',
+                  style: const TextStyle(color: Colors.black54),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 job.budget != null
-                    ? 'BOB ${job.budget!.toStringAsFixed(2)}/Hora'
+                    ? 'BOB ${job.budget!.toStringAsFixed(2)}'
                     : 'BOB No especificado',
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
@@ -274,16 +282,23 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
             children: [
               const Icon(Icons.location_on, size: 16, color: Colors.black54),
               const SizedBox(width: 4),
-              Text(
-                '${job.location}${job.locationDetails != null ? ', ${job.locationDetails}' : ''}',
-                style: const TextStyle(color: Colors.black54),
+              Expanded(
+                child: Text(
+                  '${job.location}${job.locationDetails != null ? ', ${job.locationDetails}' : ''}',
+                  style: const TextStyle(color: Colors.black54),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               const Icon(Icons.payment, size: 16, color: Colors.black54),
               const SizedBox(width: 4),
-              Text(
-                job.paymentMethod ?? 'No especificado',
-                style: const TextStyle(color: Colors.black54),
+              Expanded(
+                child: Text(
+                  job.paymentMethod ?? 'No especificado',
+                  style: const TextStyle(color: Colors.black54),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -292,27 +307,31 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
             children: [
               const CircleAvatar(
                 radius: 18,
-                backgroundImage: AssetImage('assets/user.png'),
+                backgroundColor: Colors.grey,
+                child: Icon(Icons.person, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    job.clientName ?? 'Usuario Desconocido',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.orange, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        job.clientRating?.toStringAsFixed(1) ?? '0.0',
-                        style: const TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      job.clientName ?? 'Usuario Desconocido',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.orange, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          job.clientRating?.toStringAsFixed(1) ?? '0.0',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

@@ -151,60 +151,59 @@ class _AntecedentesScreenState extends State<AntecedentesScreen> {
                       ),
                       const Spacer(),
                       SizedBox(
-  width: double.infinity,
-  child: ElevatedButton(
-    onPressed: () async {
-      if (_certificate != null) {
-        // Dispatch upload event
-        context.read<ChambeadorBloc>().add(
-          UploadCertificateEvent(certificate: _certificate!),
-        );
-
-        // Optional delay to ensure upload completes
-        await Future.delayed(Duration(milliseconds: 500));
-
-        // Show success snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Certificado guardado'),
-          ),
-        );
-
-        // Navigate to perfil_chambeador_screen.dart
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const PerfilChambeadorScreen(),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Por favor, selecciona un certificado.'),
-          ),
-        );
-      }
-    },
-    style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.green,
-      padding: EdgeInsets.symmetric(
-        vertical: screenHeight * 0.02,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(screenWidth * 0.02),
-      ),
-    ),
-    child: Text(
-      'Siguiente',
-      style: TextStyle(
-        fontSize: screenWidth * 0.045,
-        color: Colors.white,
-      ),
-    ),
-  ),
-),
-
-
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (_certificate != null) {
+                              // Dispatch upload event
+                              context.read<ChambeadorBloc>().add(
+                                UploadCertificateEvent(
+                                  certificate: _certificate!,
+                                ),
+                              );
+                              // Wait briefly to ensure upload completes
+                              await Future.delayed(
+                                const Duration(milliseconds: 500),
+                              );
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Certificado guardado'),
+                                  ),
+                                );
+                              }
+                            }
+                            // Navigate to PerfilChambeadorScreen regardless of certificate
+                            if (mounted) {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const PerfilChambeadorScreen(),
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            padding: EdgeInsets.symmetric(
+                              vertical: screenHeight * 0.02,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                screenWidth * 0.02,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Siguiente',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.045,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                       SizedBox(height: screenHeight * 0.01),
                       Text(
                         'Si tienes preguntas, por favor, contacte servicio de asistencia',

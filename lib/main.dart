@@ -101,6 +101,15 @@ void main() async {
     );
     print("✅ Firestore persistence enabled");
 
+    // Listen for authentication state changes
+    FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+      if (user == null) {
+        print('DEBUG: User signed out, clearing account type');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+      }
+    });
+
     // Run the app
     runApp(const ChambeaApp());
 
@@ -158,10 +167,9 @@ class ApiService {
   static Future<Map<String, dynamic>> get(String endpoint) async {
     try {
       final headers = await getHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: headers,
-      );
+      final response = await http
+          .get(Uri.parse('$baseUrl$endpoint'), headers: headers)
+          .timeout(const Duration(seconds: 10));
       print(
         'DEBUG: GET $endpoint response: ${response.statusCode} ${response.body}',
       );
@@ -183,11 +191,13 @@ class ApiService {
   ) async {
     try {
       final headers = await getHeaders();
-      final response = await http.post(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: headers,
-        body: json.encode(body),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl$endpoint'),
+            headers: headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 10));
       print(
         'DEBUG: POST $endpoint response: ${response.statusCode} ${response.body}',
       );
@@ -212,11 +222,13 @@ class ApiService {
   ) async {
     try {
       final headers = await getHeaders();
-      final response = await http.put(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: headers,
-        body: json.encode(body),
-      );
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl$endpoint'),
+            headers: headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 10));
       print(
         'DEBUG: PUT $endpoint response: ${response.statusCode} ${response.body}',
       );
@@ -238,10 +250,9 @@ class ApiService {
   static Future<Map<String, dynamic>> delete(String endpoint) async {
     try {
       final headers = await getHeaders();
-      final response = await http.delete(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: headers,
-      );
+      final response = await http
+          .delete(Uri.parse('$baseUrl$endpoint'), headers: headers)
+          .timeout(const Duration(seconds: 10));
       print(
         'DEBUG: DELETE $endpoint response: ${response.statusCode} ${response.body}',
       );
@@ -276,7 +287,9 @@ class ApiService {
       request.files.add(
         await http.MultipartFile.fromPath(fieldName, file.path),
       );
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 15),
+      );
       final response = await http.Response.fromStream(streamedResponse);
       print(
         'DEBUG: UPLOAD $endpoint response: ${response.statusCode} ${response.body}',
@@ -843,6 +856,29 @@ class _LoginScreenState extends State<LoginScreen> {
   PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'BO');
   bool _isLoading = false;
   bool _isGoogleLoading = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedPhoneNumber();
+  }
+
+  Future<void> _loadSavedPhoneNumber() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPhone = prefs.getString('last_phone_number');
+    if (savedPhone != null) {
+      setState(() {
+        _phoneNumber = PhoneNumber(phoneNumber: savedPhone, isoCode: 'BO');
+        _phoneController.text = savedPhone;
+      });
+    }
+  }
+
+  Future<void> _savePhoneNumber(String phoneNumber) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_phone_number', phoneNumber);
+  }
 
   Future<void> _signInWithGoogle() async {
     if (_isGoogleLoading) return;
@@ -872,7 +908,7 @@ class _LoginScreenState extends State<LoginScreen> {
         'DEBUG: Google Sign-In successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -894,10 +930,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _startPhoneAuth() async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+    });
     try {
-      setState(() {
-        _isLoading = true;
-      });
       final phoneNumber = _phoneNumber.phoneNumber;
       print('DEBUG: Starting phone auth for number: $phoneNumber');
       if (phoneNumber == null || phoneNumber.isEmpty) {
@@ -929,6 +966,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      await _savePhoneNumber(phoneNumber);
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
@@ -938,7 +976,7 @@ class _LoginScreenState extends State<LoginScreen> {
             print(
               'DEBUG: Navigating to ActiveServiceScreen after auto-verification',
             );
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );
@@ -1007,6 +1045,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _phoneController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -1055,6 +1094,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     setState(() {
                       _phoneNumber = number;
                     });
+                    if (_debounce?.isActive ?? false) _debounce!.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 500), () {
+                      _validatePhoneNumber(number.phoneNumber ?? '');
+                    });
                   },
                   selectorConfig: const SelectorConfig(
                     selectorType: PhoneInputSelectorType.DROPDOWN,
@@ -1062,7 +1105,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     leadingPadding: 12,
                   ),
                   ignoreBlank: false,
-                  autoValidateMode: AutovalidateMode.onUserInteraction,
+                  autoValidateMode: AutovalidateMode.disabled,
                   initialValue: _phoneNumber,
                   selectorTextStyle: TextStyle(
                     fontSize: screenWidth * 0.035,
@@ -1270,7 +1313,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         'DEBUG: OTP verification successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
         );
@@ -1305,7 +1348,7 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           await _auth.signInWithCredential(credential);
           if (mounted) {
             print('DEBUG: Navigating to ActiveServiceScreen after resend');
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
             );

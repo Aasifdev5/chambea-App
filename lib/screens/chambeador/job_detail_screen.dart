@@ -107,7 +107,7 @@ class JobDetailScreen extends StatelessWidget {
                       print('ERROR: Failed to navigate back: $e');
                       print('Stack trace: $stackTrace');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Navigation error: $e')),
+                        SnackBar(content: Text('Error de navegación: $e')),
                       );
                     }
                   },
@@ -159,7 +159,35 @@ class JobDetailScreen extends StatelessWidget {
                       print(
                         'ERROR: Failed to load job details for requestId: $requestId, Error: ${state.message}',
                       );
-                      return Center(child: Text('Error: ${state.message}'));
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Error: ${state.message}'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: () {
+                                print(
+                                  'DEBUG: Retrying fetch job details for requestId: $requestId',
+                                );
+                                context.read<JobDetailBloc>().add(
+                                  FetchJobDetail(requestId),
+                                );
+                              },
+                              child: const Text(
+                                'Reintentar',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
                     } else if (state is JobDetailLoaded) {
                       final job = state.job;
                       return SingleChildScrollView(
@@ -297,7 +325,7 @@ class JobDetailScreen extends StatelessWidget {
                                     const SizedBox(height: 4),
                                     Text(
                                       job.budget != null
-                                          ? 'BOB ${job.budget!.toStringAsFixed(2)}/Hora'
+                                          ? 'BOB ${job.budget!.toStringAsFixed(2)}'
                                           : 'BOB No especificado',
                                       style: const TextStyle(
                                         fontSize: 14,
@@ -393,8 +421,8 @@ class JobDetailScreen extends StatelessWidget {
                                             MaterialPageRoute(
                                               builder: (context) =>
                                                   PropuestaScreen(
-                                                requestId: requestId,
-                                              ),
+                                                    requestId: requestId,
+                                                  ),
                                             ),
                                           );
                                         } catch (e, stackTrace) {
@@ -407,7 +435,7 @@ class JobDetailScreen extends StatelessWidget {
                                           ).showSnackBar(
                                             SnackBar(
                                               content: Text(
-                                                'Navigation error: $e',
+                                                'Error de navegación: $e',
                                               ),
                                             ),
                                           );
@@ -426,7 +454,7 @@ class JobDetailScreen extends StatelessWidget {
                         ),
                       );
                     }
-                    return const Center(child: Text('Unknown state'));
+                    return const Center(child: Text('Estado desconocido'));
                   },
                 ),
               ),

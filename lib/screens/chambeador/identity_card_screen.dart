@@ -108,8 +108,12 @@ class _IdentityCardScreenState extends State<IdentityCardScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          validator: (value) =>
-                              value!.isEmpty ? 'Este campo es requerido' : null,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Este campo es requerido';
+                            }
+                            return null;
+                          },
                         ),
                         SizedBox(height: screenHeight * 0.02),
                         Text(
@@ -268,51 +272,81 @@ class _IdentityCardScreenState extends State<IdentityCardScreen> {
                         ),
                         SizedBox(height: screenHeight * 0.03),
                         ElevatedButton(
-  style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.green,
-    minimumSize: const Size(double.infinity, 50),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-    ),
-  ),
-  onPressed: () {
-    if (_formKey.currentState!.validate() &&
-        _frontImage != null &&
-        _backImage != null) {
-      context.read<ChambeadorBloc>().add(
-        UploadIdentityCardEvent(
-          idNumber: _idNumberController.text,
-          frontImage: _frontImage!,
-          backImage: _backImage!,
-        ),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cédula de identidad guardada'),
-        ),
-      );
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            minimumSize: const Size(double.infinity, 50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () async {
+                            if (_formKey.currentState!.validate()) {
+                              // Check if images are provided locally or already uploaded
+                              final hasLocalImages =
+                                  _frontImage != null && _backImage != null;
+                              final hasUploadedImages =
+                                  state.frontImagePath != null &&
+                                  state.backImagePath != null &&
+                                  _idNumberController.text.isNotEmpty;
 
-      // ✅ Navigate to AntecedentesScreen
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const AntecedentesScreen()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Por favor, completa todos los campos requeridos y sube ambas imágenes',
-          ),
-        ),
-      );
-    }
-  },
-  child: const Text(
-    'Siguiente',
-    style: TextStyle(fontSize: 16, color: Colors.white),
-  ),
-),
-
+                              if (hasLocalImages || hasUploadedImages) {
+                                if (hasLocalImages) {
+                                  // Dispatch upload event if new images are provided
+                                  context.read<ChambeadorBloc>().add(
+                                    UploadIdentityCardEvent(
+                                      idNumber: _idNumberController.text,
+                                      frontImage: _frontImage!,
+                                      backImage: _backImage!,
+                                    ),
+                                  );
+                                  // Wait briefly to ensure the upload event is processed
+                                  await Future.delayed(
+                                    const Duration(milliseconds: 500),
+                                  );
+                                }
+                                // Navigate to AntecedentesScreen
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Cédula de identidad guardada',
+                                      ),
+                                    ),
+                                  );
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const AntecedentesScreen(),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                // Show specific error messages
+                                String errorMessage =
+                                    'Por favor, completa los siguientes campos:';
+                                if (_idNumberController.text.isEmpty) {
+                                  errorMessage += '\n- Número de cédula';
+                                }
+                                if (_frontImage == null &&
+                                    state.frontImagePath == null) {
+                                  errorMessage += '\n- Imagen frontal';
+                                }
+                                if (_backImage == null &&
+                                    state.backImagePath == null) {
+                                  errorMessage += '\n- Imagen trasera';
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(errorMessage)),
+                                );
+                              }
+                            }
+                          },
+                          child: const Text(
+                            'Siguiente',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
+                        ),
                         SizedBox(height: screenHeight * 0.02),
                         const Center(
                           child: Text(

@@ -148,11 +148,15 @@ class BuscarScreen extends StatelessWidget {
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   job['description'] ?? 'Sin descripción disponible',
                   style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 // Tags
@@ -166,16 +170,19 @@ class BuscarScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Icons row
+                // Time and Budget Row
                 Row(
                   children: [
                     const Icon(Icons.today, size: 16, color: Colors.black54),
                     const SizedBox(width: 4),
-                    Text(
-                      job['is_time_undefined'] == 1
-                          ? '${job['date'] ?? 'Hoy'} · Flexible'
-                          : '${job['date'] ?? 'Hoy'} · ${job['start_time'] ?? 'Sin horario'}',
-                      style: const TextStyle(color: Colors.black54),
+                    Expanded(
+                      child: Text(
+                        job['is_time_undefined'] == 1
+                            ? '${job['date'] ?? 'Hoy'} · Flexible'
+                            : '${job['date'] ?? 'Hoy'} · ${job['start_time'] ?? 'Sin horario'}',
+                        style: const TextStyle(color: Colors.black54),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Icon(
@@ -184,17 +191,23 @@ class BuscarScreen extends StatelessWidget {
                       color: Colors.black54,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      job['budget'] != null &&
-                              double.tryParse(job['budget'].toString()) != null
-                          ? 'BOB: ${job['budget']}/Hora'
-                          : 'BOB: No especificado',
-                      style: const TextStyle(color: Colors.black54),
+                    Expanded(
+                      child: Text(
+                        job['budget'] != null &&
+                                double.tryParse(job['budget'].toString()) !=
+                                    null
+                            ? 'BOB: ${job['budget']}'
+                            : 'BOB: No especificado',
+                        style: const TextStyle(color: Colors.black54),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
+                // Location and Payment Method Row
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(
                       Icons.location_on,
@@ -202,16 +215,23 @@ class BuscarScreen extends StatelessWidget {
                       color: Colors.black54,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
-                      style: const TextStyle(color: Colors.black54),
+                    Expanded(
+                      child: Text(
+                        '${job['location'] ?? 'Sin ubicación'}${job['location_details'] != null ? ', ${job['location_details']}' : ''}',
+                        style: const TextStyle(color: Colors.black54),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     const Icon(Icons.qr_code, size: 16, color: Colors.black54),
                     const SizedBox(width: 4),
-                    Text(
-                      job['payment_method'] ?? 'No especificado',
-                      style: const TextStyle(color: Colors.black54),
+                    Expanded(
+                      child: Text(
+                        job['payment_method'] ?? 'No especificado',
+                        style: const TextStyle(color: Colors.black54),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -234,80 +254,57 @@ class BuscarScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          job['worker_name'] ??
-                              'Usuario ${job['created_by'] ?? 'Desconocido'}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 14,
-                              color: Colors.amber,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              job['worker_rating']?.toString() ?? '0.0',
-                              style: const TextStyle(color: Colors.black54),
-                            ),
-                          ],
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            job['worker_name'] ??
+                                'Usuario ${job['created_by'] ?? 'Desconocido'}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 14,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                job['worker_rating']?.toString() ?? '0.0',
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Trabajo rechazado')),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.green),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Rechazar',
-                          style: TextStyle(color: Colors.green),
-                        ),
-                      ),
+                // Action button
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  PropuestaScreen(requestId: job['id']),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Enviar propuesta',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PropuestaScreen(requestId: job['id']),
                       ),
-                    ),
-                  ],
+                    );
+                  },
+                  child: const Text(
+                    'Enviar propuesta',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             ),
