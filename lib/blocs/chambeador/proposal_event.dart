@@ -23,5 +23,11 @@ class SubmitProposal extends ProposalEvent {
   });
 
   @override
-  List<Object> get props => [serviceRequestId, proposedBudget, message, availability, timeToComplete];
+  List<Object> get props => [
+    serviceRequestId,
+    proposedBudget,
+    message,
+    availability,
+    timeToComplete,
+  ];
 }

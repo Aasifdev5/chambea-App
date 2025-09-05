@@ -463,7 +463,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
         );
@@ -497,112 +497,253 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-class OnboardingOneScreen extends StatelessWidget {
+class OnboardingOneScreen extends StatefulWidget {
   const OnboardingOneScreen({super.key});
 
   @override
+  State<OnboardingOneScreen> createState() => _OnboardingOneScreenState();
+}
+
+class _OnboardingOneScreenState extends State<OnboardingOneScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndRedirect();
+  }
+
+  Future<void> _checkAuthAndRedirect() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && mounted) {
+      print('DEBUG: Logged-in user detected in OnboardingOneScreen initState');
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    print('DEBUG: Back button pressed on OnboardingOneScreen');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      print('DEBUG: User is logged in, redirecting to appropriate screen');
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+      return false; // Prevent default back navigation
+    }
+    print('DEBUG: User not logged in, showing exit confirmation');
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Salir'),
+        content: const Text(
+          '¿Estás seguro de que quieres salir de la aplicación?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Salir'),
+          ),
+        ],
+      ),
+    );
+    return shouldExit ?? false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.06,
-              vertical: screenHeight * 0.02,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: screenHeight * 0.05),
-                Image.asset(
-                  'assets/images/onboarding1.png',
-                  height: screenHeight * 0.35,
-                  fit: BoxFit.contain,
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Text(
-                  '¡Bienvenido a CHAMBEA!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.06,
+                vertical: screenHeight * 0.02,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(height: screenHeight * 0.05),
+                  Image.asset(
+                    'assets/images/onboarding1.png',
+                    height: screenHeight * 0.35,
+                    fit: BoxFit.contain,
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Realiza tus actividades con tranquilidad mientras nuestros profesionales se encargan de todo.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black54,
-                    height: 1.4,
+                  SizedBox(height: screenHeight * 0.05),
+                  Text(
+                    '¡Bienvenido a CHAMBEA!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.045,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        _ProgressIndicator(isActive: true),
-                        _ProgressIndicator(isActive: false),
-                        _ProgressIndicator(isActive: false),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Saltar',
-                        style: TextStyle(
-                          color: const Color(0xFF22c55e),
-                          fontSize: screenWidth * 0.035,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.02),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const OnboardingTwoScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.1,
-                      vertical: screenHeight * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 8,
-                  ),
-                  child: Text(
-                    'Siguiente',
+                  SizedBox(height: screenHeight * 0.015),
+                  Text(
+                    'Realiza tus actividades con tranquilidad mientras nuestros profesionales se encargan de todo.',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black54,
+                      height: 1.4,
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(height: screenHeight * 0.05),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          _ProgressIndicator(isActive: true),
+                          _ProgressIndicator(isActive: false),
+                          _ProgressIndicator(isActive: false),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Saltar',
+                          style: TextStyle(
+                            color: const Color(0xFF22c55e),
+                            fontSize: screenWidth * 0.035,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.02),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const OnboardingTwoScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.1,
+                        vertical: screenHeight * 0.02,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 8,
+                    ),
+                    child: Text(
+                      'Siguiente',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -611,112 +752,238 @@ class OnboardingOneScreen extends StatelessWidget {
   }
 }
 
-class OnboardingTwoScreen extends StatelessWidget {
+class OnboardingTwoScreen extends StatefulWidget {
   const OnboardingTwoScreen({super.key});
 
   @override
+  State<OnboardingTwoScreen> createState() => _OnboardingTwoScreenState();
+}
+
+class _OnboardingTwoScreenState extends State<OnboardingTwoScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndRedirect();
+  }
+
+  Future<void> _checkAuthAndRedirect() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && mounted) {
+      print('DEBUG: Logged-in user detected in OnboardingTwoScreen initState');
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    print('DEBUG: Back button pressed on OnboardingTwoScreen');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      print('DEBUG: User is logged in, redirecting to appropriate screen');
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+      return false; // Prevent default back navigation
+    }
+    print('DEBUG: User not logged in, navigating to OnboardingOneScreen');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
+    );
+    return false; // Prevent default back navigation
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.06,
-              vertical: screenHeight * 0.02,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: screenHeight * 0.05),
-                Image.asset(
-                  'assets/images/onboarding2.png',
-                  height: screenHeight * 0.35,
-                  fit: BoxFit.contain,
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Text(
-                  'Encuentra servicios a tu medida',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.06,
+                vertical: screenHeight * 0.02,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(height: screenHeight * 0.05),
+                  Image.asset(
+                    'assets/images/onboarding2.png',
+                    height: screenHeight * 0.35,
+                    fit: BoxFit.contain,
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Conecta con trabajadores de confianza en tu vecindario para ayudarte en casa, apartamento u oficina.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black54,
-                    height: 1.4,
+                  SizedBox(height: screenHeight * 0.05),
+                  Text(
+                    'Encuentra servicios a tu medida',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.045,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        _ProgressIndicator(isActive: false),
-                        _ProgressIndicator(isActive: true),
-                        _ProgressIndicator(isActive: false),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Saltar',
-                        style: TextStyle(
-                          color: const Color(0xFF22c55e),
-                          fontSize: screenWidth * 0.035,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.02),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const OnboardingThreeScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.1,
-                      vertical: screenHeight * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 8,
-                  ),
-                  child: Text(
-                    'Siguiente',
+                  SizedBox(height: screenHeight * 0.015),
+                  Text(
+                    'Conecta con trabajadores de confianza en tu vecindario para ayudarte en casa, apartamento u oficina.',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black54,
+                      height: 1.4,
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(height: screenHeight * 0.05),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          _ProgressIndicator(isActive: false),
+                          _ProgressIndicator(isActive: true),
+                          _ProgressIndicator(isActive: false),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Saltar',
+                          style: TextStyle(
+                            color: const Color(0xFF22c55e),
+                            fontSize: screenWidth * 0.035,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.02),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const OnboardingThreeScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.1,
+                        vertical: screenHeight * 0.02,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 8,
+                    ),
+                    child: Text(
+                      'Siguiente',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -725,116 +992,244 @@ class OnboardingTwoScreen extends StatelessWidget {
   }
 }
 
-class OnboardingThreeScreen extends StatelessWidget {
+class OnboardingThreeScreen extends StatefulWidget {
   const OnboardingThreeScreen({super.key});
+
+  @override
+  State<OnboardingThreeScreen> createState() => _OnboardingThreeScreenState();
+}
+
+class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndRedirect();
+  }
+
+  Future<void> _checkAuthAndRedirect() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && mounted) {
+      print(
+        'DEBUG: Logged-in user detected in OnboardingThreeScreen initState',
+      );
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    print('DEBUG: Back button pressed on OnboardingThreeScreen');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      print('DEBUG: User is logged in, redirecting to appropriate screen');
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+      return false; // Prevent default back navigation
+    }
+    print('DEBUG: User not logged in, navigating to OnboardingTwoScreen');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const OnboardingTwoScreen()),
+    );
+    return false; // Prevent default back navigation
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.06,
-              vertical: screenHeight * 0.02,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: screenHeight * 0.05),
-                Image.asset(
-                  'assets/images/onboarding3.png',
-                  height: screenHeight * 0.35,
-                  fit: BoxFit.contain,
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Text(
-                  'Programa según tu conveniencia',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.06,
+                vertical: screenHeight * 0.02,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(height: screenHeight * 0.05),
+                  Image.asset(
+                    'assets/images/onboarding3.png',
+                    height: screenHeight * 0.35,
+                    fit: BoxFit.contain,
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Elige el momento perfecto para ti y el trabajador con flexibilidad y facilidad.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black54,
-                    height: 1.4,
+                  SizedBox(height: screenHeight * 0.05),
+                  Text(
+                    'Programa según tu conveniencia',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.045,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        _ProgressIndicator(isActive: false),
-                        _ProgressIndicator(isActive: false),
-                        _ProgressIndicator(isActive: true),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Saltar',
-                        style: TextStyle(
-                          color: const Color(0xFF22c55e),
-                          fontSize: screenWidth * 0.035,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.03),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.1,
-                      vertical: screenHeight * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 8,
-                  ),
-                  icon: const Icon(
-                    Icons.arrow_forward,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  label: Text(
-                    'Comenzar',
+                  SizedBox(height: screenHeight * 0.015),
+                  Text(
+                    'Elige el momento perfecto para ti y el trabajador con flexibilidad y facilidad.',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black54,
+                      height: 1.4,
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  },
-                ),
-                SizedBox(height: screenHeight * 0.02),
-              ],
+                  SizedBox(height: screenHeight * 0.05),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          _ProgressIndicator(isActive: false),
+                          _ProgressIndicator(isActive: false),
+                          _ProgressIndicator(isActive: true),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Saltar',
+                          style: TextStyle(
+                            color: const Color(0xFF22c55e),
+                            fontSize: screenWidth * 0.035,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.03),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.1,
+                        vertical: screenHeight * 0.02,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 8,
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_forward,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    label: Text(
+                      'Comenzar',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                  ),
+                  SizedBox(height: screenHeight * 0.02),
+                ],
+              ),
             ),
           ),
         ),
@@ -862,6 +1257,59 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadSavedPhoneNumber();
+    _checkAuthAndRedirect();
+  }
+
+  Future<void> _checkAuthAndRedirect() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && mounted) {
+      print('DEBUG: Logged-in user detected in LoginScreen initState');
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _loadSavedPhoneNumber() async {
@@ -878,6 +1326,81 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _savePhoneNumber(String phoneNumber) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_phone_number', phoneNumber);
+  }
+
+  Future<bool> _onWillPop() async {
+    print('DEBUG: Back button pressed on LoginScreen');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      print('DEBUG: User is logged in, redirecting to appropriate screen');
+      try {
+        final response = await ApiService.get('/api/account-type/${user.uid}');
+        print('DEBUG: Fetch account type response: $response');
+        if (response['status'] == 'success' &&
+            response['data'] != null &&
+            response['data']['account_type'] is String &&
+            (response['data']['account_type'] == 'Client' ||
+                response['data']['account_type'] == 'Chambeador')) {
+          final accountType = response['data']['account_type'] as String;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('account_type', accountType);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => accountType == 'Client'
+                    ? const ClientHomeScreen()
+                    : const HomeScreen(),
+              ),
+            );
+          }
+        } else {
+          print(
+            'DEBUG: Invalid or missing account type in response: $response',
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('account_type');
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+            );
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error fetching account type: $e');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
+          );
+        }
+      }
+      return false; // Prevent default back navigation
+    }
+    print('DEBUG: User not logged in, showing exit confirmation');
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Salir'),
+        content: const Text(
+          '¿Estás seguro de que quieres salir de la aplicación?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Salir'),
+          ),
+        ],
+      ),
+    );
+    return shouldExit ?? false;
   }
 
   Future<void> _signInWithGoogle() async {
@@ -1054,158 +1577,161 @@ class _LoginScreenState extends State<LoginScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.06,
-              vertical: screenHeight * 0.05,
-            ),
-            child: Column(
-              children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: screenHeight * 0.15,
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Text(
-                  'Introduce tu número de teléfono',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.06,
+                vertical: screenHeight * 0.05,
+              ),
+              child: Column(
+                children: [
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: screenHeight * 0.15,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Te enviaremos un código para verificar tu número telefónico',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black54,
-                    height: 1.4,
+                  SizedBox(height: screenHeight * 0.05),
+                  Text(
+                    'Introduce tu número de teléfono',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.045,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.04),
-                InternationalPhoneNumberInput(
-                  onInputChanged: (PhoneNumber number) {
-                    setState(() {
-                      _phoneNumber = number;
-                    });
-                    if (_debounce?.isActive ?? false) _debounce!.cancel();
-                    _debounce = Timer(const Duration(milliseconds: 500), () {
-                      _validatePhoneNumber(number.phoneNumber ?? '');
-                    });
-                  },
-                  selectorConfig: const SelectorConfig(
-                    selectorType: PhoneInputSelectorType.DROPDOWN,
-                    setSelectorButtonAsPrefixIcon: true,
-                    leadingPadding: 12,
-                  ),
-                  ignoreBlank: false,
-                  autoValidateMode: AutovalidateMode.disabled,
-                  initialValue: _phoneNumber,
-                  selectorTextStyle: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black87,
-                  ),
-                  textStyle: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black87,
-                  ),
-                  textFieldController: _phoneController,
-                  formatInput: false,
-                  keyboardType: TextInputType.phone,
-                  inputDecoration: InputDecoration(
-                    hintText: 'Número de teléfono',
-                    hintStyle: TextStyle(
-                      color: Colors.black38,
+                  SizedBox(height: screenHeight * 0.015),
+                  Text(
+                    'Te enviaremos un código para verificar tu número telefónico',
+                    style: TextStyle(
                       fontSize: screenWidth * 0.035,
+                      color: Colors.black54,
+                      height: 1.4,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: screenHeight * 0.04),
+                  InternationalPhoneNumberInput(
+                    onInputChanged: (PhoneNumber number) {
+                      setState(() {
+                        _phoneNumber = number;
+                      });
+                      if (_debounce?.isActive ?? false) _debounce!.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 500), () {
+                        _validatePhoneNumber(number.phoneNumber ?? '');
+                      });
+                    },
+                    selectorConfig: const SelectorConfig(
+                      selectorType: PhoneInputSelectorType.DROPDOWN,
+                      setSelectorButtonAsPrefixIcon: true,
+                      leadingPadding: 12,
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ignoreBlank: false,
+                    autoValidateMode: AutovalidateMode.disabled,
+                    initialValue: _phoneNumber,
+                    selectorTextStyle: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.black87,
                     ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Color(0xFF22c55e)),
+                    textStyle: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.black87,
+                    ),
+                    textFieldController: _phoneController,
+                    formatInput: false,
+                    keyboardType: TextInputType.phone,
+                    inputDecoration: InputDecoration(
+                      hintText: 'Número de teléfono',
+                      hintStyle: TextStyle(
+                        color: Colors.black38,
+                        fontSize: screenWidth * 0.035,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide(color: Color(0xFF22c55e)),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.03),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.1,
-                            vertical: screenHeight * 0.02,
+                  SizedBox(height: screenHeight * 0.03),
+                  _isLoading
+                      ? const CircularProgressIndicator()
+                      : ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: screenWidth * 0.1,
+                              vertical: screenHeight * 0.02,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 8,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 8,
-                        ),
-                        onPressed: _startPhoneAuth,
-                        child: Text(
-                          'Enviar código',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                SizedBox(height: screenHeight * 0.03),
-                _isGoogleLoading
-                    ? const CircularProgressIndicator()
-                    : OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey.shade300),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.1,
-                            vertical: screenHeight * 0.02,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          backgroundColor: Colors.white,
-                          elevation: 2,
-                        ),
-                        icon: Image.asset(
-                          'assets/images/search.png',
-                          height: screenHeight * 0.03,
-                          width: screenHeight * 0.03,
-                        ),
-                        label: Text(
-                          'Continuar con Google',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.035,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w600,
+                          onPressed: _startPhoneAuth,
+                          child: Text(
+                            'Enviar código',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.035,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        onPressed: _signInWithGoogle,
-                      ),
-                SizedBox(height: screenHeight * 0.05),
-                Text(
-                  'Al unirte a nuestra aplicación, aceptas nuestros Términos de Uso y Política de privacidad',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.03,
-                    color: Colors.black54,
-                    height: 1.4,
+                  SizedBox(height: screenHeight * 0.03),
+                  _isGoogleLoading
+                      ? const CircularProgressIndicator()
+                      : OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.grey.shade300),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: screenWidth * 0.1,
+                              vertical: screenHeight * 0.02,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            backgroundColor: Colors.white,
+                            elevation: 2,
+                          ),
+                          icon: Image.asset(
+                            'assets/images/search.png',
+                            height: screenHeight * 0.03,
+                            width: screenHeight * 0.03,
+                          ),
+                          label: Text(
+                            'Continuar con Google',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.035,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          onPressed: _signInWithGoogle,
+                        ),
+                  SizedBox(height: screenHeight * 0.05),
+                  Text(
+                    'Al unirte a nuestra aplicación, aceptas nuestros Términos de Uso y Política de privacidad',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.03,
+                      color: Colors.black54,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.02),
-              ],
+                  SizedBox(height: screenHeight * 0.02),
+                ],
+              ),
             ),
           ),
         ),

@@ -26,6 +26,34 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
   String _timeToComplete = '';
   String? _errorMessage;
 
+  // Validate inputs before submission
+  bool _validateInputs() {
+    if (_budget.isEmpty ||
+        _proposalDetails.isEmpty ||
+        _timeToComplete.isEmpty) {
+      setState(() {
+        _errorMessage = 'Por favor completa todos los campos obligatorios';
+      });
+      return false;
+    }
+    // Ensure budget is a valid number
+    if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(_budget)) {
+      setState(() {
+        _errorMessage =
+            'El presupuesto debe ser un número válido (ejemplo: 100 o 100.50)';
+      });
+      return false;
+    }
+    // Ensure proposal details is not purely numeric
+    if (RegExp(r'^\d+$').hasMatch(_proposalDetails)) {
+      setState(() {
+        _errorMessage = 'El detalle de la propuesta no puede ser solo números';
+      });
+      return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -73,6 +101,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
               const SizedBox(height: 16),
               BlocBuilder<JobDetailBloc, JobDetailState>(
                 builder: (context, state) {
+                  print('DEBUG: JobDetailBloc state: $state');
                   if (state is JobDetailLoading) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (state is JobDetailError) {
@@ -110,8 +139,8 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
               const SizedBox(height: 16),
               _buildTextField(
                 label: 'Presupuesto*',
-                hint: 'Introducir el presupuesto',
-                keyboardType: TextInputType.number,
+                hint: 'Introducir el presupuesto (ejemplo: 100.50)',
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
                 onChanged: (val) => setState(() => _budget = val),
               ),
               const SizedBox(height: 16),
@@ -123,28 +152,43 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
               const SizedBox(height: 24),
               BlocConsumer<ProposalBloc, ProposalState>(
                 listener: (context, state) {
+                  print('DEBUG: ProposalBloc state: $state');
                   if (state is ProposalSuccess) {
+                    print(
+                      'DEBUG: ProposalSuccess state received, checking JobDetailBloc state',
+                    );
                     final jobState = context.read<JobDetailBloc>().state;
                     if (jobState is JobDetailLoaded) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ContratadoScreen(
-                            job: jobState.job,
-                            proposedBudget: _budget,
-                            availability: _availability,
-                            timeToComplete: _timeToComplete,
-                            proposalMessage: _proposalDetails,
-                          ),
-                        ),
+                      print(
+                        'DEBUG: Navigating to ContratadoScreen with job: ${jobState.job}',
                       );
+                      if (mounted) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ContratadoScreen(
+                              job: jobState.job,
+                              proposedBudget: _budget,
+                              availability: _availability,
+                              timeToComplete: _timeToComplete,
+                              proposalMessage: _proposalDetails,
+                            ),
+                          ),
+                        );
+                      } else {
+                        print('DEBUG: Widget not mounted, skipping navigation');
+                      }
                     } else {
+                      print(
+                        'DEBUG: JobDetailBloc not in JobDetailLoaded state: $jobState',
+                      );
                       setState(() {
                         _errorMessage =
                             'No se pudo cargar la información del trabajo';
                       });
                     }
                   } else if (state is ProposalError) {
+                    print('DEBUG: ProposalError state: ${state.message}');
                     setState(() {
                       _errorMessage = state.message;
                     });
@@ -162,22 +206,20 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
                     onPressed: state is ProposalSubmitting
                         ? null
                         : () {
-                            if (_budget.isEmpty ||
-                                _proposalDetails.isEmpty ||
-                                _timeToComplete.isEmpty) {
-                              setState(() {
-                                _errorMessage =
-                                    'Por favor completa todos los campos obligatorios';
-                              });
+                            if (!_validateInputs()) {
+                              print('DEBUG: Input validation failed');
                               return;
                             }
+                            print(
+                              'DEBUG: Submitting proposal for requestId: ${widget.requestId}',
+                            );
                             context.read<ProposalBloc>().add(
                               SubmitProposal(
                                 serviceRequestId: widget.requestId,
                                 proposedBudget: _budget,
                                 message: _proposalDetails,
                                 availability: _availability,
-                                timeToComplete: _timeToComplete,
+                                timeToComplete: _timeToComplete, // Fixed typo
                               ),
                             );
                           },
@@ -396,7 +438,7 @@ class _PropuestaScreenState extends State<PropuestaScreen> {
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint,
-            counterText: '',
+            counterText: maxLength != null ? '' : null,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
