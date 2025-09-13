@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/chat_detail_screen.dart';
+import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/services/api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:chambea/services/fcm_service.dart';
+import 'package:chambea/main.dart'; // Import main.dart for AuthUtils
 
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({super.key});
@@ -84,101 +86,184 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
   }
 
+  Future<bool> _onWillPop() async {
+    // Use AuthUtils to handle back navigation, ensuring redirection to ClientHomeScreen
+    final shouldExit = await AuthUtils.handleBackNavigation(context);
+    if (!shouldExit && context.mounted) {
+      // Explicitly navigate to ClientHomeScreen if not exiting
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+        (route) => false,
+      );
+    }
+    return shouldExit;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Chats (Client)'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.black54),
-            onPressed: _fetchChats,
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            'Chats (Client)',
+            style: TextStyle(
+              fontSize: screenWidth * 0.045,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+            ),
           ),
-          IconButton(
-            icon: Icon(Icons.search, color: Colors.black54),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Funcionalidad de búsqueda no implementada'),
-                ),
-              );
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: Colors.black54, size: screenWidth * 0.06),
+            onPressed: () async {
+              await _onWillPop();
             },
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Error: $_error'),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _fetchChats,
-                    child: Text('Reintentar'),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh, color: Colors.black54, size: screenWidth * 0.06),
+              onPressed: _fetchChats,
+            ),
+            IconButton(
+              icon: Icon(Icons.search, color: Colors.black54, size: screenWidth * 0.06),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Funcionalidad de búsqueda no implementada',
+                      style: TextStyle(fontSize: screenWidth * 0.035),
+                    ),
                   ),
-                ],
-              ),
-            )
-          : _chats.isEmpty
-          ? Center(child: Text('No hay chats disponibles'))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _chats.length,
-              itemBuilder: (context, index) {
-                final chat = _chats[index];
-                final workerId = chat['worker_id'] ?? '';
-                final requestId =
-                    int.tryParse(chat['request_id']?.toString() ?? '0') ?? 0;
-                final workerName = chat['worker_account_type'] == 'Chambeador'
-                    ? (chat['worker_name'] ?? 'Usuario $workerId')
-                    : 'Usuario Desconocido';
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.grey.shade300,
-                    child: const Icon(Icons.person, color: Colors.white),
-                  ),
-                  title: Text(workerName),
-                  subtitle: Text(chat['last_message'] ?? 'Sin mensajes'),
-                  trailing: Text(
-                    _formatTimestamp(chat['updated_at']?.toString()),
-                  ),
-                  onTap: () {
-                    if (workerId.isNotEmpty && requestId != 0) {
-                      print(
-                        'DEBUG: Navigating to ChatDetailScreen with workerId=$workerId, requestId=$requestId',
-                      );
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatDetailScreen(
-                            workerId: workerId,
-                            requestId: requestId,
-                          ),
-                        ),
-                      );
-                    } else {
-                      print(
-                        'DEBUG: Invalid chat data: workerId=$workerId, requestId=$requestId',
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: Datos de chat inválidos'),
-                        ),
-                      );
-                    }
-                  },
                 );
               },
             ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Error: $_error',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.04,
+                            color: Colors.red,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF22c55e),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: screenWidth * 0.06,
+                              vertical: screenHeight * 0.015,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                            ),
+                          ),
+                          onPressed: _fetchChats,
+                          child: Text(
+                            'Reintentar',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.035,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : _chats.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No hay chats disponibles',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.04,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.all(screenWidth * 0.04),
+                        itemCount: _chats.length,
+                        itemBuilder: (context, index) {
+                          final chat = _chats[index];
+                          final workerId = chat['worker_id'] ?? '';
+                          final requestId =
+                              int.tryParse(chat['request_id']?.toString() ?? '0') ?? 0;
+                          final workerName = chat['worker_account_type'] == 'Chambeador'
+                              ? (chat['worker_name'] ?? 'Usuario $workerId')
+                              : 'Usuario Desconocido';
+                          return ListTile(
+                            leading: CircleAvatar(
+                              radius: screenWidth * 0.05,
+                              backgroundColor: Colors.grey.shade300,
+                              child: Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: screenWidth * 0.05,
+                              ),
+                            ),
+                            title: Text(
+                              workerName,
+                              style: TextStyle(fontSize: screenWidth * 0.04),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              chat['last_message'] ?? 'Sin mensajes',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.035,
+                                color: Colors.black54,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Text(
+                              _formatTimestamp(chat['updated_at']?.toString()),
+                              style: TextStyle(fontSize: screenWidth * 0.03),
+                            ),
+                            onTap: () {
+                              if (workerId.isNotEmpty && requestId != 0) {
+                                print(
+                                  'DEBUG: Navigating to ChatDetailScreen with workerId=$workerId, requestId=$requestId',
+                                );
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatDetailScreen(
+                                      workerId: workerId,
+                                      requestId: requestId,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                print(
+                                  'DEBUG: Invalid chat data: workerId=$workerId, requestId=$requestId',
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Error: Datos de chat inválidos',
+                                      style: TextStyle(fontSize: screenWidth * 0.035),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          );
+                        },
+                      ),
+      ),
     );
   }
 

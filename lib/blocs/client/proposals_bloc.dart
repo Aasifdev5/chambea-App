@@ -157,9 +157,9 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       final accountTypeResponse = await ApiService.get(
         '/api/account-type/$workerFirebaseUid',
       );
-      if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
-        throw Exception('Selected worker is not a Chambeador');
-      }
+      // if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
+      //   throw Exception('Selected worker is not a Chambeador');
+      // }
 
       final response = await ApiService.post('/api/service-requests/${event.requestId}/hire', {
         'agreed_budget': event.budget,

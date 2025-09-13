@@ -6,8 +6,7 @@ class SupportScreen extends StatelessWidget {
 
   // Function to launch WhatsApp
   Future<void> _launchWhatsApp() async {
-    const whatsappUrl =
-        "https://wa.me/1234567890"; // Replace with your WhatsApp number
+    const whatsappUrl = "https://wa.me/+59178528046"; // Updated WhatsApp number
     final Uri url = Uri.parse(whatsappUrl);
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
@@ -33,8 +32,7 @@ class SupportScreen extends StatelessWidget {
           'Soporte técnico',
           style: TextStyle(
             color: Colors.black,
-            fontSize:
-                screenWidth * 0.045, // Matches font size from previous screens
+            fontSize: screenWidth * 0.045, // Matches font size from previous screens
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -51,8 +49,7 @@ class SupportScreen extends StatelessWidget {
               children: [
                 // Headset with question mark icon
                 Icon(
-                  Icons
-                      .headset_mic, // Using a similar icon; you can replace with a custom SVG if needed
+                  Icons.headset_mic, // Using a similar icon; you can replace with a custom SVG if needed
                   size: screenWidth * 0.3,
                   color: Colors.green,
                 ),
@@ -81,8 +78,7 @@ class SupportScreen extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: _launchWhatsApp,
                   icon: const Icon(
-                    Icons
-                        .chat, // Using a chat icon; replace with WhatsApp icon if you have it
+                    Icons.chat, // Using a chat icon; replace with WhatsApp icon if you have it
                     color: Colors.white,
                     size: 20,
                   ),
@@ -94,9 +90,7 @@ class SupportScreen extends StatelessWidget {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(
-                      0xFF25D366,
-                    ), // WhatsApp green color
+                    backgroundColor: const Color(0xFF25D366), // WhatsApp green color
                     padding: EdgeInsets.symmetric(
                       horizontal: screenWidth * 0.1,
                       vertical: screenHeight * 0.02,

@@ -9,6 +9,7 @@ import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/blocs/client/proposals_state.dart';
 import 'package:chambea/screens/client/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:chambea/screens/client/contract_confirmation_screen.dart';
 
 class ContratadoScreen extends StatefulWidget {
   final int requestId;
@@ -52,15 +53,13 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         _accountType = accountType;
       });
       if (accountType != 'Client') {
-        print(
-          'DEBUG: User is $accountType, not authorized for ContratadoScreen',
-        );
+        print('DEBUG: User is $accountType, not authorized for ContratadoScreen');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Solo los clientes pueden acceder a esta pantalla'),
           ),
         );
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
         );
@@ -101,9 +100,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
           final uidResponse = await ApiService.get(
             '/api/users/map-id-to-uid/${widget.workerId}',
           );
-          print(
-            'DEBUG: Map ID to UID response for workerId ${widget.workerId}: $uidResponse',
-          );
+          print('DEBUG: Map ID to UID response for workerId ${widget.workerId}: $uidResponse');
           workerFirebaseUid = uidResponse['data']['uid'];
           if (workerFirebaseUid != null) {
             final userResponse = await ApiService.get(
@@ -124,9 +121,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
             print('Failed to map worker_id ${widget.workerId} to Firebase UID');
           }
         } catch (e) {
-          print(
-            'Error fetching worker profile for workerId ${widget.workerId}: $e',
-          );
+          print('Error fetching worker profile for workerId ${widget.workerId}: $e');
         }
       }
 
@@ -138,13 +133,9 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
           );
           workerFirebaseUid = selectedProposal['worker_firebase_uid'];
           workerName = selectedProposal['worker_name'] ?? 'Usuario Desconocido';
-          workerRole =
-              selectedProposal['worker_role'] ??
-              data['subcategory'] ??
-              'Trabajador';
+          workerRole = selectedProposal['worker_role'] ?? data['subcategory'] ?? 'Trabajador';
           workerRating = selectedProposal['worker_rating']?.toDouble() ?? 0.0;
-        } else if (data['worker_firebase_uid'] != null &&
-            data['worker_id'] != null) {
+        } else if (data['worker_firebase_uid'] != null && data['worker_id'] != null) {
           workerFirebaseUid = data['worker_firebase_uid'];
           try {
             final userResponse = await ApiService.get(
@@ -172,13 +163,9 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
           final accountTypeResponse = await ApiService.get(
             '/api/account-type/$workerFirebaseUid',
           );
-          print(
-            'DEBUG: Account type response for $workerFirebaseUid: $accountTypeResponse',
-          );
+          print('DEBUG: Account type response for $workerFirebaseUid: $accountTypeResponse');
           if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
-            print(
-              'Worker is not a Chambeador: ${accountTypeResponse['data']['account_type']}',
-            );
+            print('Worker is not a Chambeador: ${accountTypeResponse['data']['account_type']}');
             workerFirebaseUid = null;
           }
         } catch (e) {
@@ -212,19 +199,17 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debe iniciar sesión')),
+      );
       return;
     }
 
     if (_accountType != 'Client') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Solo los clientes pueden contratar servicios'),
-        ),
+        const SnackBar(content: Text('Solo los clientes pueden contratar servicios')),
       );
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
       );
@@ -245,25 +230,25 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
           '/api/users/map-id-to-uid/$workerId',
         );
         workerFirebaseUid = uidResponse['data']['uid'] ?? null;
-        if (workerFirebaseUid == null) {
-          throw Exception('Failed to map worker ID to Firebase UID');
-        }
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al obtener el trabajador: $e')),
+        );
         return;
       }
+    } else {
+      workerFirebaseUid = _workerFirebaseUid;
     }
 
+    // Removed conditions for "No se pudo obtener el ID del trabajador" and "No se ha seleccionado un trabajador válido"
     context.read<ProposalsBloc>().add(
-      HireWorker(
-        requestId: widget.requestId,
-        proposalId: proposalId ?? widget.proposalId,
-        workerId: workerFirebaseUid ?? _workerFirebaseUid,
-        budget: budget,
-      ),
-    );
+          HireWorker(
+            requestId: widget.requestId,
+            proposalId: proposalId ?? widget.proposalId,
+            workerId: workerFirebaseUid,
+            budget: budget,
+          ),
+        );
   }
 
   @override
@@ -297,431 +282,298 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
       body: BlocListener<ProposalsBloc, ProposalsState>(
         listener: (context, state) {
           if (state is ProposalsActionSuccess) {
-            ScaffoldMessenger.of(
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
+            );
+            Navigator.pushReplacement(
               context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-            _fetchServiceRequest();
+              MaterialPageRoute(
+                builder: (context) => ContractConfirmationScreen(
+                  requestId: widget.requestId,
+                  workerId: _workerFirebaseUid,
+                  workerName: _workerName,
+                  workerRole: _workerRole,
+                  workerRating: _workerRating,
+                  date: _serviceRequest?['date'],
+                  location:
+                      '${_serviceRequest?['location'] ?? 'Sin ubicación'}, ${_serviceRequest?['location_details'] ?? ''}',
+                  paymentMethod: _serviceRequest?['payment_method'] == 'Código QR'
+                      ? 'El pago puede realizar mediante Código QR o con efectivo después de finalizar el servicio.'
+                      : 'El pago puede realizar con efectivo después de finalizar el servicio.',
+                  budget: _serviceRequest?['budget'] != null &&
+                          double.tryParse(_serviceRequest!['budget'].toString()) != null
+                      ? 'BOB ${_serviceRequest?['budget']}'
+                      : 'BOB No especificado',
+                ),
+              ),
+            );
           } else if (state is ProposalsError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            String errorMessage = state.message;
+            if (errorMessage.contains('Ya has enviado una oferta o contratado a este trabajador')) {
+              errorMessage = 'Ya has enviado una oferta o contratado a este trabajador para esta solicitud de servicio.';
+            } else {
+              errorMessage = 'Error al contratar el servicio: $errorMessage';
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorMessage)),
+            );
           }
         },
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-            ? Center(child: Text('Error: $_error'))
-            : _serviceRequest == null
-            ? const Center(child: Text('No se encontraron detalles'))
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _serviceRequest!['status'] == 'accepted'
-                            ? Colors.green.shade100
-                            : _serviceRequest!['status'] == 'En curso'
-                            ? Colors.blue.shade100
-                            : _serviceRequest!['status'] == 'Completado'
-                            ? Colors.purple.shade100
-                            : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _serviceRequest!['status'] == 'accepted'
-                              ? Colors.green.shade700
-                              : _serviceRequest!['status'] == 'En curso'
-                              ? Colors.blue.shade700
-                              : _serviceRequest!['status'] == 'Completado'
-                              ? Colors.purple.shade700
-                              : Colors.grey.shade700,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _serviceRequest!['status'] == 'accepted'
-                                ? Icons.check_circle
-                                : _serviceRequest!['status'] == 'En curso'
-                                ? Icons.play_circle
-                                : _serviceRequest!['status'] == 'Completado'
-                                ? Icons.done_all
-                                : Icons.hourglass_empty,
-                            size: 18,
-                            color: _serviceRequest!['status'] == 'accepted'
-                                ? Colors.green.shade800
-                                : _serviceRequest!['status'] == 'En curso'
-                                ? Colors.blue.shade800
-                                : _serviceRequest!['status'] == 'Completado'
-                                ? Colors.purple.shade800
-                                : Colors.grey.shade800,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _serviceRequest!['status'] == 'accepted'
-                                ? 'Contratado'
-                                : _serviceRequest!['status'] == 'En curso'
-                                ? 'En curso'
-                                : _serviceRequest!['status'] == 'Completado'
-                                ? 'Completado'
-                                : 'Pendiente',
-                            style: TextStyle(
-                              color: _serviceRequest!['status'] == 'accepted'
-                                  ? Colors.green.shade800
-                                  : _serviceRequest!['status'] == 'En curso'
-                                  ? Colors.blue.shade800
-                                  : _serviceRequest!['status'] == 'Completado'
-                                  ? Colors.purple.shade800
-                                  : Colors.grey.shade800,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Icon(
-                      Icons.check_circle,
-                      size: 80,
-                      color: Colors.green,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _serviceRequest!['status'] == 'Completado'
-                          ? '¡Servicio completado con éxito!'
-                          : 'Gracias por elegir nuestro servicio y confiar en nuestro trabajador para ayudarte a realizar su trabajo',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.grey.shade300,
-                          child: const Icon(Icons.person, color: Colors.white),
-                        ),
-                        title: Text(_workerName ?? 'Cargando...'),
-                        subtitle: Text(_workerRole ?? 'Cargando...'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.star, color: Color(0xFFFFC107)),
-                            const SizedBox(width: 4),
-                            Text((_workerRating ?? 0.0).toStringAsFixed(1)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_serviceRequest!['status'] == null ||
-                        _serviceRequest!['status'] == 'Pendiente')
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Otras Propuestas',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _proposals.isEmpty
-                                  ? const Text(
-                                      'No hay otras propuestas disponibles',
-                                    )
-                                  : ListView.builder(
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemCount: _proposals.length,
-                                      itemBuilder: (context, index) {
-                                        final proposal = _proposals[index];
-                                        final isSelected =
-                                            proposal['id'] == widget.proposalId;
-                                        return ListTile(
-                                          title: Text(
-                                            proposal['worker_name'] ??
-                                                'Usuario ${proposal['worker_id']}',
-                                          ),
-                                          subtitle: Text(
-                                            'Presupuesto: BOB ${proposal['proposed_budget'] ?? 'No especificado'}',
-                                          ),
-                                          trailing: isSelected
-                                              ? const Text(
-                                                  'Seleccionado',
-                                                  style: TextStyle(
-                                                    color: Colors.green,
-                                                  ),
-                                                )
-                                              : ElevatedButton(
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.green,
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                      ),
-                                                  onPressed: () {
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (context) {
-                                                        final budgetController =
-                                                            TextEditingController();
-                                                        return AlertDialog(
-                                                          title: const Text(
-                                                            'Confirmar Nueva Propuesta',
-                                                          ),
-                                                          content: TextField(
-                                                            controller:
-                                                                budgetController,
-                                                            keyboardType:
-                                                                TextInputType
-                                                                    .number,
-                                                            decoration:
-                                                                const InputDecoration(
-                                                                  labelText:
-                                                                      'Presupuesto acordado (BOB)',
-                                                                ),
-                                                          ),
-                                                          actions: [
-                                                            TextButton(
-                                                              onPressed: () =>
-                                                                  Navigator.pop(
-                                                                    context,
-                                                                  ),
-                                                              child: const Text(
-                                                                'Cancelar',
-                                                              ),
-                                                            ),
-                                                            TextButton(
-                                                              onPressed: () {
-                                                                final budget =
-                                                                    double.tryParse(
-                                                                      budgetController
-                                                                          .text,
-                                                                    );
-                                                                if (budget !=
-                                                                        null &&
-                                                                    budget >
-                                                                        0) {
-                                                                  _hireWorker(
-                                                                    proposalId:
-                                                                        proposal['id'],
-                                                                    workerId:
-                                                                        proposal['worker_id'],
-                                                                    budget:
-                                                                        budget,
-                                                                  );
-                                                                  Navigator.pop(
-                                                                    context,
-                                                                  );
-                                                                } else {
-                                                                  ScaffoldMessenger.of(
-                                                                    context,
-                                                                  ).showSnackBar(
-                                                                    const SnackBar(
-                                                                      content: Text(
-                                                                        'Ingrese un presupuesto válido',
-                                                                      ),
-                                                                    ),
-                                                                  );
-                                                                }
-                                                              },
-                                                              child: const Text(
-                                                                'Confirmar',
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        );
-                                                      },
-                                                    );
-                                                  },
-                                                  child: const Text('Aceptar'),
-                                                ),
-                                        );
-                                      },
-                                    ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
+                ? Center(child: Text('Error: $_error'))
+                : _serviceRequest == null
+                    ? const Center(child: Text('No se encontraron detalles'))
+                    : SingleChildScrollView(
                         padding: const EdgeInsets.all(16),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            _buildDetailRow(
-                              'Estado',
-                              _serviceRequest!['status'] ?? 'Pendiente',
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _serviceRequest!['status'] == 'accepted'
+                                    ? Colors.green.shade100
+                                    : _serviceRequest!['status'] == 'En curso'
+                                        ? Colors.blue.shade100
+                                        : _serviceRequest!['status'] == 'Completado'
+                                            ? Colors.purple.shade100
+                                            : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _serviceRequest!['status'] == 'accepted'
+                                      ? Colors.green.shade700
+                                      : _serviceRequest!['status'] == 'En curso'
+                                          ? Colors.blue.shade700
+                                          : _serviceRequest!['status'] == 'Completado'
+                                              ? Colors.purple.shade700
+                                              : Colors.grey.shade700,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _serviceRequest!['status'] == 'accepted'
+                                        ? Icons.check_circle
+                                        : _serviceRequest!['status'] == 'En curso'
+                                            ? Icons.play_circle
+                                            : _serviceRequest!['status'] == 'Completado'
+                                                ? Icons.done_all
+                                                : Icons.hourglass_empty,
+                                    size: 18,
+                                    color: _serviceRequest!['status'] == 'accepted'
+                                        ? Colors.green.shade800
+                                        : _serviceRequest!['status'] == 'En curso'
+                                            ? Colors.blue.shade800
+                                            : _serviceRequest!['status'] == 'Completado'
+                                                ? Colors.purple.shade800
+                                                : Colors.grey.shade800,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _serviceRequest!['status'] == 'accepted'
+                                        ? 'Contratado'
+                                        : _serviceRequest!['status'] == 'En curso'
+                                            ? 'En curso'
+                                            : _serviceRequest!['status'] == 'Completado'
+                                                ? 'Completado'
+                                                : 'Pendiente',
+                                    style: TextStyle(
+                                      color: _serviceRequest!['status'] == 'accepted'
+                                          ? Colors.green.shade800
+                                          : _serviceRequest!['status'] == 'En curso'
+                                              ? Colors.blue.shade800
+                                              : _serviceRequest!['status'] == 'Completado'
+                                                  ? Colors.purple.shade800
+                                                  : Colors.grey.shade800,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            _buildDetailRow(
-                              'Fecha',
-                              _serviceRequest!['date'] ?? 'No especificada',
+                            const SizedBox(height: 16),
+                            const Icon(
+                              Icons.check_circle,
+                              size: 80,
+                              color: Colors.green,
                             ),
-                            _buildDetailRow(
-                              'Ubicación',
-                              '${_serviceRequest!['location'] ?? 'Sin ubicación'}, ${_serviceRequest!['location_details'] ?? ''}',
+                            const SizedBox(height: 16),
+                            Text(
+                              _serviceRequest!['status'] == 'Completado'
+                                  ? '¡Servicio completado con éxito!'
+                                  : 'Gracias por elegir nuestro servicio y confiar en nuestro trabajador para ayudarte a realizar su trabajo',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 16),
                             ),
-                            _buildDetailRow(
-                              'Forma de pago',
-                              _serviceRequest!['payment_method'] == 'Código QR'
-                                  ? 'El pago puede realizar mediante Código QR o con efectivo después de finalizar el servicio.'
-                                  : 'El pago puede realizar con efectivo después de finalizar el servicio.',
+                            const SizedBox(height: 16),
+                            Card(
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.grey.shade300,
+                                  child: const Icon(Icons.person, color: Colors.white),
+                                ),
+                                title: Text(_workerName ?? 'Cargando...'),
+                                subtitle: Text(_workerRole ?? 'Cargando...'),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.star, color: Color(0xFFFFC107)),
+                                    const SizedBox(width: 4),
+                                    Text((_workerRating ?? 0.0).toStringAsFixed(1)),
+                                  ],
+                                ),
+                              ),
                             ),
-                            _buildDetailRow(
-                              'Presupuesto',
-                              _serviceRequest!['budget'] != null &&
-                                      double.tryParse(
-                                            _serviceRequest!['budget']
-                                                .toString(),
-                                          ) !=
-                                          null
-                                  ? 'BOB ${_serviceRequest!['budget']}'
-                                  : 'BOB No especificado',
+                            const SizedBox(height: 16),
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildDetailRow(
+                                      'Estado',
+                                      _serviceRequest!['status'] ?? 'Pendiente',
+                                    ),
+                                    _buildDetailRow(
+                                      'Fecha',
+                                      _serviceRequest!['date'] ?? 'No especificada',
+                                    ),
+                                    _buildDetailRow(
+                                      'Ubicación',
+                                      '${_serviceRequest!['location'] ?? 'Sin ubicación'}, ${_serviceRequest!['location_details'] ?? ''}',
+                                    ),
+                                    _buildDetailRow(
+                                      'Forma de pago',
+                                      _serviceRequest!['payment_method'] == 'Código QR'
+                                          ? 'El pago puede realizar mediante Código QR o con efectivo después de finalizar el servicio.'
+                                          : 'El pago puede realizar con efectivo después de finalizar el servicio.',
+                                    ),
+                                    _buildDetailRow(
+                                      'Presupuesto',
+                                      _serviceRequest!['budget'] != null &&
+                                              double.tryParse(_serviceRequest!['budget'].toString()) != null
+                                          ? 'BOB ${_serviceRequest!['budget']}'
+                                          : 'BOB No especificado',
+                                    ),
+                                    _buildDetailRow(
+                                      'Categoría',
+                                      _serviceRequest!['title'] ??
+                                          '${_serviceRequest!['category'] ?? 'Servicio'} - ${_serviceRequest!['subcategory'] ?? 'General'}',
+                                    ),
+                                    _buildDetailRow(
+                                      'Descripción',
+                                      _serviceRequest!['description'] ?? 'Sin descripción',
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            _buildDetailRow(
-                              'Categoría',
-                              _serviceRequest!['title'] ??
-                                  '${_serviceRequest!['category'] ?? 'Servicio'} - ${_serviceRequest!['subcategory'] ?? 'General'}',
+                            const SizedBox(height: 16),
+                            if (_serviceRequest!['status'] == null ||
+                                _serviceRequest!['status'] == 'Pendiente')
+                              TextField(
+                                controller: _budgetController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Presupuesto acordado (BOB)',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+                            if (_serviceRequest!['status'] != 'accepted' &&
+                                _serviceRequest!['status'] != 'En curso' &&
+                                _serviceRequest!['status'] != 'Completado')
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(double.infinity, 50),
+                                ),
+                                onPressed: () => _hireWorker(
+                                  budget: double.tryParse(_budgetController.text) ?? 0,
+                                ),
+                                child: const Text('Confirmar Contratación'),
+                              ),
+                            const SizedBox(height: 8),
+                            if (_serviceRequest!['status'] == 'Completado')
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(double.infinity, 50),
+                                ),
+                                onPressed: _workerFirebaseUid == null
+                                    ? null
+                                    : () {
+                                        print('DEBUG: Navigating to ReviewServiceScreen for workerId: $_workerFirebaseUid');
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ReviewServiceScreen(
+                                              requestId: widget.requestId,
+                                              workerId: _workerFirebaseUid!,
+                                              workerName: _workerName != 'Cargando...' ? _workerName : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                child: const Text('Calificar Servicio'),
+                              ),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _workerFirebaseUid != null &&
+                                        ['accepted', 'En curso', 'Completado'].contains(_serviceRequest!['status'])
+                                    ? Colors.green
+                                    : Colors.grey,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 50),
+                              ),
+                              onPressed: _workerFirebaseUid != null &&
+                                      ['accepted', 'En curso', 'Completado'].contains(_serviceRequest!['status'])
+                                  ? () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ChatDetailScreen(
+                                            workerId: _workerFirebaseUid!,
+                                            requestId: widget.requestId,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              child: Text(
+                                _workerFirebaseUid != null &&
+                                        ['accepted', 'En curso', 'Completado'].contains(_serviceRequest!['status'])
+                                    ? 'Chat with your worker'
+                                    : 'Seleccione un trabajador para chatear',
+                              ),
                             ),
-                            _buildDetailRow(
-                              'Descripción',
-                              _serviceRequest!['description'] ??
-                                  'Sin descripción',
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.green,
+                                side: const BorderSide(color: Colors.green),
+                                minimumSize: const Size(double.infinity, 50),
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Volver al inicio'),
                             ),
+                            const SizedBox(height: 16),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_serviceRequest!['status'] == null ||
-                        _serviceRequest!['status'] == 'Pendiente')
-                      TextField(
-                        controller: _budgetController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Presupuesto acordado (BOB)',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    if (_serviceRequest!['status'] != 'accepted' &&
-                        _serviceRequest!['status'] != 'En curso' &&
-                        _serviceRequest!['status'] != 'Completado')
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 50),
-                        ),
-                        onPressed: () => _hireWorker(
-                          budget: double.tryParse(_budgetController.text) ?? 0,
-                        ),
-                        child: const Text('Confirmar Contratación'),
-                      ),
-                    const SizedBox(height: 8),
-                    if (_serviceRequest!['status'] == 'Completado')
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 50),
-                        ),
-                        onPressed: _workerFirebaseUid == null
-                            ? null
-                            : () {
-                                print(
-                                  'DEBUG: Navigating to ReviewServiceScreen for workerId: $_workerFirebaseUid',
-                                );
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ReviewServiceScreen(
-                                      requestId: widget.requestId,
-                                      workerId: _workerFirebaseUid!,
-                                      workerName: _workerName != 'Cargando...'
-                                          ? _workerName
-                                          : null,
-                                    ),
-                                  ),
-                                );
-                              },
-                        child: const Text('Calificar Servicio'),
-                      ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _workerFirebaseUid != null &&
-                                [
-                                  'accepted',
-                                  'En curso',
-                                  'Completado',
-                                ].contains(_serviceRequest!['status'])
-                            ? Colors.green
-                            : Colors.grey,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      onPressed:
-                          _workerFirebaseUid != null &&
-                              [
-                                'accepted',
-                                'En curso',
-                                'Completado',
-                              ].contains(_serviceRequest!['status'])
-                          ? () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatDetailScreen(
-                                    workerId: _workerFirebaseUid!,
-                                    requestId: widget.requestId,
-                                  ),
-                                ),
-                              );
-                            }
-                          : null,
-                      child: Text(
-                        _workerFirebaseUid != null &&
-                                [
-                                  'accepted',
-                                  'En curso',
-                                  'Completado',
-                                ].contains(_serviceRequest!['status'])
-                            ? 'Chat with your worker'
-                            : 'Seleccione un trabajador para chatear',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.green,
-                        side: const BorderSide(color: Colors.green),
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Volver al inicio'),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
       ),
     );
   }

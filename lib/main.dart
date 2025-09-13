@@ -8,8 +8,6 @@ import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:chambea/screens/client/perfil_screen.dart';
 import 'package:chambea/screens/chambeador/chambeadorregister_screen.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'firebase_options.dart';
 import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
@@ -22,7 +20,104 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'dart:io';
+import 'package:chambea/services/api_service.dart'; // Updated import
+
+// Utility class for authentication and navigation
+class AuthUtils {
+  static bool _isNavigating = false;
+  static DateTime? _lastBackPress;
+  static const _debounceDuration = Duration(milliseconds: 1000);
+
+  static Future<Widget> getAuthenticatedScreen(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('DEBUG: No authenticated user, redirecting to SplashScreen');
+      return const SplashScreen();
+    }
+
+    print('DEBUG: Fetching account type for UID: ${user.uid}');
+    try {
+      final accountType = await ApiService.getAccountType();
+      print('DEBUG: Valid account type received: $accountType');
+
+      if (accountType == 'Client' || accountType == 'Chambeador') {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('account_type', accountType);
+        return accountType == 'Client'
+            ? const ClientHomeScreen()
+            : const HomeScreen();
+      } else {
+        print('DEBUG: Invalid or missing account type: $accountType');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('account_type');
+        return const ProfileSelectionScreen();
+      }
+    } catch (e) {
+      print('DEBUG: Error fetching account type: $e');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('account_type');
+      return const ProfileSelectionScreen();
+    }
+  }
+
+  static Future<bool> handleBackNavigation(BuildContext context) async {
+    final now = DateTime.now();
+    if (_isNavigating) {
+      print('DEBUG: Navigation in progress, ignoring back press');
+      return false;
+    }
+
+    if (_lastBackPress != null &&
+        now.difference(_lastBackPress!) < _debounceDuration) {
+      print('DEBUG: Back button press debounced');
+      return false;
+    }
+    _lastBackPress = now;
+
+    _isNavigating = true;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        print('DEBUG: User is logged in, redirecting to appropriate screen');
+        final nextScreen = await getAuthenticatedScreen(context);
+        if (context.mounted && nextScreen != const SplashScreen()) {
+          await Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => nextScreen),
+            (route) => false,
+          );
+          return false;
+        }
+      }
+      print('DEBUG: User not logged in, showing exit confirmation');
+      if (!context.mounted) return false;
+      final shouldExit = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false,
+          child: AlertDialog(
+            title: const Text('Salir'),
+            content: const Text('¿Deseas salir de la aplicación?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Salir'),
+              ),
+            ],
+          ),
+        ),
+      );
+      return shouldExit ?? false;
+    } finally {
+      _isNavigating = false;
+    }
+  }
+}
 
 // Registers FCM token for push notifications
 Future<void> registerFcmToken() async {
@@ -75,33 +170,28 @@ Future<void> registerFcmToken() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Handle Flutter errors
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.dumpErrorToConsole(details);
     print('Flutter Error: ${details.exceptionAsString()}\n${details.stack}');
   };
 
   try {
-    // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print("✅ Firebase initialized");
 
-    // Activate App Check
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity,
     );
     print("✅ App Check activated");
 
-    // Configure Firestore persistence
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
     print("✅ Firestore persistence enabled");
 
-    // Listen for authentication state changes
     FirebaseAuth.instance.authStateChanges().listen((User? user) async {
       if (user == null) {
         print('DEBUG: User signed out, clearing account type');
@@ -110,10 +200,8 @@ void main() async {
       }
     });
 
-    // Run the app
     runApp(const ChambeaApp());
 
-    // Register FCM token and handle notifications
     Future.microtask(() async {
       await registerFcmToken();
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -136,235 +224,42 @@ void main() async {
   }
 }
 
-// API Service for handling HTTP requests
-class ApiService {
-  static const String baseUrl = 'https://chambea.lat';
-
-  static Future<Map<String, String>> getHeaders() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      print('DEBUG: No authenticated user in getHeaders');
-      return {'Content-Type': 'application/json', 'Accept': 'application/json'};
-    }
-    try {
-      String? token = await user.getIdToken(true);
-      print('DEBUG: Firebase ID token: ${token != null ? 'Valid' : 'Null'}');
-      return {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
-    } catch (e) {
-      print('DEBUG: Error fetching Firebase ID token: $e');
-      return {'Content-Type': 'application/json', 'Accept': 'application/json'};
-    }
-  }
-
-  static Future<bool> isLoggedIn() async {
-    return FirebaseAuth.instance.currentUser != null;
-  }
-
-  static Future<Map<String, dynamic>> get(String endpoint) async {
-    try {
-      final headers = await getHeaders();
-      final response = await http
-          .get(Uri.parse('$baseUrl$endpoint'), headers: headers)
-          .timeout(const Duration(seconds: 10));
-      print(
-        'DEBUG: GET $endpoint response: ${response.statusCode} ${response.body}',
-      );
-      if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
-      }
-      throw Exception(
-        'Failed to load data: ${response.statusCode} - ${response.body}',
-      );
-    } catch (e) {
-      print('DEBUG: GET $endpoint failed with error: $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> post(
-    String endpoint,
-    Map<String, dynamic> body,
-  ) async {
-    try {
-      final headers = await getHeaders();
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl$endpoint'),
-            headers: headers,
-            body: json.encode(body),
-          )
-          .timeout(const Duration(seconds: 10));
-      print(
-        'DEBUG: POST $endpoint response: ${response.statusCode} ${response.body}',
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return {
-          'statusCode': response.statusCode,
-          'body': json.decode(response.body) as Map<String, dynamic>,
-        };
-      }
-      throw Exception(
-        'Failed to post data: ${response.statusCode} - ${response.body}',
-      );
-    } catch (e) {
-      print('DEBUG: POST $endpoint failed with error: $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> put(
-    String endpoint,
-    Map<String, dynamic> body,
-  ) async {
-    try {
-      final headers = await getHeaders();
-      final response = await http
-          .put(
-            Uri.parse('$baseUrl$endpoint'),
-            headers: headers,
-            body: json.encode(body),
-          )
-          .timeout(const Duration(seconds: 10));
-      print(
-        'DEBUG: PUT $endpoint response: ${response.statusCode} ${response.body}',
-      );
-      if (response.statusCode == 200) {
-        return {
-          'statusCode': response.statusCode,
-          'body': json.decode(response.body) as Map<String, dynamic>,
-        };
-      }
-      throw Exception(
-        'Failed to put data: ${response.statusCode} - ${response.body}',
-      );
-    } catch (e) {
-      print('DEBUG: PUT $endpoint failed with error: $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> delete(String endpoint) async {
-    try {
-      final headers = await getHeaders();
-      final response = await http
-          .delete(Uri.parse('$baseUrl$endpoint'), headers: headers)
-          .timeout(const Duration(seconds: 10));
-      print(
-        'DEBUG: DELETE $endpoint response: ${response.statusCode} ${response.body}',
-      );
-      if (response.statusCode == 200) {
-        return {
-          'statusCode': response.statusCode,
-          'body': json.decode(response.body) as Map<String, dynamic>,
-        };
-      }
-      throw Exception(
-        'Failed to delete data: ${response.statusCode} - ${response.body}',
-      );
-    } catch (e) {
-      print('DEBUG: DELETE $endpoint failed with error: $e');
-      rethrow;
-    }
-  }
-
-  static Future<Map<String, dynamic>> uploadFile(
-    String endpoint,
-    String fieldName,
-    File file,
-  ) async {
-    try {
-      final headers = await getHeaders();
-      headers.remove('Content-Type');
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl$endpoint'),
-      );
-      request.headers.addAll(headers);
-      request.files.add(
-        await http.MultipartFile.fromPath(fieldName, file.path),
-      );
-      final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 15),
-      );
-      final response = await http.Response.fromStream(streamedResponse);
-      print(
-        'DEBUG: UPLOAD $endpoint response: ${response.statusCode} ${response.body}',
-      );
-      if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
-      }
-      throw Exception(
-        'Failed to upload file: ${response.statusCode} - ${response.body}',
-      );
-    } catch (e) {
-      print('DEBUG: UPLOAD $endpoint failed with error: $e');
-      rethrow;
-    }
-  }
-}
-
-class ChambeaApp extends StatelessWidget {
+class ChambeaApp extends StatefulWidget {
   const ChambeaApp({super.key});
 
-  // Determines the initial screen based on authentication and account type
-  Future<Widget> _getInitialScreen() async {
-    print('DEBUG: Checking if user is logged in');
-    final isLoggedIn = await ApiService.isLoggedIn();
-    if (!isLoggedIn) {
-      print('DEBUG: User not logged in, redirecting to SplashScreen');
-      return const SplashScreen();
-    }
+  @override
+  State<ChambeaApp> createState() => _ChambeaAppState();
+}
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      print('DEBUG: No authenticated user, redirecting to SplashScreen');
-      return const SplashScreen();
-    }
+class _ChambeaAppState extends State<ChambeaApp> {
+  Widget? _initialScreen;
+  bool _isLoading = true;
 
-    print('DEBUG: Fetching account type for UID: ${user.uid}');
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
     try {
-      final response = await ApiService.get('/api/account-type/${user.uid}');
-      print('DEBUG: Fetch account type response: $response');
-
-      // Validate response structure and account type
-      if (response['status'] == 'success' &&
-          response['data'] != null &&
-          response['data']['account_type'] is String &&
-          (response['data']['account_type'] == 'Client' ||
-              response['data']['account_type'] == 'Chambeador')) {
-        final accountType = response['data']['account_type'] as String;
-        print('DEBUG: Valid account type received: $accountType');
-        // Save account type to SharedPreferences for fallback
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('account_type', accountType);
-        if (accountType == 'Client') {
-          print('DEBUG: User is Client, redirecting to ClientHomeScreen');
-          return const ClientHomeScreen();
-        } else {
-          print('DEBUG: User is Chambeador, redirecting to HomeScreen');
-          return const HomeScreen();
-        }
-      } else {
-        // Handle invalid or missing account type
-        print('DEBUG: Invalid or missing account type in response: $response');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        print(
-          'DEBUG: Cleared SharedPreferences, redirecting to ProfileSelectionScreen',
-        );
-        return const ProfileSelectionScreen();
+      final screen = await AuthUtils.getAuthenticatedScreen(context);
+      if (mounted) {
+        setState(() {
+          _initialScreen = screen;
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      print('DEBUG: Error fetching account type: $e');
-      // Clear SharedPreferences on error to avoid stale data
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('account_type');
-      print('DEBUG: API error, redirecting to ProfileSelectionScreen');
-      return const ProfileSelectionScreen();
+      print('DEBUG: Error initializing app: $e');
+      if (mounted) {
+        setState(() {
+          _initialScreen = const Scaffold(
+            body: Center(child: Text('Error al cargar la aplicación')),
+          );
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -406,25 +301,11 @@ class ChambeaApp extends StatelessWidget {
             ),
           ),
         ),
-        home: FutureBuilder<Widget>(
-          future: _getInitialScreen(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
+        home: _isLoading
+            ? const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
-              );
-            } else if (snapshot.hasError) {
-              print('DEBUG: Error in _getInitialScreen: ${snapshot.error}');
-              return const Scaffold(
-                body: Center(
-                  child: Text('Error al cargar la pantalla inicial'),
-                ),
-              );
-            } else {
-              return snapshot.data!;
-            }
-          },
-        ),
+              )
+            : _initialScreen,
         routes: {
           '/perfil': (context) => const PerfilScreen(),
           '/chambeador_register': (context) => ChambeadorRegisterScreen(),
@@ -463,9 +344,10 @@ class _SplashScreenState extends State<SplashScreen>
 
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
+          (route) => false,
         );
       }
     });
@@ -479,6 +361,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -487,7 +370,7 @@ class _SplashScreenState extends State<SplashScreen>
             opacity: _fadeAnimation,
             child: Image.asset(
               'assets/images/logo.png',
-              width: MediaQuery.of(context).size.width * 0.5,
+              width: screenWidth * 0.5,
               fit: BoxFit.contain,
             ),
           ),
@@ -505,6 +388,8 @@ class OnboardingOneScreen extends StatefulWidget {
 }
 
 class _OnboardingOneScreenState extends State<OnboardingOneScreen> {
+  bool _isCheckingAuth = true;
+
   @override
   void initState() {
     super.initState();
@@ -512,134 +397,37 @@ class _OnboardingOneScreenState extends State<OnboardingOneScreen> {
   }
 
   Future<void> _checkAuthAndRedirect() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && mounted) {
-      print('DEBUG: Logged-in user detected in OnboardingOneScreen initState');
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
+    if (!mounted) return;
+    setState(() {
+      _isCheckingAuth = true;
+    });
+    final nextScreen = await AuthUtils.getAuthenticatedScreen(context);
+    if (mounted && nextScreen != const SplashScreen()) {
+      print('DEBUG: Logged-in user detected, redirecting from OnboardingOneScreen');
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => nextScreen),
+        (route) => false,
+      );
+    }
+    if (mounted) {
+      setState(() {
+        _isCheckingAuth = false;
+      });
     }
   }
 
   Future<bool> _onWillPop() async {
-    print('DEBUG: Back button pressed on OnboardingOneScreen');
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      print('DEBUG: User is logged in, redirecting to appropriate screen');
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
-      return false; // Prevent default back navigation
-    }
-    print('DEBUG: User not logged in, showing exit confirmation');
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Salir'),
-        content: const Text(
-          '¿Estás seguro de que quieres salir de la aplicación?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Salir'),
-          ),
-        ],
-      ),
-    );
-    return shouldExit ?? false;
+    return await AuthUtils.handleBackNavigation(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingAuth) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -696,11 +484,10 @@ class _OnboardingOneScreenState extends State<OnboardingOneScreen> {
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.push(
+                          Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
                           );
                         },
                         child: Text(
@@ -760,6 +547,8 @@ class OnboardingTwoScreen extends StatefulWidget {
 }
 
 class _OnboardingTwoScreenState extends State<OnboardingTwoScreen> {
+  bool _isCheckingAuth = true;
+
   @override
   void initState() {
     super.initState();
@@ -767,119 +556,37 @@ class _OnboardingTwoScreenState extends State<OnboardingTwoScreen> {
   }
 
   Future<void> _checkAuthAndRedirect() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && mounted) {
-      print('DEBUG: Logged-in user detected in OnboardingTwoScreen initState');
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
+    if (!mounted) return;
+    setState(() {
+      _isCheckingAuth = true;
+    });
+    final nextScreen = await AuthUtils.getAuthenticatedScreen(context);
+    if (mounted && nextScreen != const SplashScreen()) {
+      print('DEBUG: Logged-in user detected, redirecting from OnboardingTwoScreen');
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => nextScreen),
+        (route) => false,
+      );
+    }
+    if (mounted) {
+      setState(() {
+        _isCheckingAuth = false;
+      });
     }
   }
 
   Future<bool> _onWillPop() async {
-    print('DEBUG: Back button pressed on OnboardingTwoScreen');
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      print('DEBUG: User is logged in, redirecting to appropriate screen');
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
-      return false; // Prevent default back navigation
-    }
-    print('DEBUG: User not logged in, navigating to OnboardingOneScreen');
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const OnboardingOneScreen()),
-    );
-    return false; // Prevent default back navigation
+    return await AuthUtils.handleBackNavigation(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingAuth) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -936,11 +643,10 @@ class _OnboardingTwoScreenState extends State<OnboardingTwoScreen> {
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.push(
+                          Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
                           );
                         },
                         child: Text(
@@ -1000,6 +706,8 @@ class OnboardingThreeScreen extends StatefulWidget {
 }
 
 class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
+  bool _isCheckingAuth = true;
+
   @override
   void initState() {
     super.initState();
@@ -1007,121 +715,37 @@ class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
   }
 
   Future<void> _checkAuthAndRedirect() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && mounted) {
-      print(
-        'DEBUG: Logged-in user detected in OnboardingThreeScreen initState',
+    if (!mounted) return;
+    setState(() {
+      _isCheckingAuth = true;
+    });
+    final nextScreen = await AuthUtils.getAuthenticatedScreen(context);
+    if (mounted && nextScreen != const SplashScreen()) {
+      print('DEBUG: Logged-in user detected, redirecting from OnboardingThreeScreen');
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => nextScreen),
+        (route) => false,
       );
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
+    }
+    if (mounted) {
+      setState(() {
+        _isCheckingAuth = false;
+      });
     }
   }
 
   Future<bool> _onWillPop() async {
-    print('DEBUG: Back button pressed on OnboardingThreeScreen');
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      print('DEBUG: User is logged in, redirecting to appropriate screen');
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
-      return false; // Prevent default back navigation
-    }
-    print('DEBUG: User not logged in, navigating to OnboardingTwoScreen');
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const OnboardingTwoScreen()),
-    );
-    return false; // Prevent default back navigation
+    return await AuthUtils.handleBackNavigation(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingAuth) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -1178,11 +802,10 @@ class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.push(
+                          Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
                           );
                         },
                         child: Text(
@@ -1221,9 +844,10 @@ class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
                       ),
                     ),
                     onPressed: () {
-                      Navigator.push(
+                      Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
                       );
                     },
                   ),
@@ -1252,6 +876,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   Timer? _debounce;
+  bool _isCheckingAuth = true;
 
   @override
   void initState() {
@@ -1261,54 +886,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkAuthAndRedirect() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && mounted) {
-      print('DEBUG: Logged-in user detected in LoginScreen initState');
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
+    if (!mounted) return;
+    setState(() {
+      _isCheckingAuth = true;
+    });
+    final nextScreen = await AuthUtils.getAuthenticatedScreen(context);
+    if (mounted && nextScreen != const SplashScreen()) {
+      print('DEBUG: Logged-in user detected, redirecting from LoginScreen');
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => nextScreen),
+        (route) => false,
+      );
+    }
+    if (mounted) {
+      setState(() {
+        _isCheckingAuth = false;
+      });
     }
   }
 
@@ -1329,78 +923,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<bool> _onWillPop() async {
-    print('DEBUG: Back button pressed on LoginScreen');
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      print('DEBUG: User is logged in, redirecting to appropriate screen');
-      try {
-        final response = await ApiService.get('/api/account-type/${user.uid}');
-        print('DEBUG: Fetch account type response: $response');
-        if (response['status'] == 'success' &&
-            response['data'] != null &&
-            response['data']['account_type'] is String &&
-            (response['data']['account_type'] == 'Client' ||
-                response['data']['account_type'] == 'Chambeador')) {
-          final accountType = response['data']['account_type'] as String;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('account_type', accountType);
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => accountType == 'Client'
-                    ? const ClientHomeScreen()
-                    : const HomeScreen(),
-              ),
-            );
-          }
-        } else {
-          print(
-            'DEBUG: Invalid or missing account type in response: $response',
-          );
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('account_type');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-            );
-          }
-        }
-      } catch (e) {
-        print('DEBUG: Error fetching account type: $e');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ProfileSelectionScreen()),
-          );
-        }
-      }
-      return false; // Prevent default back navigation
-    }
-    print('DEBUG: User not logged in, showing exit confirmation');
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Salir'),
-        content: const Text(
-          '¿Estás seguro de que quieres salir de la aplicación?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Salir'),
-          ),
-        ],
-      ),
-    );
-    return shouldExit ?? false;
+    return await AuthUtils.handleBackNavigation(context);
   }
 
   Future<void> _signInWithGoogle() async {
@@ -1431,9 +954,10 @@ class _LoginScreenState extends State<LoginScreen> {
         'DEBUG: Google Sign-In successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
+          (route) => false,
         );
       }
     } catch (e) {
@@ -1499,9 +1023,10 @@ class _LoginScreenState extends State<LoginScreen> {
             print(
               'DEBUG: Navigating to ActiveServiceScreen after auto-verification',
             );
-            Navigator.pushReplacement(
+            Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
+              (route) => false,
             );
           }
         },
@@ -1574,6 +1099,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingAuth) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -1839,9 +1369,10 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
         'DEBUG: OTP verification successful, navigating to ActiveServiceScreen',
       );
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
+          (route) => false,
         );
       }
     } catch (e) {
@@ -1874,9 +1405,10 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
           await _auth.signInWithCredential(credential);
           if (mounted) {
             print('DEBUG: Navigating to ActiveServiceScreen after resend');
-            Navigator.pushReplacement(
+            Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (_) => const ActiveServiceScreen()),
+              (route) => false,
             );
           }
         },
@@ -1991,74 +1523,77 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.06,
-              vertical: screenHeight * 0.05,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: screenHeight * 0.15,
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Text(
-                  'Ingresa el código',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+    return WillPopScope(
+      onWillPop: () async => await AuthUtils.handleBackNavigation(context),
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.06,
+                vertical: screenHeight * 0.05,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: screenHeight * 0.15,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Te enviamos un código de verificación al número\n${widget.phoneNumber}',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black54,
-                    height: 1.4,
+                  SizedBox(height: screenHeight * 0.05),
+                  Text(
+                    'Ingresa el código',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.045,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.04),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: screenWidth * 0.01,
-                  children: List.generate(6, (index) => _otpTextField(index)),
-                ),
-                SizedBox(height: screenHeight * 0.03),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : Text(
-                        _canResend
-                            ? 'Puedes reenviar el código ahora'
-                            : 'Puedes reenviar el código en $_resendCountdown segundos',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.03,
-                          color: Colors.black54,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                SizedBox(height: screenHeight * 0.05),
-                TextButton(
-                  onPressed: _canResend ? _resendOtp : null,
-                  child: Text(
-                    'Reenviar código',
+                  SizedBox(height: screenHeight * 0.015),
+                  Text(
+                    'Te enviamos un código de verificación al número\n${widget.phoneNumber}',
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      color: _canResend ? const Color(0xFF22c55e) : Colors.grey,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: screenHeight * 0.04),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: screenWidth * 0.01,
+                    children: List.generate(6, (index) => _otpTextField(index)),
+                  ),
+                  SizedBox(height: screenHeight * 0.03),
+                  _isLoading
+                      ? const CircularProgressIndicator()
+                      : Text(
+                          _canResend
+                              ? 'Puedes reenviar el código ahora'
+                              : 'Puedes reenviar el código en $_resendCountdown segundos',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.03,
+                            color: Colors.black54,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                  SizedBox(height: screenHeight * 0.05),
+                  TextButton(
+                    onPressed: _canResend ? _resendOtp : null,
+                    child: Text(
+                      'Reenviar código',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        color: _canResend ? const Color(0xFF22c55e) : Colors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.02),
-              ],
+                  SizedBox(height: screenHeight * 0.02),
+                ],
+              ),
             ),
           ),
         ),
@@ -2070,7 +1605,6 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
 class ActiveServiceScreen extends StatelessWidget {
   const ActiveServiceScreen({super.key});
 
-  // Requests location permission
   Future<void> requestLocationPermission(BuildContext context) async {
     final status = await Permission.location.request();
     print('DEBUG: Location permission status: $status');
@@ -2090,57 +1624,8 @@ class ActiveServiceScreen extends StatelessWidget {
     }
   }
 
-  // Determines the next screen after location permission
-  Future<Widget> _getNextScreen() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      print('DEBUG: No authenticated user, redirecting to SplashScreen');
-      return const SplashScreen();
-    }
-
-    print('DEBUG: Fetching account type for UID: ${user.uid}');
-    try {
-      final response = await ApiService.get('/api/account-type/${user.uid}');
-      print(
-        'DEBUG: ActiveServiceScreen fetch account type response: $response',
-      );
-
-      // Validate response structure and account type
-      if (response['status'] == 'success' &&
-          response['data'] != null &&
-          response['data']['account_type'] is String &&
-          (response['data']['account_type'] == 'Client' ||
-              response['data']['account_type'] == 'Chambeador')) {
-        final accountType = response['data']['account_type'] as String;
-        print('DEBUG: Valid account type received: $accountType');
-        // Save account type to SharedPreferences for fallback
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('account_type', accountType);
-        if (accountType == 'Client') {
-          print('DEBUG: User is Client, redirecting to ClientHomeScreen');
-          return const ClientHomeScreen();
-        } else {
-          print('DEBUG: User is Chambeador, redirecting to HomeScreen');
-          return const HomeScreen();
-        }
-      } else {
-        // Handle invalid or missing account type
-        print('DEBUG: Invalid or missing account type in response: $response');
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('account_type');
-        print(
-          'DEBUG: Cleared SharedPreferences, redirecting to ProfileSelectionScreen',
-        );
-        return const ProfileSelectionScreen();
-      }
-    } catch (e) {
-      print('DEBUG: Error fetching account type in ActiveServiceScreen: $e');
-      // Clear SharedPreferences on error to avoid stale data
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('account_type');
-      print('DEBUG: API error, redirecting to ProfileSelectionScreen');
-      return const ProfileSelectionScreen();
-    }
+  Future<Widget> _getNextScreen(BuildContext context) async {
+    return await AuthUtils.getAuthenticatedScreen(context);
   }
 
   @override
@@ -2148,95 +1633,100 @@ class ActiveServiceScreen extends StatelessWidget {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.06,
-              vertical: screenHeight * 0.05,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: screenHeight * 0.05),
-                Image.asset(
-                  'assets/images/active_service.png',
-                  height: screenHeight * 0.35,
-                  fit: BoxFit.contain,
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                Text(
-                  'Permite que la aplicación acceda a tu ubicación',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+    return WillPopScope(
+      onWillPop: () => AuthUtils.handleBackNavigation(context),
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.06,
+                vertical: screenHeight * 0.05,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(height: screenHeight * 0.05),
+                  Image.asset(
+                    'assets/images/active_service.png',
+                    height: screenHeight * 0.35,
+                    fit: BoxFit.contain,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.015),
-                Text(
-                  'Permítenos acceder a tu ubicación para conectarte con los mejores trabajadores cerca de ti y ofrecerte un servicio rápido y eficiente.',
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.035,
-                    color: Colors.black54,
-                    height: 1.4,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.05),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.1,
-                      vertical: screenHeight * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 8,
-                  ),
-                  onPressed: () async {
-                    await requestLocationPermission(context);
-                    final nextScreen = await _getNextScreen();
-                    if (context.mounted) {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => nextScreen),
-                      );
-                    }
-                  },
-                  child: Text(
-                    'Activar los servicios locales',
+                  SizedBox(height: screenHeight * 0.05),
+                  Text(
+                    'Permite que la aplicación acceda a tu ubicación',
                     style: TextStyle(
-                      fontSize: screenWidth * 0.035,
+                      fontSize: screenWidth * 0.045,
                       fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.03),
-                TextButton(
-                  onPressed: () async {
-                    final nextScreen = await _getNextScreen();
-                    if (context.mounted) {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => nextScreen),
-                      );
-                    }
-                  },
-                  child: Text(
-                    'Omitir',
+                  SizedBox(height: screenHeight * 0.015),
+                  Text(
+                    'Permítenos acceder a tu ubicación para conectarte con los mejores trabajadores cerca de ti y ofrecerte un servicio rápido y eficiente.',
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      color: const Color(0xFF22c55e),
-                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: screenHeight * 0.05),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.1,
+                        vertical: screenHeight * 0.02,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 8,
+                    ),
+                    onPressed: () async {
+                      await requestLocationPermission(context);
+                      final nextScreen = await _getNextScreen(context);
+                      if (context.mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => nextScreen),
+                          (route) => false,
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Activar los servicios locales',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.02),
-              ],
+                  SizedBox(height: screenHeight * 0.03),
+                  TextButton(
+                    onPressed: () async {
+                      final nextScreen = await _getNextScreen(context);
+                      if (context.mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => nextScreen),
+                          (route) => false,
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Omitir',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        color: const Color(0xFF22c55e),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: screenHeight * 0.02),
+                ],
+              ),
             ),
           ),
         ),
@@ -2307,19 +1797,25 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         });
         if (_selectedProfile == 'Client') {
           print('DEBUG: Navigating to PerfilScreen');
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const PerfilScreen()),
+            (route) => false,
           );
         } else if (_selectedProfile == 'Chambeador') {
           print('DEBUG: Navigating to ChambeadorRegisterScreen');
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => ChambeadorRegisterScreen()),
+            (route) => false,
           );
         }
       }
     }
+  }
+
+  Future<bool> _onWillPop() async {
+    return await AuthUtils.handleBackNavigation(context);
   }
 
   @override
@@ -2327,120 +1823,128 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.08,
-              vertical: screenHeight * 0.04,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(height: screenHeight * 0.02),
-                const Text(
-                  'Selecciona tu Perfil',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.08,
+                vertical: screenHeight * 0.04,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(height: screenHeight * 0.02),
+                  Text(
+                    'Selecciona tu Perfil',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.055,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.015),
-                const Text(
-                  'Selecciona si necesitas servicios técnicos o si quieres ofrecer tus habilidades como profesional.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black54,
-                    height: 1.5,
+                  SizedBox(height: screenHeight * 0.015),
+                  Text(
+                    'Selecciona si necesitas servicios técnicos o si quieres ofrecer tus habilidades como profesional.',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.04,
+                      color: Colors.black54,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: screenHeight * 0.04),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _profileOption(
-                        buttonLabel: 'CLIENTE',
-                        subtitle: 'Buscar servicios',
-                        iconPath: 'assets/images/Group.png',
-                        isSelected: _selectedProfile == 'Client',
-                        onTap: () {
+                  SizedBox(height: screenHeight * 0.04),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _profileOption(
+                          buttonLabel: 'CLIENTE',
+                          subtitle: 'Buscar servicios',
+                          iconPath: 'assets/images/Group.png',
+                          isSelected: _selectedProfile == 'Client',
+                          onTap: () {
+                            setState(() {
+                              _selectedProfile = 'Client';
+                            });
+                          },
+                        ),
+                      ),
+                      SizedBox(width: screenWidth * 0.04),
+                      Expanded(
+                        child: _profileOption(
+                          buttonLabel: 'CHAMBEADOR',
+                          subtitle: 'Ofrecer servicios',
+                          iconPath:
+                              'assets/images/Maintenance-3--Streamline-Milano.svg.png',
+                          isSelected: _selectedProfile == 'Chambeador',
+                          onTap: () {
+                            setState(() {
+                              _selectedProfile = 'Chambeador';
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.04),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _termsAccepted,
+                        onChanged: (val) {
                           setState(() {
-                            _selectedProfile = 'Client';
+                            _termsAccepted = val ?? false;
                           });
                         },
+                        activeColor: const Color(0xFF22C55E),
                       ),
-                    ),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: _profileOption(
-                        buttonLabel: 'CHAMBEADOR',
-                        subtitle: 'Ofrecer servicios',
-                        iconPath:
-                            'assets/images/Maintenance-3--Streamline-Milano.svg.png',
-                        isSelected: _selectedProfile == 'Chambeador',
-                        onTap: () {
-                          setState(() {
-                            _selectedProfile = 'Chambeador';
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.04),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _termsAccepted,
-                      onChanged: (val) {
-                        setState(() {
-                          _termsAccepted = val ?? false;
-                        });
-                      },
-                      activeColor: const Color(0xFF22C55E),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'He leído y acepto las política de privacidad, términos y condiciones',
-                        style: TextStyle(fontSize: 13, color: Colors.black87),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.02),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _selectedProfile != null && _termsAccepted
-                        ? _handleProfileSelection
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _selectedProfile != null && _termsAccepted
-                          ? const Color(0xFF22C55E)
-                          : Colors.grey.shade400,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            'Continuar',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                      Expanded(
+                        child: Text(
+                          'He leído y acepto las política de privacidad, términos y condiciones',
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.035,
+                            color: Colors.black87,
                           ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  SizedBox(height: screenHeight * 0.02),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _selectedProfile != null && _termsAccepted
+                          ? _handleProfileSelection
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            _selectedProfile != null && _termsAccepted
+                                ? const Color(0xFF22C55E)
+                                : Colors.grey.shade400,
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenHeight * 0.02,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              'Continuar',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.04,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -2455,10 +1959,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(screenWidth * 0.04),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -2480,15 +1985,15 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Image.asset(iconPath, height: 60),
-                const SizedBox(height: 12),
+                Image.asset(iconPath, height: screenWidth * 0.15),
+                SizedBox(height: screenWidth * 0.03),
                 ElevatedButton(
                   onPressed: onTap,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF22C55E),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.03,
+                      vertical: screenWidth * 0.02,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -2497,13 +2002,19 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   ),
                   child: Text(
                     buttonLabel,
-                    style: const TextStyle(fontSize: 13, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: screenWidth * 0.025),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: Colors.black87,
+                  ),
                 ),
               ],
             ),
@@ -2512,13 +2023,17 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 top: 8,
                 right: 8,
                 child: Container(
-                  width: 20,
-                  height: 20,
+                  width: screenWidth * 0.05,
+                  height: screenWidth * 0.05,
                   decoration: const BoxDecoration(
                     color: Color(0xFF22C55E),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, size: 14, color: Colors.white),
+                  child: Icon(
+                    Icons.check,
+                    size: screenWidth * 0.035,
+                    color: Colors.white,
+                  ),
                 ),
               ),
           ],
@@ -2583,21 +2098,22 @@ class _ProgressIndicatorState extends State<_ProgressIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
           return Transform.scale(
             scale: _scaleAnimation.value,
             child: Container(
-              width: widget.isActive ? 24 : 10,
-              height: 10,
+              width: widget.isActive ? screenWidth * 0.06 : screenWidth * 0.025,
+              height: screenWidth * 0.025,
               decoration: BoxDecoration(
                 shape: widget.isActive ? BoxShape.rectangle : BoxShape.circle,
                 color: _colorAnimation.value,
                 borderRadius: widget.isActive
-                    ? BorderRadius.circular(12)
+                    ? BorderRadius.circular(screenWidth * 0.03)
                     : null,
                 boxShadow: [
                   BoxShadow(
