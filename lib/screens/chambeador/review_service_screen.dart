@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
-import 'package:chambea/screens/chambeador/trabajos.dart';
+import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:chambea/services/review_service.dart'; // Import ReviewService
+import 'package:chambea/services/review_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -20,8 +20,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   final TextEditingController _commentController = TextEditingController();
   String? _clientName;
   bool _isLoading = false;
-  final ReviewService _reviewService =
-      ReviewService(); // Initialize ReviewService
+  final ReviewService _reviewService = ReviewService();
 
   @override
   void initState() {
@@ -119,22 +118,22 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
     try {
       final review = await _reviewService.createReview(
         serviceRequestId: widget.job.id,
-        workerId: widget.job.workerId!.toString(), // Convert int to String
-        clientId: widget.job.clientId!.toString(), // Convert int to String
+        workerId: widget.job.workerId!.toString(),
+        clientId: widget.job.clientId!.toString(),
         rating: _rating,
         comment: _commentController.text.isEmpty
             ? 'No comment provided'
             : _commentController.text,
-        reviewType: 'worker_to_client', // Specify worker-to-client review
+        reviewType: 'worker_to_client',
       );
 
       print('DEBUG: Review created successfully: $review');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Reseña enviada con éxito')));
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const TrabajosContent()),
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } catch (e, stackTrace) {
       print('ERROR: Failed to submit review: $e');
@@ -185,10 +184,6 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

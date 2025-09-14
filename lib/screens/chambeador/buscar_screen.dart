@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
+import 'package:chambea/screens/chambeador/home_screen.dart'; // Added import for HomeScreen
 import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
 import 'package:chambea/blocs/chambeador/jobs_event.dart';
 import 'package:chambea/blocs/chambeador/jobs_state.dart';
@@ -14,7 +15,13 @@ class BuscarScreen extends StatelessWidget {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black54),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              // Navigate to HomeScreen and replace the current screen
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+              );
+            },
           ),
           title: const Text(
             'Buscar trabajo',

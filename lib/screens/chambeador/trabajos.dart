@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/start_service_screen.dart';
+import 'package:chambea/screens/chambeador/home_screen.dart'; // Added import for HomeScreen
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:chambea/services/api_service.dart';
@@ -67,7 +68,13 @@ class _TrabajosContentState extends State<TrabajosContent> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black54),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Navigate to HomeScreen and replace the current screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          },
         ),
       ),
       body: FutureBuilder<List<Job>>(
