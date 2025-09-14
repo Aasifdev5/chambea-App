@@ -1,64 +1,80 @@
+import 'package:timeago/timeago.dart' as timeago;
+
 class Review {
   final String id;
+  final int serviceRequestId;
+  final String workerId;
+  final String clientId;
   final String clientName;
   final double rating;
-  final String timeAgo;
   final String comment;
-  final String reviewType; // Added to support bidirectional reviews
+  final String reviewType;
+  final DateTime? createdAt;
+  final String timeAgo;
 
   const Review({
     required this.id,
+    required this.serviceRequestId,
+    required this.workerId,
+    required this.clientId,
     required this.clientName,
     required this.rating,
-    required this.timeAgo,
     required this.comment,
     required this.reviewType,
+    this.createdAt,
+    required this.timeAgo,
   });
 
   factory Review.fromJson(Map<String, dynamic> json) {
-    // Calculate time_ago from created_at
+    // Parse created_at and calculate time_ago
+    DateTime? createdAt;
     String timeAgo;
     try {
-      final createdAt = DateTime.tryParse(json['created_at'] ?? '');
+      createdAt = json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null;
       if (createdAt != null) {
-        final now = DateTime.now();
-        final difference = now.difference(createdAt);
-        if (difference.inDays > 0) {
-          timeAgo =
-              'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
-        } else if (difference.inHours > 0) {
-          timeAgo =
-              'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
-        } else {
-          timeAgo =
-              'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
-        }
+        timeago.setLocaleMessages('es', timeago.EsMessages());
+        timeAgo = timeago.format(createdAt, locale: 'es');
       } else {
         timeAgo = 'Desconocido';
       }
     } catch (e) {
-      print(
-        'ERROR: Failed to parse created_at: ${json['created_at']}, Error: $e',
-      );
+      print('ERROR: Failed to parse created_at: ${json['created_at']}, Error: $e');
       timeAgo = 'Desconocido';
     }
 
     return Review(
       id: json['id']?.toString() ?? '0',
-      clientName:
-          json['client_name'] ??
+      serviceRequestId: json['service_request_id'] is int
+          ? json['service_request_id']
+          : int.tryParse(json['service_request_id']?.toString() ?? '0') ?? 0,
+      workerId: json['worker_id']?.toString() ?? '',
+      clientId: json['client_id']?.toString() ?? '',
+      clientName: json['client_name'] ??
           json['client']?['name'] ??
           'Usuario Desconocido',
-      rating:
-          (json['rating'] is String
-              ? double.tryParse(json['rating']) ?? 0.0
-              : json['rating']?.toDouble()) ??
+      rating: (json['rating'] is num
+              ? json['rating'].toDouble()
+              : double.tryParse(json['rating']?.toString() ?? '0.0')) ??
           0.0,
+      comment: json['comment']?.toString() ?? 'Sin comentario',
+      reviewType: json['review_type']?.toString() ?? 'client_to_worker',
+      createdAt: createdAt,
       timeAgo: timeAgo,
-      comment: json['comment'] ?? 'Sin comentario',
-      reviewType:
-          json['review_type'] ??
-          'worker_to_client', // Default to worker_to_client for backward compatibility
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'service_request_id': serviceRequestId,
+      'worker_id': workerId,
+      'client_id': clientId,
+      'client_name': clientName,
+      'rating': rating,
+      'comment': comment,
+      'review_type': reviewType,
+      'created_at': createdAt?.toIso8601String(),
+      'time_ago': timeAgo,
+    };
   }
 }

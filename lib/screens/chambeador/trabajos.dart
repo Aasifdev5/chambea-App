@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:chambea/models/job.dart';
 import 'package:chambea/screens/chambeador/start_service_screen.dart';
-import 'package:chambea/screens/chambeador/home_screen.dart'; // Added import for HomeScreen
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
+import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/services/api_service.dart';
 import 'package:logger/logger.dart';
-import 'dart:convert';
 
 class TrabajosContent extends StatefulWidget {
   const TrabajosContent({super.key});
@@ -24,15 +22,12 @@ class _TrabajosContentState extends State<TrabajosContent> {
       if (user == null) throw Exception('Usuario no autenticado');
 
       final firebaseUid = user.uid;
-
       final endpoint = '/api/service-requests/worker-jobs/$firebaseUid';
 
-      final response = await ApiService.get(endpoint);
+      final response = await ApiService.get(endpoint).timeout(const Duration(seconds: 10));
 
       if (response['status'] != 'success') {
-        throw Exception(
-          response['message'] ?? 'Error desconocido del servidor',
-        );
+        throw Exception(response['message'] ?? 'Error desconocido del servidor');
       }
       if (response['data'] == null || response['data'] is! List) {
         throw Exception('Formato de datos inválido del servidor');
@@ -40,6 +35,7 @@ class _TrabajosContentState extends State<TrabajosContent> {
 
       final data = response['data'] as List;
       logger.d('✅ Jobs fetched successfully, total: ${data.length}');
+      logger.d('Job statuses: ${data.map((jobJson) => jobJson['status']).toList()}');
       return data.map((jobJson) => Job.fromJson(jobJson)).toList();
     } catch (e) {
       logger.e('⛔ Exception in fetchJobs: $e');
@@ -69,7 +65,6 @@ class _TrabajosContentState extends State<TrabajosContent> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black54),
           onPressed: () {
-            // Navigate to HomeScreen and replace the current screen
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -121,25 +116,22 @@ class _TrabajosContentState extends State<TrabajosContent> {
                     child: TabBarView(
                       children: [
                         JobList(
-                          jobs: jobs
-                              .where((job) => job.status == 'Pendiente')
-                              .toList(),
+                          jobs: jobs.where((job) => job.status == 'Pendiente').toList(),
                           onRefresh: refreshJobs,
                           emptyMessage: 'No hay trabajos pendientes',
+                          allowStartService: false,
                         ),
                         JobList(
-                          jobs: jobs
-                              .where((job) => job.status == 'En curso')
-                              .toList(),
+                          jobs: jobs.where((job) => job.status == 'En curso').toList(),
                           onRefresh: refreshJobs,
                           emptyMessage: 'No hay trabajos en curso',
+                          allowStartService: true,
                         ),
                         JobList(
-                          jobs: jobs
-                              .where((job) => job.status == 'Completado')
-                              .toList(),
+                          jobs: jobs.where((job) => job.status == 'Completado').toList(),
                           onRefresh: refreshJobs,
                           emptyMessage: 'No hay trabajos completados',
+                          allowStartService: false,
                         ),
                       ],
                     ),
@@ -158,12 +150,14 @@ class JobList extends StatelessWidget {
   final List<Job> jobs;
   final VoidCallback onRefresh;
   final String emptyMessage;
+  final bool allowStartService;
 
   const JobList({
     super.key,
     required this.jobs,
     required this.onRefresh,
     required this.emptyMessage,
+    required this.allowStartService,
   });
 
   @override
@@ -178,29 +172,37 @@ class JobList extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      itemCount: jobs.length,
-      itemBuilder: (context, index) {
-        final job = jobs[index];
-        return TrabajoCard(
-          job: job,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
-            ).then((_) => onRefresh());
-          },
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        onRefresh();
       },
+      child: ListView.builder(
+        itemCount: jobs.length,
+        itemBuilder: (context, index) {
+          final job = jobs[index];
+          return TrabajoCard(
+            job: job,
+            onTap: allowStartService
+                ? () {
+                    print('Navigating to StartServiceScreen for job: ${job.title}');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
+                    ).then((_) => onRefresh());
+                  }
+                : null,
+          );
+        },
+      ),
     );
   }
 }
 
 class TrabajoCard extends StatelessWidget {
   final Job job;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
-  const TrabajoCard({super.key, required this.job, required this.onTap});
+  const TrabajoCard({super.key, required this.job, this.onTap});
 
   Color getStatusColor() {
     switch (job.status) {
@@ -225,7 +227,7 @@ class TrabajoCard extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(12),
-          color: Colors.white,
+          color: job.status == 'Completado' ? Colors.grey.shade100 : Colors.white,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,18 +255,12 @@ class TrabajoCard extends StatelessWidget {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: job.categories
-                  .map((category) => _TagChip(label: category))
-                  .toList(),
+              children: job.categories.map((category) => _TagChip(label: category)).toList(),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 18,
-                  color: Colors.grey,
-                ),
+                const Icon(Icons.location_on_outlined, size: 18, color: Colors.grey),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -282,22 +278,14 @@ class TrabajoCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(
-                  Icons.access_time_outlined,
-                  size: 18,
-                  color: Colors.grey,
-                ),
+                const Icon(Icons.access_time_outlined, size: 18, color: Colors.grey),
                 const SizedBox(width: 4),
                 Text(
                   job.startTime ?? 'No especificado',
                   style: const TextStyle(fontSize: 13),
                 ),
                 const SizedBox(width: 10),
-                const Icon(
-                  Icons.attach_money_outlined,
-                  size: 18,
-                  color: Colors.grey,
-                ),
+                const Icon(Icons.attach_money_outlined, size: 18, color: Colors.grey),
                 const SizedBox(width: 4),
                 Text(job.priceRange, style: const TextStyle(fontSize: 13)),
               ],
@@ -305,11 +293,7 @@ class TrabajoCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(
-                  Icons.payments_outlined,
-                  size: 18,
-                  color: Colors.grey,
-                ),
+                const Icon(Icons.payments_outlined, size: 18, color: Colors.grey),
                 const SizedBox(width: 4),
                 Text(
                   job.paymentMethod ?? 'No especificado',
