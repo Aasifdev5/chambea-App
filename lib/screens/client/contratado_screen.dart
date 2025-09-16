@@ -158,21 +158,21 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         }
       }
 
-      if (workerFirebaseUid != null) {
-        try {
-          final accountTypeResponse = await ApiService.get(
-            '/api/account-type/$workerFirebaseUid',
-          );
-          print('DEBUG: Account type response for $workerFirebaseUid: $accountTypeResponse');
-          if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
-            print('Worker is not a Chambeador: ${accountTypeResponse['data']['account_type']}');
-            workerFirebaseUid = null;
-          }
-        } catch (e) {
-          print('Error verifying account type: $e');
-          workerFirebaseUid = null;
-        }
-      }
+      // if (workerFirebaseUid != null) {
+      //   try {
+      //     final accountTypeResponse = await ApiService.get(
+      //       '/api/account-type/$workerFirebaseUid',
+      //     );
+      //     print('DEBUG: Account type response for $workerFirebaseUid: $accountTypeResponse');
+      //     if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
+      //       print('Worker is not a Chambeador: ${accountTypeResponse['data']['account_type']}');
+      //       workerFirebaseUid = null;
+      //     }
+      //   } catch (e) {
+      //     print('Error verifying account type: $e');
+      //     workerFirebaseUid = null;
+      //   }
+      // }
 
       setState(() {
         _serviceRequest = data;

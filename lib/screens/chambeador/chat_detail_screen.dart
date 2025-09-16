@@ -67,9 +67,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
       final accountType =
           userResponse['data']['account_type'] as String? ?? 'Chambeador';
-      if (accountType != 'Chambeador') {
-        throw Exception('User is not a Chambeador');
-      }
+      // if (accountType != 'Chambeador') {
+      //   throw Exception('User is not a Chambeador');
+      // }
 
       // Fetch client details
       final clientResponse = await retry(

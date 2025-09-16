@@ -20,13 +20,26 @@ class _BandejaScreenState extends State<BandejaScreen> {
   void initState() {
     super.initState();
     FcmService.initialize(context);
+    // Initial API call when the screen is created
+    print('DEBUG: BandejaScreen initState, dispatching FetchServiceRequests');
+    if (context.mounted) {
+      context.read<ProposalsBloc>().add(FetchServiceRequests());
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Trigger API call when the screen is navigated to
+    print('DEBUG: BandejaScreen didChangeDependencies, dispatching FetchServiceRequests');
+    if (context.mounted) {
+      context.read<ProposalsBloc>().add(FetchServiceRequests());
+    }
   }
 
   Future<bool> _onWillPop() async {
-    // Use AuthUtils to handle back navigation, ensuring redirection to ClientHomeScreen
     final shouldExit = await AuthUtils.handleBackNavigation(context);
     if (!shouldExit && context.mounted) {
-      // Explicitly navigate to ClientHomeScreen if not exiting
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
@@ -34,6 +47,14 @@ class _BandejaScreenState extends State<BandejaScreen> {
       );
     }
     return shouldExit;
+  }
+
+  // Function to handle manual refresh
+  void _onRefresh() {
+    print('DEBUG: Refresh button tapped, dispatching FetchServiceRequests');
+    if (context.mounted) {
+      context.read<ProposalsBloc>().add(FetchServiceRequests());
+    }
   }
 
   @override
@@ -47,12 +68,6 @@ class _BandejaScreenState extends State<BandejaScreen> {
         create: (context) => ProposalsBloc()..add(FetchServiceRequests()),
         child: Scaffold(
           appBar: AppBar(
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back, size: screenWidth * 0.06, color: Colors.black),
-              onPressed: () async {
-                await _onWillPop();
-              },
-            ),
             title: Text(
               'Bandeja',
               style: TextStyle(
@@ -65,6 +80,11 @@ class _BandejaScreenState extends State<BandejaScreen> {
             backgroundColor: Colors.white,
             elevation: 0,
             actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.black),
+                onPressed: _onRefresh,
+                tooltip: 'Recargar',
+              ),
               TextButton(
                 onPressed: () async {
                   await _onWillPop();
@@ -93,88 +113,107 @@ class _BandejaScreenState extends State<BandejaScreen> {
                 ),
               ),
               Expanded(
-                child: BlocBuilder<ProposalsBloc, ProposalsState>(
-                  builder: (context, state) {
-                    if (state is ProposalsLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (state is ProposalsError) {
-                      return Center(
-                        child: Text(
-                          'Error: ${state.message}',
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.04,
-                            color: Colors.red,
-                          ),
-                        ),
-                      );
-                    } else if (state is ProposalsLoaded) {
-                      if (state.proposals.isEmpty) {
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    print('DEBUG: Pull-to-refresh triggered');
+                    _onRefresh();
+                    await context.read<ProposalsBloc>().stream.firstWhere(
+                          (state) => state is ProposalsLoaded || state is ProposalsError,
+                        );
+                  },
+                  child: BlocBuilder<ProposalsBloc, ProposalsState>(
+                    builder: (context, state) {
+                      print('DEBUG: Current ProposalsState: $state');
+                      if (state is ProposalsLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (state is ProposalsError) {
                         return Center(
-                          child: Text(
-                            'No hay propuestas disponibles',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              color: Colors.black54,
-                            ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Error: ${state.message}',
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.04,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              SizedBox(height: screenHeight * 0.02),
+                              ElevatedButton(
+                                onPressed: _onRefresh,
+                                child: const Text('Intentar de nuevo'),
+                              ),
+                            ],
                           ),
                         );
-                      }
-                      return ListView.builder(
-                        padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
-                        itemCount: state.proposals.length,
-                        itemBuilder: (context, index) {
-                          final request = state.proposals[index];
-                          final proposals = List<Map<String, dynamic>>.from(
-                            request['proposals'] ?? [],
+                      } else if (state is ProposalsLoaded) {
+                        if (state.proposals.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'No hay propuestas disponibles',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.04,
+                                color: Colors.black54,
+                              ),
+                            ),
                           );
-                          final contract =
-                              request['contract'] as Map<String, dynamic>?;
-                          final workerId = contract != null
-                              ? contract['worker_id'] as int?
-                              : (proposals.isNotEmpty
+                        }
+                        return ListView.builder(
+                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
+                          itemCount: state.proposals.length,
+                          itemBuilder: (context, index) {
+                            final request = state.proposals[index];
+                            final proposals = List<Map<String, dynamic>>.from(
+                              request['proposals'] ?? [],
+                            );
+                            final contract =
+                                request['contract'] as Map<String, dynamic>?;
+                            final workerId = contract != null
+                                ? contract['worker_id'] as int?
+                                : (proposals.isNotEmpty
                                     ? proposals[0]['worker_id'] as int?
                                     : null);
-                          final workerFirebaseUid = contract != null
-                              ? contract['worker_firebase_uid'] as String?
-                              : (proposals.isNotEmpty
-                                    ? proposals[0]['worker_firebase_uid']
-                                          as String?
+                            final workerFirebaseUid = contract != null
+                                ? contract['worker_firebase_uid'] as String?
+                                : (proposals.isNotEmpty
+                                    ? proposals[0]['worker_firebase_uid'] as String?
                                     : null);
-                          final workerName = contract != null
-                              ? contract['worker_name'] as String?
-                              : (proposals.isNotEmpty
+                            final workerName = contract != null
+                                ? contract['worker_name'] as String?
+                                : (proposals.isNotEmpty
                                     ? proposals[0]['worker_name'] as String?
                                     : null);
-                          return _buildJobCard(
-                            context,
-                            request['status'] ?? 'Pendiente',
-                            '${request['category'] ?? 'Servicio'} - ${request['subcategory'] ?? 'General'}',
-                            request['location'] ?? 'Sin ubicación',
-                            request['budget'] != null &&
-                                    double.tryParse(
-                                          request['budget'].toString(),
-                                        ) !=
-                                        null
-                                ? 'BOB: ${request['budget']}'
-                                : 'BOB: No especificado',
-                            request['is_time_undefined'] == true
-                                ? 'Horario flexible'
-                                : (request['start_time'] ?? 'Sin horario'),
-                            'No especificado',
-                            'Usuario ${request['client_name'] ?? request['created_by'] ?? 'Desconocido'}',
-                            request['client_rating']?.toDouble() ?? 0.0,
-                            request['id'],
-                            request['subcategory'] ?? 'General',
-                            proposals,
-                            workerId,
-                            workerFirebaseUid,
-                            workerName,
-                          );
-                        },
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
+                            return _buildJobCard(
+                              context,
+                              request['status'] ?? 'Pendiente',
+                              '${request['category'] ?? 'Servicio'} - ${request['subcategory'] ?? 'General'}',
+                              request['location'] ?? 'Sin ubicación',
+                              request['budget'] != null &&
+                                      double.tryParse(
+                                            request['budget'].toString(),
+                                          ) !=
+                                          null
+                                  ? 'BOB: ${request['budget']}'
+                                  : 'BOB: No especificado',
+                              request['is_time_undefined'] == true
+                                  ? 'Horario flexible'
+                                  : (request['start_time'] ?? 'Sin horario'),
+                              'No especificado',
+                              'Usuario ${request['client_name'] ?? request['created_by'] ?? 'Desconocido'}',
+                              request['client_rating']?.toDouble() ?? 0.0,
+                              request['id'],
+                              request['subcategory'] ?? 'General',
+                              proposals,
+                              workerId,
+                              workerFirebaseUid,
+                              workerName,
+                            );
+                          },
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ),
               ),
             ],
@@ -274,8 +313,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
                           fontSize: screenWidth * 0.03,
                           fontWeight:
                               status == 'accepted' || status == 'Completado'
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -303,7 +342,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.location_on, size: screenWidth * 0.04, color: Colors.black54),
+                Icon(Icons.location_on,
+                    size: screenWidth * 0.04, color: Colors.black54),
                 SizedBox(width: screenWidth * 0.01),
                 Flexible(
                   child: Text(
@@ -321,7 +361,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
             SizedBox(height: screenHeight * 0.005),
             Row(
               children: [
-                Icon(Icons.access_time, size: screenWidth * 0.04, color: Colors.black54),
+                Icon(Icons.access_time,
+                    size: screenWidth * 0.04, color: Colors.black54),
                 SizedBox(width: screenWidth * 0.01),
                 Flexible(
                   child: Text(
@@ -341,7 +382,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
                 CircleAvatar(
                   radius: screenWidth * 0.04,
                   backgroundColor: Colors.grey.shade300,
-                  child: Icon(Icons.person, color: Colors.white, size: screenWidth * 0.04),
+                  child: Icon(Icons.person,
+                      color: Colors.white, size: screenWidth * 0.04),
                 ),
                 SizedBox(width: screenWidth * 0.02),
                 Expanded(
@@ -386,7 +428,8 @@ class _BandejaScreenState extends State<BandejaScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF22c55e),
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
+                      padding:
+                          EdgeInsets.symmetric(vertical: screenHeight * 0.015),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(screenWidth * 0.01),
                       ),

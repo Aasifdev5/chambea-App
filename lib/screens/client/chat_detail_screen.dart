@@ -66,9 +66,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           clientResponse['data'] == null) {
         throw Exception(clientResponse['message'] ?? 'Client not found');
       }
-      if (clientResponse['data']['account_type'] != 'Client') {
-        throw Exception('User is not a Client');
-      }
+      // if (clientResponse['data']['account_type'] != 'Client') {
+      //   throw Exception('User is not a Client');
+      // }
 
       // Fetch worker details
       final workerResponse = await retry(
@@ -82,9 +82,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         throw Exception(workerResponse['message'] ?? 'Worker not found');
       }
       final workerData = workerResponse['data'] as Map<String, dynamic>;
-      if (workerData['account_type'] != 'Chambeador') {
-        throw Exception('Worker is not a Chambeador');
-      }
+      // if (workerData['account_type'] != 'Chambeador') {
+      //   throw Exception('Worker is not a Chambeador');
+      // }
 
       // Initialize chat
       final chatResponse = await retry(
