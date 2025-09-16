@@ -73,3 +73,12 @@ class RecontractWorker extends ProposalsEvent {
   @override
   List<Object> get props => [workerId, requestId, subcategory];
 }
+
+class RefreshServiceRequest extends ProposalsEvent {
+  final int requestId;
+
+  const RefreshServiceRequest(this.requestId);
+
+  @override
+  List<Object> get props => [requestId];
+}

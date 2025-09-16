@@ -13,11 +13,12 @@ class ProposalsLoading extends ProposalsState {}
 class ProposalsLoaded extends ProposalsState {
   final Map<String, dynamic> serviceRequest;
   final List<Map<String, dynamic>> proposals;
+  final int? refreshingRequestId; // Track which request is being refreshed
 
-  const ProposalsLoaded(this.serviceRequest, this.proposals);
+  const ProposalsLoaded(this.serviceRequest, this.proposals, {this.refreshingRequestId});
 
   @override
-  List<Object?> get props => [serviceRequest, proposals];
+  List<Object?> get props => [serviceRequest, proposals, refreshingRequestId];
 }
 
 class ProposalsActionSuccess extends ProposalsState {

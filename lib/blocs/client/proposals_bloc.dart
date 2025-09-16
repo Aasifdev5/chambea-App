@@ -12,6 +12,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     on<RejectProposal>(_onRejectProposal);
     on<HireWorker>(_onHireWorker);
     on<RecontractWorker>(_onRecontractWorker);
+    on<RefreshServiceRequest>(_onRefreshServiceRequest);
   }
 
   Future<void> _onFetchServiceRequests(
@@ -157,7 +158,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       final accountTypeResponse = await ApiService.get(
         '/api/account-type/$workerFirebaseUid',
       );
-      
 
       final response = await ApiService.post('/api/service-requests/${event.requestId}/hire', {
         'agreed_budget': event.budget,
@@ -220,6 +220,66 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       final errorMessage = _handleError(e);
       print('RecontractWorker error: $errorMessage');
       emit(ProposalsError(errorMessage));
+    }
+  }
+
+  Future<void> _onRefreshServiceRequest(
+    RefreshServiceRequest event,
+    Emitter<ProposalsState> emit,
+  ) async {
+    try {
+      // If the current state is ProposalsLoaded, emit it with the refreshingRequestId
+      if (state is ProposalsLoaded) {
+        final currentState = state as ProposalsLoaded;
+        emit(ProposalsLoaded(
+          currentState.serviceRequest,
+          currentState.proposals,
+          refreshingRequestId: event.requestId,
+        ));
+      }
+
+      // Fetch the updated service request
+      final response = await ApiService.get('/api/service-requests/${event.requestId}');
+      final updatedRequest = Map<String, dynamic>.from(response['data'] ?? {});
+      final proposals = List<Map<String, dynamic>>.from(updatedRequest['proposals'] ?? []);
+
+      // Fetch worker data for proposals
+      final workerIds = <int>{};
+      for (var proposal in proposals) {
+        if (proposal['worker_id'] != null) {
+          workerIds.add(proposal['worker_id']);
+        }
+      }
+      final workerData = await _fetchWorkerData(workerIds);
+      for (var proposal in proposals) {
+        final workerId = proposal['worker_id'];
+        final user = workerData[workerId] ?? {};
+        proposal['worker_name'] = user['name'] ?? 'Usuario $workerId';
+        proposal['worker_rating'] = user['rating']?.toDouble() ?? 0.0;
+        proposal['worker_image'] = user['image'];
+        proposal['worker_firebase_uid'] = user['uid'];
+      }
+
+      // Update the service request list
+      if (state is ProposalsLoaded) {
+        final currentState = state as ProposalsLoaded;
+        final currentRequests = List<Map<String, dynamic>>.from(
+          currentState.serviceRequest['requests'] ?? [],
+        );
+        final index = currentRequests.indexWhere((req) => req['id'] == event.requestId);
+        if (index != -1) {
+          currentRequests[index] = updatedRequest;
+        } else {
+          currentRequests.add(updatedRequest);
+        }
+        emit(ProposalsLoaded({'requests': currentRequests}, currentRequests));
+      } else {
+        emit(ProposalsLoaded({'requests': [updatedRequest]}, [updatedRequest]));
+      }
+    } catch (e) {
+      final errorMessage = _handleError(e);
+      print('RefreshServiceRequest error: $errorMessage');
+      emit(ProposalsError('Error al refrescar el servicio: $errorMessage'));
     }
   }
 
