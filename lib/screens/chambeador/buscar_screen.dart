@@ -1,12 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
-import 'package:chambea/screens/chambeador/home_screen.dart'; // Added import for HomeScreen
+import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
 import 'package:chambea/blocs/chambeador/jobs_event.dart';
 import 'package:chambea/blocs/chambeador/jobs_state.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class BuscarScreen extends StatelessWidget {
+  // Check balance before submitting proposal
+  Future<bool> _checkBalance(BuildContext context) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('DEBUG: No authenticated user found');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Por favor, inicia sesión.')),
+        );
+        return false;
+      }
+
+      final token = await user.getIdToken();
+      final uid = user.uid;
+      final response = await http.post(
+        Uri.parse('https://chambea.lat/api/chambeador/check-balance'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'uid': uid}),
+      );
+
+      print('DEBUG: Balance check response status: ${response.statusCode}');
+      print('DEBUG: Balance check response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          print('DEBUG: Balance sufficient: ${data['data']['balance']}');
+          return true;
+        } else {
+          print('DEBUG: Balance check failed: ${data['message']}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'])),
+          );
+          return false;
+        }
+      } else {
+        final data = jsonDecode(response.body);
+        print('DEBUG: Balance check error: ${data['message']}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'])),
+        );
+        return false;
+      }
+    } catch (e, stackTrace) {
+      print('ERROR: Failed to check balance: $e');
+      print('Stack trace: $stackTrace');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al verificar saldo: $e')),
+      );
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -300,13 +360,34 @@ class BuscarScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PropuestaScreen(requestId: job['id']),
-                      ),
+                  onPressed: () async {
+                    print(
+                      'DEBUG: Enviar propuesta button pressed for jobId: ${job['id']}',
                     );
+                    bool canApply = await _checkBalance(context);
+                    if (canApply) {
+                      print(
+                        'DEBUG: Navigating to PropuestaScreen for jobId: ${job['id']}',
+                      );
+                      try {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PropuestaScreen(requestId: job['id']),
+                          ),
+                        );
+                      } catch (e, stackTrace) {
+                        print(
+                          'ERROR: Failed to navigate to PropuestaScreen for jobId: ${job['id']}, Error: $e',
+                        );
+                        print('Stack trace: $stackTrace');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error de navegación: $e'),
+                          ),
+                        );
+                      }
+                    }
                   },
                   child: const Text(
                     'Enviar propuesta',
