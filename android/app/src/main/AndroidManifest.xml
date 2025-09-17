@@ -63,8 +63,19 @@
             android:value="2" />
     </application>
 
-    <!-- Required for text processing -->
+    <!-- Queries for WhatsApp and other intents -->
     <queries>
+        <!-- WhatsApp App -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" android:host="wa.me" />
+        </intent>
+        <!-- WhatsApp Web Fallback -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" android:host="web.whatsapp.com" />
+        </intent>
+        <!-- Existing Text Processing Query -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

@@ -167,11 +167,7 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
       }
     } catch (e) {
       String errorMessage = e.toString();
-      if (errorMessage.contains('worker_id')) {
-        errorMessage = 'ID del trabajador inválido. Verifica los datos e intenta de nuevo.';
-      } else if (errorMessage.contains('422')) {
-        errorMessage = 'Datos de la reseña inválidos. Por favor, verifica e intenta de nuevo.';
-      } else if (errorMessage.contains('409')) {
+      if (errorMessage.contains('409')) {
         errorMessage = 'Ya existe una reseña para este servicio.';
       } else if (errorMessage.contains('404')) {
         errorMessage = 'Servicio o usuario no encontrado.';

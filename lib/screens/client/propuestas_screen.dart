@@ -26,7 +26,7 @@ class PropuestasScreen extends StatefulWidget {
 }
 
 class _PropuestasScreenState extends State<PropuestasScreen> {
-  final Map<int, Map<String, String>> _workerCache = {};
+  final Map<int, Map<String, dynamic>> _workerCache = {};
   int? _newRequestId;
 
   @override
@@ -36,7 +36,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
     _workerCache.clear();
   }
 
-  Future<Map<String, String>> _fetchWorkerDetails(int workerId) async {
+  Future<Map<String, dynamic>> _fetchWorkerDetails(int workerId) async {
     if (_workerCache.containsKey(workerId)) {
       print(
         'DEBUG: Using cached worker details for workerId $workerId: ${_workerCache[workerId]}',
@@ -51,11 +51,13 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         _workerCache[workerId] = {
           'name': 'Usuario $workerId',
           'photo': '',
+          'review_count': 0,
         };
         return _workerCache[workerId]!;
       }
       print('DEBUG: Authenticated user: ${user.uid}');
 
+      // Fetch Firebase UID for user and profile photo endpoints
       final uidResponse = await ApiService.get(
         '/api/users/map-id-to-uid/$workerId',
       );
@@ -69,22 +71,32 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         _workerCache[workerId] = {
           'name': 'Usuario $workerId',
           'photo': '',
+          'review_count': 0,
         };
         return _workerCache[workerId]!;
       }
 
+      // Fetch user details
       final userResponse = await ApiService.get(
         '/api/users/$workerFirebaseUid',
       );
       print('DEBUG: User response for UID $workerFirebaseUid: $userResponse');
 
+      // Fetch profile photo
       final photoResponse = await ApiService.get(
         '/api/profile-photo/$workerFirebaseUid',
       );
       print('DEBUG: Photo response for UID $workerFirebaseUid: $photoResponse');
 
+      // Fetch review count using workerId directly
+      final reviewsResponse = await ApiService.get(
+        '/api/reviews/worker/$workerId',
+      );
+      print('DEBUG: Reviews response for workerId $workerId: $reviewsResponse');
+
       String workerName = 'Usuario $workerId';
       String profilePhotoUrl = '';
+      int reviewCount = 0;
 
       if (userResponse['status'] == 'success' && userResponse['data'] != null) {
         final userData = userResponse['data'] as Map<String, dynamic>;
@@ -107,14 +119,24 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         );
       }
 
+      if (reviewsResponse['status'] == 'success' && reviewsResponse['data'] != null) {
+        reviewCount = (reviewsResponse['data'] as List).length;
+      } else {
+        print(
+          'ERROR: Reviews API failed for workerId $workerId: ${reviewsResponse['message'] ?? 'No message'}',
+        );
+      }
+
       _workerCache[workerId] = {
         'name': workerName,
         'photo': profilePhotoUrl,
+        'review_count': reviewCount,
       };
       print('DEBUG: Worker details for workerId $workerId: ${_workerCache[workerId]}');
       return _workerCache[workerId]!;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('ERROR: Failed to fetch worker details for workerId $workerId: $e');
+      print('Stack Trace: $stackTrace');
       if (e.toString().contains('404')) {
         print('ERROR: User not found for workerId $workerId');
       } else if (e.toString().contains('401')) {
@@ -123,6 +145,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
       _workerCache[workerId] = {
         'name': 'Usuario $workerId',
         'photo': '',
+        'review_count': 0,
       };
       return _workerCache[workerId]!;
     }
@@ -223,7 +246,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                     final isCompleted =
                         state.serviceRequest['status'] == 'Completado' &&
                         proposal['status'] == 'accepted';
-                    return FutureBuilder<Map<String, String>>(
+                    return FutureBuilder<Map<String, dynamic>>(
                       future: _fetchWorkerDetails(proposal['worker_id']),
                       builder: (context, snapshot) {
                         final workerName =
@@ -241,6 +264,10 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                             snapshot.connectionState == ConnectionState.done
                                 ? (snapshot.data?['photo'] ?? '')
                                 : '';
+                        final reviewCount =
+                            snapshot.connectionState == ConnectionState.done
+                                ? (snapshot.data?['review_count'] ?? 0)
+                                : 0;
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           child: Padding(
@@ -438,7 +465,15 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                               const SizedBox(width: 4),
                                               Text(
                                                 (proposal['worker_rating'] ?? 0.0)
-                                                    .toString(),
+                                                    .toStringAsFixed(1),
+                                                style: const TextStyle(
+                                                  color: Colors.black54,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '($reviewCount ${reviewCount == 1 ? 'review' : 'reviews'})',
                                                 style: const TextStyle(
                                                   color: Colors.black54,
                                                   fontSize: 14,
