@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:intl/intl.dart'; // Added for date formatting
 import 'package:chambea/blocs/client/client_bloc.dart';
 import 'package:chambea/blocs/client/client_event.dart';
 import 'package:chambea/blocs/client/client_state.dart';
@@ -25,6 +26,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+  DateTime? _selectedBirthDate; // Added to store the selected date
 
   @override
   void initState() {
@@ -102,6 +104,34 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  // Added method to select birth date using calendar picker
+  Future<void> _selectBirthDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedBirthDate ?? DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blue, // Customize as needed
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedBirthDate) {
+      setState(() {
+        _selectedBirthDate = picked;
+        _birthDateController.text = DateFormat('dd/MM/yyyy').format(picked);
+      });
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) {
       print('DEBUG: Form validation failed');
@@ -127,7 +157,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
         UpdateClientProfileEvent(
           name: _nameController.text,
           lastName: _lastNameController.text,
-          birthDate: _birthDateController.text,
+          birthDate: _birthDateController.text, // Formatted date string
           phone: _phoneController.text,
           location: _locationController.text,
         ),
@@ -169,9 +199,18 @@ class _PerfilScreenState extends State<PerfilScreen> {
         if (!state.isLoading && state.name.isNotEmpty) {
           _nameController.text = state.name;
           _lastNameController.text = state.lastName;
-          _birthDateController.text = state.birthDate;
           _phoneController.text = state.phone;
           _locationController.text = state.location;
+          // Handle birth date loading
+          if (state.birthDate.isNotEmpty) {
+            try {
+              final parsedDate = DateFormat('dd/MM/yyyy').parse(state.birthDate);
+              _selectedBirthDate = parsedDate;
+              _birthDateController.text = state.birthDate;
+            } catch (e) {
+              print('DEBUG: Error parsing birth date: $e');
+            }
+          }
         }
         if (!state.isLoading && state.profilePhotoPath != null && _imageFile != null) {
           if (mounted) {
@@ -311,22 +350,29 @@ class _PerfilScreenState extends State<PerfilScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _birthDateController,
-                          decoration: const InputDecoration(
-                            hintText: 'Fecha de nacimiento (dd/mm/yyyy)',
-                            prefixIcon: Icon(Icons.calendar_today),
-                            border: OutlineInputBorder(),
+                        // Modified birth date field with calendar picker
+                        GestureDetector(
+                          onTap: _selectBirthDate,
+                          child: AbsorbPointer( // Makes the field read-only
+                            child: TextFormField(
+                              controller: _birthDateController,
+                              enabled: false, // Prevents manual editing
+                              decoration: const InputDecoration(
+                                hintText: 'Fecha de nacimiento (dd/mm/yyyy)',
+                                prefixIcon: Icon(Icons.calendar_today),
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (_selectedBirthDate == null) {
+                                  return 'Por favor seleccione su fecha de nacimiento';
+                                }
+                                if (_selectedBirthDate!.isAfter(DateTime.now())) {
+                                  return 'La fecha de nacimiento no puede ser en el futuro';
+                                }
+                                return null;
+                              },
+                            ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Por favor ingrese su fecha de nacimiento';
-                            }
-                            if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(value)) {
-                              return 'Formato de fecha inválido (dd/mm/yyyy)';
-                            }
-                            return null;
-                          },
                         ),
                         const SizedBox(height: 16),
                         TextFormField(

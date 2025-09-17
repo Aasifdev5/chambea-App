@@ -35,9 +35,8 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
   String? _workerRole;
   double? _workerRating;
   String? _workerFirebaseUid;
-  TextEditingController _budgetController = TextEditingController();
-  List<Map<String, dynamic>> _proposals = [];
   String? _accountType;
+  double _agreedBudget = 0.0;
 
   @override
   void initState() {
@@ -94,8 +93,23 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
       List<Map<String, dynamic>> proposals = List<Map<String, dynamic>>.from(
         data['proposals'] ?? [],
       );
+      double agreedBudget = 0.0;
 
-      if (widget.workerId != null) {
+      if (widget.proposalId != null) {
+        final selectedProposal = proposals.firstWhere(
+          (proposal) => proposal['id'] == widget.proposalId,
+          orElse: () => {},
+        );
+        if (selectedProposal.isNotEmpty) {
+          agreedBudget = double.tryParse(selectedProposal['proposed_budget']?.toString() ?? '0') ?? 0.0;
+          workerFirebaseUid = selectedProposal['worker_firebase_uid'];
+          workerName = selectedProposal['worker_name'] ?? 'Usuario Desconocido';
+          workerRole = selectedProposal['worker_role'] ?? data['subcategory'] ?? 'Trabajador';
+          workerRating = selectedProposal['worker_rating']?.toDouble() ?? 0.0;
+        }
+      }
+
+      if (workerFirebaseUid == null && widget.workerId != null) {
         try {
           final uidResponse = await ApiService.get(
             '/api/users/map-id-to-uid/${widget.workerId}',
@@ -125,54 +139,31 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         }
       }
 
-      if (workerFirebaseUid == null) {
-        if (widget.proposalId != null) {
-          final selectedProposal = proposals.firstWhere(
-            (proposal) => proposal['id'] == widget.proposalId,
-            orElse: () => {},
+      if (workerFirebaseUid == null && data['worker_firebase_uid'] != null && data['worker_id'] != null) {
+        workerFirebaseUid = data['worker_firebase_uid'];
+        try {
+          final userResponse = await ApiService.get(
+            '/api/users/$workerFirebaseUid',
           );
-          workerFirebaseUid = selectedProposal['worker_firebase_uid'];
-          workerName = selectedProposal['worker_name'] ?? 'Usuario Desconocido';
-          workerRole = selectedProposal['worker_role'] ?? data['subcategory'] ?? 'Trabajador';
-          workerRating = selectedProposal['worker_rating']?.toDouble() ?? 0.0;
-        } else if (data['worker_firebase_uid'] != null && data['worker_id'] != null) {
-          workerFirebaseUid = data['worker_firebase_uid'];
-          try {
-            final userResponse = await ApiService.get(
-              '/api/users/$workerFirebaseUid',
-            );
-            print('DEBUG: User response for $workerFirebaseUid: $userResponse');
-            if (userResponse['status'] == 'success') {
-              final userData = userResponse['data'] ?? {};
-              workerName = userData['name'] ?? 'Usuario $workerFirebaseUid';
-              workerRole = userData['account_type'] == 'Chambeador'
-                  ? data['subcategory'] ?? 'Trabajador'
-                  : 'Trabajador';
-              workerRating = userData['rating']?.toDouble() ?? 0.0;
-            } else {
-              print('User API returned error: ${userResponse['message']}');
-            }
-          } catch (e) {
-            print('Error fetching worker from service request: $e');
+          print('DEBUG: User response for $workerFirebaseUid: $userResponse');
+          if (userResponse['status'] == 'success') {
+            final userData = userResponse['data'] ?? {};
+            workerName = userData['name'] ?? 'Usuario $workerFirebaseUid';
+            workerRole = userData['account_type'] == 'Chambeador'
+                ? data['subcategory'] ?? 'Trabajador'
+                : 'Trabajador';
+            workerRating = userData['rating']?.toDouble() ?? 0.0;
+          } else {
+            print('User API returned error: ${userResponse['message']}');
           }
+        } catch (e) {
+          print('Error fetching worker from service request: $e');
         }
       }
 
-      // if (workerFirebaseUid != null) {
-      //   try {
-      //     final accountTypeResponse = await ApiService.get(
-      //       '/api/account-type/$workerFirebaseUid',
-      //     );
-      //     print('DEBUG: Account type response for $workerFirebaseUid: $accountTypeResponse');
-      //     if (accountTypeResponse['data']['account_type'] != 'Chambeador') {
-      //       print('Worker is not a Chambeador: ${accountTypeResponse['data']['account_type']}');
-      //       workerFirebaseUid = null;
-      //     }
-      //   } catch (e) {
-      //     print('Error verifying account type: $e');
-      //     workerFirebaseUid = null;
-      //   }
-      // }
+      if (agreedBudget == 0.0) {
+        agreedBudget = double.tryParse(data['budget']?.toString() ?? '0') ?? 0.0;
+      }
 
       setState(() {
         _serviceRequest = data;
@@ -180,7 +171,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         _workerRole = workerRole;
         _workerRating = workerRating;
         _workerFirebaseUid = workerFirebaseUid;
-        _proposals = proposals;
+        _agreedBudget = agreedBudget;
         _isLoading = false;
       });
     } catch (e) {
@@ -218,7 +209,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
 
     if (budget <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingrese un presupuesto válido')),
+        const SnackBar(content: Text('El presupuesto acordado no es válido')),
       );
       return;
     }
@@ -240,7 +231,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
       workerFirebaseUid = _workerFirebaseUid;
     }
 
-    // Removed conditions for "No se pudo obtener el ID del trabajador" and "No se ha seleccionado un trabajador válido"
     context.read<ProposalsBloc>().add(
           HireWorker(
             requestId: widget.requestId,
@@ -300,9 +290,8 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                   paymentMethod: _serviceRequest?['payment_method'] == 'Código QR'
                       ? 'El pago puede realizar mediante Código QR o con efectivo después de finalizar el servicio.'
                       : 'El pago puede realizar con efectivo después de finalizar el servicio.',
-                  budget: _serviceRequest?['budget'] != null &&
-                          double.tryParse(_serviceRequest!['budget'].toString()) != null
-                      ? 'BOB ${_serviceRequest?['budget']}'
+                  budget: _agreedBudget != 0.0
+                      ? 'BOB $_agreedBudget'
                       : 'BOB No especificado',
                 ),
               ),
@@ -459,9 +448,8 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                     ),
                                     _buildDetailRow(
                                       'Presupuesto',
-                                      _serviceRequest!['budget'] != null &&
-                                              double.tryParse(_serviceRequest!['budget'].toString()) != null
-                                          ? 'BOB ${_serviceRequest!['budget']}'
+                                      _agreedBudget != 0.0
+                                          ? 'BOB $_agreedBudget'
                                           : 'BOB No especificado',
                                     ),
                                     _buildDetailRow(
@@ -480,18 +468,6 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                             const SizedBox(height: 16),
                             if (_serviceRequest!['status'] == null ||
                                 _serviceRequest!['status'] == 'Pendiente')
-                              TextField(
-                                controller: _budgetController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Presupuesto acordado (BOB)',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            const SizedBox(height: 16),
-                            if (_serviceRequest!['status'] != 'accepted' &&
-                                _serviceRequest!['status'] != 'En curso' &&
-                                _serviceRequest!['status'] != 'Completado')
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green,
@@ -499,7 +475,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                                   minimumSize: const Size(double.infinity, 50),
                                 ),
                                 onPressed: () => _hireWorker(
-                                  budget: double.tryParse(_budgetController.text) ?? 0,
+                                  budget: _agreedBudget,
                                 ),
                                 child: const Text('Confirmar Contratación'),
                               ),
@@ -590,11 +566,5 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _budgetController.dispose();
-    super.dispose();
   }
 }

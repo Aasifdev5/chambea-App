@@ -11,6 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:intl/intl.dart';
 
 class PerfilChambeadorScreen extends StatefulWidget {
   const PerfilChambeadorScreen({super.key});
@@ -245,6 +246,36 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
       print(
         '[PerfilChambeadorScreen] Error updating address from coordinates: $e',
       );
+    }
+  }
+
+  Future<void> _selectBirthDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDateController.text.isNotEmpty
+          ? DateFormat('dd/MM/yyyy').parse(_birthDateController.text)
+          : DateTime.now().subtract(const Duration(days: 7300)), // ~20 years ago
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blue,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && mounted) {
+      final formattedDate = DateFormat('dd/MM/yyyy').format(picked);
+      setState(() {
+        _birthDateController.text = formattedDate;
+      });
+      print('[PerfilChambeadorScreen] Selected birth date: $formattedDate');
     }
   }
 
@@ -549,34 +580,28 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                         SizedBox(height: screenHeight * 0.02),
                         TextFormField(
                           controller: _birthDateController,
+                          readOnly: true,
+                          onTap: _selectBirthDate,
                           decoration: InputDecoration(
                             labelText: 'Fecha de nacimiento*',
                             hintText: 'dd/mm/yyyy',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
+                            prefixIcon: const Icon(Icons.calendar_today),
                           ),
                           validator: (value) {
                             if (value!.isEmpty) {
                               return 'Este campo es requerido';
                             }
                             try {
-                              final parts = value.split('/');
-                              if (parts.length != 3) return 'Formato inválido';
-                              final day = int.parse(parts[0]);
-                              final month = int.parse(parts[1]);
-                              final year = int.parse(parts[2]);
-                              final date = DateTime(year, month, day);
-                              if (date.year != year ||
-                                  date.month != month ||
-                                  date.day != day) {
-                                return 'Fecha inválida';
+                              final date = DateFormat('dd/MM/yyyy').parse(value);
+                              if (date.isAfter(DateTime.now())) {
+                                return 'La fecha no puede ser en el futuro';
                               }
-                              _birthDateController.text =
-                                  '${day.toString().padLeft(2, '0')}/${month.toString().padLeft(2, '0')}/$year';
                               return null;
                             } catch (e) {
-                              return 'Formato inválido';
+                              return 'Formato inválido (dd/mm/yyyy)';
                             }
                           },
                         ),

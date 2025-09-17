@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/screens/client/contratado_screen.dart';
 import 'package:chambea/screens/client/review.dart';
+import 'package:chambea/screens/client/worker_reviews_screen.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:chambea/blocs/client/proposals_event.dart';
 import 'package:chambea/blocs/client/proposals_state.dart';
@@ -96,7 +97,6 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
 
       if (photoResponse['status'] == 'success' && photoResponse['data'] != null) {
         profilePhotoUrl = photoResponse['data']['profile_photo_url']?.toString() ?? '';
-        // Validate URL format
         if (profilePhotoUrl.isNotEmpty && !Uri.parse(profilePhotoUrl).isAbsolute) {
           print('ERROR: Invalid profile photo URL for workerId $workerId: $profilePhotoUrl');
           profilePhotoUrl = '';
@@ -369,71 +369,87 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: Colors.grey.shade300,
-                                      child: profilePhotoUrl.isNotEmpty
-                                          ? ClipOval(
-                                              child: CachedNetworkImage(
-                                                imageUrl: profilePhotoUrl,
-                                                placeholder: (context, url) =>
-                                                    const CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        const Icon(
-                                                  Icons.person,
-                                                  color: Colors.white,
-                                                  size: 20,
-                                                ),
-                                                width: 32,
-                                                height: 32,
-                                                fit: BoxFit.cover,
+                                GestureDetector(
+                                  onTap: proposal['worker_id'] == null
+                                      ? null
+                                      : () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => WorkerReviewsScreen(
+                                                workerId: proposal['worker_id'],
+                                                workerName: workerName,
                                               ),
-                                            )
-                                          : const Icon(
-                                              Icons.person,
-                                              color: Colors.white,
-                                              size: 20,
                                             ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          workerName,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.black87,
+                                          );
+                                        },
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.grey.shade300,
+                                        child: profilePhotoUrl.isNotEmpty
+                                            ? ClipOval(
+                                                child: CachedNetworkImage(
+                                                  imageUrl: profilePhotoUrl,
+                                                  placeholder: (context, url) =>
+                                                      const CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                  errorWidget:
+                                                      (context, url, error) =>
+                                                          const Icon(
+                                                    Icons.person,
+                                                    color: Colors.white,
+                                                    size: 20,
+                                                  ),
+                                                  width: 32,
+                                                  height: 32,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              )
+                                            : const Icon(
+                                                Icons.person,
+                                                color: Colors.white,
+                                                size: 20,
+                                              ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            workerName,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.black87,
+                                              decoration: TextDecoration.underline,
+                                            ),
                                           ),
-                                        ),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.star,
-                                              size: 16,
-                                              color: Colors.yellow.shade700,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              (proposal['worker_rating'] ?? 0.0)
-                                                  .toString(),
-                                              style: const TextStyle(
-                                                color: Colors.black54,
-                                                fontSize: 14,
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.star,
+                                                size: 16,
+                                                color: Colors.yellow.shade700,
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                (proposal['worker_rating'] ?? 0.0)
+                                                    .toString(),
+                                                style: const TextStyle(
+                                                  color: Colors.black54,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
@@ -446,45 +462,6 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(
-                                            color: Color(0xFF22c55e),
-                                          ),
-                                          foregroundColor: const Color(0xFF22c55e),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                        ),
-                                        onPressed:
-                                            proposal['status'] == 'accepted'
-                                                ? null
-                                                : () {
-                                                    context
-                                                        .read<ProposalsBloc>()
-                                                        .add(
-                                                          RejectProposal(
-                                                            proposal['id'],
-                                                            requestId:
-                                                                widget.requestId,
-                                                          ),
-                                                        );
-                                                  },
-                                        child: const Text(
-                                          'Rechazar',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(

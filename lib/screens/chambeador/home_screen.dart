@@ -9,11 +9,12 @@ import 'package:chambea/screens/chambeador/mas_screen.dart';
 import 'package:chambea/screens/chambeador/propuesta_screen.dart';
 import 'package:chambea/screens/chambeador/trabajos.dart';
 import 'package:chambea/screens/client/home.dart';
-import 'package:chambea/services/review_service.dart';
+import 'package:chambea/services/api_service.dart';
 import 'package:chambea/services/user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -93,7 +94,6 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  final ReviewService _reviewService = ReviewService();
   final UserService _userService = UserService();
   List<dynamic> _reviews = [];
   List<dynamic> _clients = [];
@@ -130,15 +130,20 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       }
       print('DEBUG: Current User UID: ${user.uid}');
       print('DEBUG: Fetching reviews for workerId: ${user.uid}');
-      final reviews = await _reviewService.fetchWorkerReviews(user.uid);
-      print('DEBUG: Received ${reviews.length} reviews');
-      print('DEBUG: Reviews Data: $reviews');
-      setState(() {
-        _reviews = reviews;
-        _isLoadingReviews = false;
-      });
-      if (reviews.isEmpty) {
-        print('DEBUG: No reviews returned for workerId: ${user.uid}');
+      final response = await ApiService.get('/api/reviews/worker/${user.uid}');
+      print('DEBUG: Reviews response for workerId ${user.uid}: $response');
+      if (response['status'] == 'success' && response['data'] != null) {
+        setState(() {
+          _reviews = List<Map<String, dynamic>>.from(response['data']);
+          _isLoadingReviews = false;
+        });
+        print('DEBUG: Received ${_reviews.length} reviews');
+        print('DEBUG: Reviews Data: $_reviews');
+        if (_reviews.isEmpty) {
+          print('DEBUG: No reviews returned for workerId: ${user.uid}');
+        }
+      } else {
+        throw Exception('Failed to load reviews: ${response['message'] ?? 'Unknown error'}');
       }
     } catch (e, stackTrace) {
       print('ERROR: Failed to fetch reviews: $e');
@@ -251,6 +256,18 @@ class _HomeScreenContentState extends State<HomeScreenContent>
         'ERROR: Failed to parse URL $normalized: $e\nStack Trace: $stackTrace',
       );
       return '';
+    }
+  }
+
+  String _formatServiceDate(String? serviceDate) {
+    if (serviceDate == null) return 'Unknown date';
+    try {
+      // Assuming service_date is in DD/MM/YYYY format based on service_requests table
+      final date = DateFormat('dd/MM/yyyy').parse(serviceDate);
+      return DateFormat.yMMMd().format(date);
+    } catch (e) {
+      print('ERROR: Failed to parse service_date: $serviceDate, Error: $e');
+      return serviceDate;
     }
   }
 
@@ -881,6 +898,13 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                       DateTime.now().toIso8601String(),
                                 ),
                                 comment: review['comment'] ?? 'Sin comentario',
+                                serviceCategory:
+                                    review['service_category'] ?? 'Unknown',
+                                serviceSubcategory:
+                                    review['service_subcategory'] ?? 'Unknown',
+                                serviceDate: _formatServiceDate(
+                                  review['service_date'],
+                                ),
                                 screenWidth: screenWidth,
                                 screenHeight: screenHeight,
                                 textScaleFactor: textScaleFactor,
@@ -1265,6 +1289,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double rating,
     required String timeAgo,
     required String comment,
+    required String serviceCategory,
+    required String serviceSubcategory,
+    required String serviceDate,
     required double screenWidth,
     required double screenHeight,
     required double textScaleFactor,
@@ -1310,11 +1337,12 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       ),
                       Row(
                         children: [
-                          Icon(
-                            Icons.star,
-                            size: (screenWidth * 0.035).clamp(10, 14),
-                            color: Colors.yellow,
-                          ),
+                          for (int i = 0; i < 5; i++)
+                            Icon(
+                              i < rating.floor() ? Icons.star : Icons.star_border,
+                              size: (screenWidth * 0.035).clamp(10, 14),
+                              color: Colors.yellow.shade700,
+                            ),
                           SizedBox(width: screenWidth * 0.01),
                           Text(
                             rating.toStringAsFixed(1),
@@ -1343,11 +1371,29 @@ class _HomeScreenContentState extends State<HomeScreenContent>
             ),
             SizedBox(height: screenHeight * 0.01),
             Text(
+              '$serviceCategory - $serviceSubcategory',
+              style: TextStyle(
+                fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              'Date: $serviceDate',
+              style: TextStyle(
+                fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                color: Colors.black54,
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.01),
+            Text(
               comment,
               style: TextStyle(
                 fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                 color: Colors.black54,
               ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:retry/retry.dart';
-import 'package:chambea/services/api_service.dart';
 import 'package:chambea/screens/client/bandeja_screen.dart';
 import 'package:chambea/screens/client/chats_screen.dart';
 import 'package:chambea/screens/client/menu_screen.dart';
 import 'package:chambea/screens/client/subcategorias_screen.dart';
 import 'package:chambea/screens/client/solicitar_servicio_screen.dart';
-import 'package:chambea/screens/client/cerca_de_mi_screen.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -70,33 +67,6 @@ class ClientHomeContent extends StatefulWidget {
 }
 
 class _ClientHomeContentState extends State<ClientHomeContent> {
-  Future<List<dynamic>> _fetchChambeadores() async {
-    try {
-      print('DEBUG: Starting chambeadores fetch');
-      final response = await retry(
-        () => ApiService.get('/api/chambeadores/ratings').timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => throw TimeoutException('API request timed out'),
-        ),
-        maxAttempts: 3,
-        delayFactor: const Duration(seconds: 1),
-        randomizationFactor: 0.5,
-      );
-
-      print('DEBUG: API response: $response');
-
-      if (response['status'] != 'success' || response['data'] == null) {
-        throw Exception(response['message'] ?? 'Failed to load chambeadores');
-      }
-
-      print('DEBUG: Loaded ${response['data'].length} chambeadores');
-      return response['data'];
-    } catch (e) {
-      print('ERROR: Failed to load chambeadores: $e');
-      rethrow;
-    }
-  }
-
   final List<Map<String, dynamic>> _categories = const [
     {
       'title': 'Construcción',
@@ -289,73 +259,6 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
               }).toList(),
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Chambeadores Recomendados',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => _navigateTo(context, CercaDeMiScreen()),
-                  child: const Text(
-                    'Ver más',
-                    style: TextStyle(color: Colors.green, fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            FutureBuilder<List<dynamic>>(
-              future: _fetchChambeadores(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No chambeadores found'));
-                }
-
-                final chambeadores = snapshot.data!;
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: chambeadores.map((profile) {
-                      final name = profile['name'] as String? ?? 'Unknown';
-                      final lastName = profile['last_name'] as String? ?? '';
-                      final fullName =
-                          '$name${lastName.isNotEmpty ? ' $lastName' : ''}';
-                      final profession =
-                          profile['profession'] as String? ?? 'No profession';
-                      final rating = profile['rating'] != null
-                          ? double.tryParse(profile['rating'].toString()) ?? 0.0
-                          : 0.0;
-                      final uid = profile['uid'] as String? ?? '';
-                      final profilePhotoPath = profile['profile_photo_path'] as String?;
-                      print(
-                        'DEBUG: Rendering chambeador card: $fullName, uid: $uid, profile_photo_path: $profilePhotoPath',
-                      );
-                      return GestureDetector(
-                        onTap: () => _navigateToProfile(context, uid, fullName),
-                        child: _buildChambeadorCard(
-                          context: context,
-                          name: fullName,
-                          profession: profession,
-                          rating: rating,
-                          profilePhotoPath: profilePhotoPath,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -369,27 +272,6 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
       MaterialPageRoute(builder: (context) => screen),
     ).catchError((e) {
       print('ERROR: Navigation to ${screen.runtimeType} failed: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Navigation error: $e')));
-    });
-  }
-
-  void _navigateToProfile(BuildContext context, String uid, String fullName) {
-    if (uid.isEmpty) {
-      print('ERROR: Invalid UID for chambeador: $fullName');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Invalid chambeador profile')),
-      );
-      return;
-    }
-    print('DEBUG: Navigating to chambeador_profile with uid: $uid');
-    Navigator.pushNamed(
-      context,
-      '/chambeador_profile',
-      arguments: {'uid': uid},
-    ).catchError((e) {
-      print('ERROR: Navigation to chambeador_profile failed: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Navigation error: $e')));
@@ -440,68 +322,6 @@ class _ClientHomeContentState extends State<ClientHomeContent> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildChambeadorCard({
-    required BuildContext context,
-    required String name,
-    required String profession,
-    required double rating,
-    required String? profilePhotoPath,
-  }) {
-    return Container(
-      width: 120,
-      margin: const EdgeInsets.only(right: 16),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.grey.shade300,
-            backgroundImage: profilePhotoPath != null
-                ? NetworkImage('https://chambea.lat/$profilePhotoPath')
-                : null,
-            onBackgroundImageError: profilePhotoPath != null
-                ? (exception, stackTrace) {
-                    print('ERROR: Failed to load profile image for $name: $exception');
-                  }
-                : null,
-            child: profilePhotoPath == null
-                ? const Icon(Icons.person, size: 30, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.star, size: 14, color: Colors.yellow.shade700),
-              const SizedBox(width: 4),
-              Text(
-                rating.toStringAsFixed(1),
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ],
-          ),
-          Text(
-            profession,
-            style: const TextStyle(fontSize: 10, color: Colors.black54),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
       ),
     );
   }

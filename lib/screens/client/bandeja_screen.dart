@@ -158,8 +158,6 @@ class _BandejaScreenState extends State<BandejaScreen> {
                                 ? 'Horario flexible'
                                 : (request['start_time'] ?? 'Sin horario'),
                             'No especificado',
-                            'Usuario ${request['client_name'] ?? request['created_by'] ?? 'Desconocido'}',
-                            request['client_rating']?.toDouble() ?? 0.0,
                             request['id'],
                             request['subcategory'] ?? 'General',
                             proposals,
@@ -190,8 +188,6 @@ class _BandejaScreenState extends State<BandejaScreen> {
     String price,
     String time,
     String duration,
-    String client,
-    double rating,
     int requestId,
     String subcategory,
     List<Map<String, dynamic>> proposals,
@@ -334,49 +330,6 @@ class _BandejaScreenState extends State<BandejaScreen> {
                   ),
                 ),
               ],
-            ),
-            SizedBox(height: screenHeight * 0.01),
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: screenWidth * 0.04,
-                  backgroundColor: Colors.grey.shade300,
-                  child: Icon(Icons.person, color: Colors.white, size: screenWidth * 0.04),
-                ),
-                SizedBox(width: screenWidth * 0.02),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        client,
-                        style: TextStyle(fontSize: screenWidth * 0.035),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.star,
-                            size: screenWidth * 0.04,
-                            color: Colors.yellow.shade700,
-                          ),
-                          SizedBox(width: screenWidth * 0.01),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: TextStyle(fontSize: screenWidth * 0.035),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: screenHeight * 0.01),
-            Text(
-              'El precio de $price es mi servicio por hora',
-              style: TextStyle(fontSize: screenWidth * 0.035),
-              overflow: TextOverflow.ellipsis,
             ),
             SizedBox(height: screenHeight * 0.01),
             Row(
