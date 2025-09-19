@@ -20,20 +20,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:chambea/services/api_service.dart'; // Updated import
+import 'package:chambea/services/api_service.dart';
 
 // Utility class for authentication and navigation
 class AuthUtils {
   static bool _isNavigating = false;
   static DateTime? _lastBackPress;
-  static const _debounceDuration = Duration(milliseconds: 1000);
+  static int _backPressCount = 0; // Track number of back presses
+  static const _debounceDuration = Duration(milliseconds: 500); // Reduced for double-tap detection
+  static const _maxBackPresses = 2; // Number of taps to trigger popup
 
   static Future<Widget> getAuthenticatedScreen(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
-    // if (user == null) {
-    //   print('DEBUG: No authenticated user, redirecting to SplashScreen');
-    //   return const SplashScreen();
-    // }
+    if (user == null) {
+      print('DEBUG: No authenticated user, redirecting to SplashScreen');
+      return const SplashScreen();
+    }
 
     print('DEBUG: Fetching account type for UID: ${user.uid}');
     try {
@@ -67,12 +69,47 @@ class AuthUtils {
       return false;
     }
 
-    if (_lastBackPress != null &&
-        now.difference(_lastBackPress!) < _debounceDuration) {
-      print('DEBUG: Back button press debounced');
-      return false;
-    }
+    // Increment back press count
+    _backPressCount++;
     _lastBackPress = now;
+
+    // Check for double-tap within debounce duration
+    if (_backPressCount >= _maxBackPresses) {
+      print('DEBUG: Double-tap detected, showing exit confirmation');
+      _backPressCount = 0; // Reset counter after showing popup
+      if (!context.mounted) return false;
+      final shouldExit = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false,
+          child: AlertDialog(
+            title: const Text('Salir de la aplicación'),
+            content: const Text('¿Deseas salir de la aplicación?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Sí'),
+              ),
+            ],
+          ),
+        ),
+      );
+      return shouldExit ?? false;
+    }
+
+    // Reset back press count if debounce duration has passed
+    Timer(_debounceDuration, () {
+      if (_lastBackPress != null &&
+          DateTime.now().difference(_lastBackPress!) >= _debounceDuration) {
+        _backPressCount = 0;
+        print('DEBUG: Back press count reset after debounce duration');
+      }
+    });
 
     _isNavigating = true;
     try {
@@ -89,30 +126,8 @@ class AuthUtils {
           return false;
         }
       }
-      print('DEBUG: User not logged in, showing exit confirmation');
-      if (!context.mounted) return false;
-      final shouldExit = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => WillPopScope(
-          onWillPop: () async => false,
-          child: AlertDialog(
-            title: const Text('Salir'),
-            content: const Text('¿Deseas salir de la aplicación?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Salir'),
-              ),
-            ],
-          ),
-        ),
-      );
-      return shouldExit ?? false;
+      print('DEBUG: Single back press, no popup shown yet');
+      return false; // Prevent exit on single press
     } finally {
       _isNavigating = false;
     }

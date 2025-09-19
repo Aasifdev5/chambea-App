@@ -119,8 +119,8 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         );
       }
 
-      if (reviewsResponse['status'] == 'success' && reviewsResponse['data'] != null) {
-        reviewCount = (reviewsResponse['data'] as List).length;
+      if (reviewsResponse['status'] == 'success' && reviewsResponse['data'] != null && reviewsResponse['data']['reviews'] != null) {
+        reviewCount = (reviewsResponse['data']['reviews'] as List).length;
       } else {
         print(
           'ERROR: Reviews API failed for workerId $workerId: ${reviewsResponse['message'] ?? 'No message'}',
@@ -232,14 +232,33 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                     ),
                   );
                 }
+
+                // Filter proposals: show only the accepted proposal if service is not completed
+                final isServiceCompleted = state.serviceRequest['status'] == 'Completado';
+                final hasAcceptedProposal = state.proposals.any((p) => p['status'] == 'accepted');
+                final filteredProposals = isServiceCompleted
+                    ? state.proposals
+                    : hasAcceptedProposal
+                        ? state.proposals.where((p) => p['status'] == 'accepted').toList()
+                        : state.proposals;
+
+                if (filteredProposals.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No hay propuestas disponibles',
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                    ),
+                  );
+                }
+
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  itemCount: state.proposals.length,
+                  itemCount: filteredProposals.length,
                   itemBuilder: (context, index) {
-                    final proposal = state.proposals[index];
+                    final proposal = filteredProposals[index];
                     print(
                       'DEBUG: Proposal ${proposal['id']}: status=${proposal['status']}, worker_id=${proposal['worker_id']}, service_status=${state.serviceRequest['status']}',
                     );
@@ -404,7 +423,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) => WorkerReviewsScreen(
-                                                workerId: proposal['worker_id'],
+                                                workerId: proposal['worker_id'].toString(),
                                                 workerName: workerName,
                                               ),
                                             ),
@@ -531,7 +550,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                                 );
                                               },
                                         child: const Text(
-                                          'Contratar',
+                                          'Ver detalles',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w500,

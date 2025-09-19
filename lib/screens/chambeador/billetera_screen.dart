@@ -70,63 +70,63 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
 
   // Launch WhatsApp with pre-filled message
   Future<void> _launchWhatsApp() async {
-  try {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception('Usuario no autenticado');
-    }
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Usuario no autenticado');
+      }
 
-    String message = whatsappMessage.isNotEmpty 
-        ? whatsappMessage 
-        : 'Hola, quiero recargar mi saldo en la app Chambeador. ';
-    
-    message += '\n\nMi saldo actual: BOB. $balance\n\nPor favor, indícame los datos para el depósito.';
-
-    // Ensure phone number is properly formatted (remove spaces, plus sign for URL)
-    String cleanNumber = whatsappNumber.replaceAll(RegExp(r'[\s+]'), '');
-    final whatsappUrl = 'https://wa.me/$cleanNumber?text=${Uri.encodeComponent(message)}';
-    final whatsappUri = Uri.parse(whatsappUrl);
-
-    debugPrint('Attempting to launch WhatsApp URL: $whatsappUrl');
-
-    // First try to launch WhatsApp app
-    bool canLaunchApp = await canLaunchUrl(whatsappUri);
-    if (canLaunchApp) {
-      debugPrint('Launching WhatsApp app');
-      await launchUrl(
-        whatsappUri,
-        mode: LaunchMode.externalApplication,
-      );
-    } else {
-      // Fallback to browser-based WhatsApp
-      debugPrint('WhatsApp app not installed, trying browser fallback');
-      final browserUrl = 'https://web.whatsapp.com/send?phone=$cleanNumber&text=${Uri.encodeComponent(message)}';
-      final browserUri = Uri.parse(browserUrl);
+      String message = whatsappMessage.isNotEmpty 
+          ? whatsappMessage 
+          : 'Hola, quiero recargar mi saldo en la app Chambeador. ';
       
-      if (await canLaunchUrl(browserUri)) {
-        debugPrint('Launching WhatsApp in browser');
+      message += '\n\nMi saldo actual: BOB. $balance\n\nPor favor, indícame los datos para el depósito.';
+
+      // Ensure phone number is properly formatted (remove spaces, plus sign for URL)
+      String cleanNumber = whatsappNumber.replaceAll(RegExp(r'[\s+]'), '');
+      final whatsappUrl = 'https://wa.me/$cleanNumber?text=${Uri.encodeComponent(message)}';
+      final whatsappUri = Uri.parse(whatsappUrl);
+
+      debugPrint('Attempting to launch WhatsApp URL: $whatsappUrl');
+
+      // First try to launch WhatsApp app
+      bool canLaunchApp = await canLaunchUrl(whatsappUri);
+      if (canLaunchApp) {
+        debugPrint('Launching WhatsApp app');
         await launchUrl(
-          browserUri,
-          mode: LaunchMode.platformDefault,
+          whatsappUri,
+          mode: LaunchMode.externalApplication,
         );
       } else {
-        throw 'No se pudo abrir WhatsApp ni en la aplicación ni en el navegador';
+        // Fallback to browser-based WhatsApp
+        debugPrint('WhatsApp app not installed, trying browser fallback');
+        final browserUrl = 'https://web.whatsapp.com/send?phone=$cleanNumber&text=${Uri.encodeComponent(message)}';
+        final browserUri = Uri.parse(browserUrl);
+        
+        if (await canLaunchUrl(browserUri)) {
+          debugPrint('Launching WhatsApp in browser');
+          await launchUrl(
+            browserUri,
+            mode: LaunchMode.platformDefault,
+          );
+        } else {
+          throw 'No se pudo abrir WhatsApp ni en la aplicación ni en el navegador';
+        }
       }
-    }
-  } catch (e) {
-    debugPrint('Error launching WhatsApp: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al abrir WhatsApp: ${e.toString().replaceFirst('Exception: ', '')}'),
-        duration: Duration(seconds: 5),
-        action: SnackBarAction(
-          label: 'Reintentar',
-          onPressed: _launchWhatsApp,
+    } catch (e) {
+      debugPrint('Error launching WhatsApp: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al abrir WhatsApp: ${e.toString().replaceFirst('Exception: ', '')}'),
+          duration: Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Reintentar',
+            onPressed: _launchWhatsApp,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -237,20 +237,6 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
                         ),
                       ],
                     ),
-                    if (double.parse(balance.replaceAll(',', '.')) > 0)
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onPressed: () {}, // Add functionality for using balance
-                        child: Text(
-                          'Usar Saldo',
-                          style: TextStyle(fontSize: 12, color: Colors.white),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -260,18 +246,14 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
                 child: Column(
                   children: [
                     ElevatedButton.icon(
-                      onPressed: double.parse(balance.replaceAll(',', '.')) > 0 
-                          ? null 
-                          : _launchWhatsApp,
+                      onPressed: _launchWhatsApp,
                       icon: Icon(Icons.add, color: Colors.white),
                       label: Text(
                         'Recargar Saldo',
                         style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: double.parse(balance.replaceAll(',', '.')) > 0 
-                            ? Colors.grey
-                            : Colors.green,
+                        backgroundColor: Colors.green,
                         padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -279,30 +261,18 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
                         minimumSize: Size(double.infinity, 50),
                       ),
                     ),
-                    if (double.parse(balance.replaceAll(',', '.')) > 0)
-                      Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          '¡Tienes saldo disponible!',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontSize: 12,
-                          ),
+                    Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Necesitas recargar tu saldo para poder seguir trabajando con Chambea',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          height: 1.5,
                         ),
-                      )
-                    else
-                      Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Necesitas recargar tu saldo para poder seguir trabajando  con Chambea',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                            height: 1.5,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        textAlign: TextAlign.center,
                       ),
+                    ),
                   ],
                 ),
               ),

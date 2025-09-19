@@ -1,9 +1,11 @@
+
 import 'package:flutter/material.dart';
 import 'package:chambea/services/api_service.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class WorkerReviewsScreen extends StatefulWidget {
-  final int workerId;
+  final String workerId; // String to match users.id
   final String workerName;
 
   const WorkerReviewsScreen({
@@ -17,12 +19,28 @@ class WorkerReviewsScreen extends StatefulWidget {
 }
 
 class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
-  Future<List<Map<String, dynamic>>> _fetchWorkerReviews() async {
+  String _normalizeImagePath(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      print('DEBUG: Image path is null or empty, using default avatar');
+      return '';
+    }
+    String normalized = imagePath
+        .replaceAll('https://chambea.lat/storage/', 'https://chambea.lat/')
+        .replaceAll('https://chambea.lat/Uploads/', 'https://chambea.lat/uploads/')
+        .replaceAll('https://chambea.lat/https://chambea.lat/', 'https://chambea.lat/');
+    if (!normalized.startsWith('http')) {
+      normalized = 'https://chambea.lat/$normalized';
+    }
+    print('DEBUG: Normalized image path: $normalized');
+    return normalized;
+  }
+
+  Future<Map<String, dynamic>> _fetchWorkerReviews() async {
     try {
       final response = await ApiService.get('/api/reviews/worker/${widget.workerId}');
       print('DEBUG: Reviews response for workerId ${widget.workerId}: $response');
       if (response['status'] == 'success' && response['data'] != null) {
-        return List<Map<String, dynamic>>.from(response['data']);
+        return Map<String, dynamic>.from(response['data']);
       } else {
         throw Exception('Failed to load reviews: ${response['message'] ?? 'Unknown error'}');
       }
@@ -54,6 +72,7 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
         return DateFormat.yMMMd().format(date);
       }
     } catch (e) {
+      print('DEBUG: Error formatting timestamp: $e');
       return 'Unknown date';
     }
   }
@@ -61,11 +80,11 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
   String _formatServiceDate(String? serviceDate) {
     if (serviceDate == null) return 'Unknown date';
     try {
-      // Assuming service_date is in DD/MM/YYYY format based on service_requests table
       final date = DateFormat('dd/MM/yyyy').parse(serviceDate);
       return DateFormat.yMMMd().format(date);
     } catch (e) {
-      return serviceDate;
+      print('DEBUG: Error formatting service date: $e');
+      return serviceDate ?? 'Unknown date';
     }
   }
 
@@ -77,7 +96,9 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (mounted) Navigator.pop(context);
+          },
         ),
         title: Text(
           '${widget.workerName} - Reviews',
@@ -88,14 +109,37 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
           ),
         ),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<Map<String, dynamic>>(
         future: _fetchWorkerReviews(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            print('DEBUG: Error in FutureBuilder: ${snapshot.error}');
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Error loading reviews',
+                    style: TextStyle(fontSize: 16, color: Colors.red),
+                  ),
+                  Text(
+                    'Details: ${snapshot.error}',
+                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          } else if (!snapshot.hasData || snapshot.data!['reviews'].isEmpty) {
             return const Center(
               child: Text(
                 'No reviews available for this worker',
@@ -104,7 +148,25 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
             );
           }
 
-          final reviews = snapshot.data!;
+          final data = snapshot.data!;
+          final reviews = List<Map<String, dynamic>>.from(data['reviews'] ?? []);
+          final profile = data['profile'] as Map<String, dynamic>?;
+
+          // Log when profile is null
+          if (profile == null) {
+            print('DEBUG: Profile data is null for workerId ${widget.workerId}');
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Worker profile details are not available'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            });
+          }
+
           final averageRating = _calculateAverageRating(reviews);
 
           return SingleChildScrollView(
@@ -112,7 +174,7 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with worker name and average rating
+                // Header with worker profile and average rating
                 Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -123,37 +185,85 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.workerName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         Row(
                           children: [
-                            for (int i = 0; i < 5; i++)
-                              Icon(
-                                i < averageRating.floor()
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                color: Colors.yellow.shade700,
-                                size: 24,
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundImage: profile != null && profile['profile_image'] != null
+                                  ? CachedNetworkImageProvider(_normalizeImagePath(profile['profile_image']))
+                                  : null,
+                              backgroundColor: Colors.grey.shade300,
+                              child: profile == null || profile['profile_image'] == null
+                                  ? const Icon(Icons.person, size: 30, color: Colors.white)
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    profile != null && profile['name'] != null
+                                        ? profile['name']
+                                        : widget.workerName,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      for (int i = 0; i < 5; i++)
+                                        Icon(
+                                          i < averageRating.floor()
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                          color: Colors.yellow.shade700,
+                                          size: 20,
+                                        ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        averageRating.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '(${reviews.length} reviews)',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            const SizedBox(width: 8),
-                            Text(
-                              averageRating.toStringAsFixed(1),
-                              style: const TextStyle(
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Sobre mí',
+                              style: TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(height: 4),
                             Text(
-                              '(${reviews.length} reviews)',
+                              profile != null && profile['about_me'] != null
+                                  ? profile['about_me']
+                                  : 'No bio available',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.black54,
@@ -161,11 +271,124 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Habilidades',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            profile != null && profile['skills'] != null && (profile['skills'] as List).isNotEmpty
+                                ? Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: (profile['skills'] as List<dynamic>)
+                                        .map((skill) => Chip(
+                                              label: Text(
+                                                skill.toString(),
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                              backgroundColor: Colors.grey.shade100,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            ))
+                                        .toList(),
+                                  )
+                                : const Text(
+                                    'No skills listed',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Servicio',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              profile != null && profile['category'] != null
+                                  ? profile['category']
+                                  : 'No service category available',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Subcategorías',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            profile != null && profile['subcategories'] != null && (profile['subcategories'] as List).isNotEmpty
+                                ? Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: (profile['subcategories'] as List<dynamic>)
+                                        .map((subcategory) => Chip(
+                                              label: Text(
+                                                subcategory.toString(),
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                              backgroundColor: Colors.grey.shade100,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            ))
+                                        .toList(),
+                                  )
+                                : const Text(
+                                    'No subcategories listed',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
+                const Text(
+                  'Reseñas',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 // Review list
                 ListView.builder(
                   shrinkWrap: true,
@@ -187,12 +410,15 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  review['client_name'] ?? 'Usuario Desconocido',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                Expanded(
+                                  child: Text(
+                                    review['client_name'] ?? 'Usuario Desconocido',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 Text(

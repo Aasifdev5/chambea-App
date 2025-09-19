@@ -320,7 +320,9 @@ class TrabajoCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 const Icon(Icons.star, color: Colors.amber, size: 16),
                 Text(
-                  (job.clientRating ?? 0.0).toStringAsFixed(1),
+                  job.clientReviewCount != null && job.clientReviewCount! > 0
+                      ? '${(job.clientRating ?? 0.0).toStringAsFixed(1)} (${job.clientReviewCount})'
+                      : (job.clientRating ?? 0.0).toStringAsFixed(1),
                   style: const TextStyle(fontSize: 13),
                 ),
               ],

@@ -16,6 +16,7 @@ class Job {
   final String? image;
   final String? clientName;
   final double? clientRating;
+  final int? clientReviewCount; // New field for review count
   final int? workerId;
   final String? workerName;
   final double? workerRating;
@@ -43,6 +44,7 @@ class Job {
     this.image,
     this.clientName,
     this.clientRating,
+    this.clientReviewCount, // Added to constructor
     this.workerId,
     this.workerName,
     this.workerRating,
@@ -96,6 +98,9 @@ class Job {
       clientRating: json['client_rating'] != null
           ? double.tryParse(json['client_rating'].toString()) ?? 0.0
           : 0.0,
+      clientReviewCount: json['client_review_count'] is int
+          ? json['client_review_count']
+          : null, // Parse client_review_count
       workerId: json['worker_id'] is int
           ? json['worker_id']
           : selectedProposal != null && selectedProposal.isNotEmpty
@@ -157,6 +162,7 @@ class Job {
       'image': image,
       'client_name': clientName,
       'client_rating': clientRating,
+      'client_review_count': clientReviewCount, // Added to toJson
       'worker_id': workerId,
       'worker_name': workerName,
       'worker_rating': workerRating,
@@ -186,6 +192,7 @@ class Job {
     String? image,
     String? clientName,
     double? clientRating,
+    int? clientReviewCount, // Added to copyWith
     int? workerId,
     String? workerName,
     double? workerRating,
@@ -213,6 +220,7 @@ class Job {
       image: image ?? this.image,
       clientName: clientName ?? this.clientName,
       clientRating: clientRating ?? this.clientRating,
+      clientReviewCount: clientReviewCount ?? this.clientReviewCount, // Added
       workerId: workerId ?? this.workerId,
       workerName: workerName ?? this.workerName,
       workerRating: workerRating ?? this.workerRating,
