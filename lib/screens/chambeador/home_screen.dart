@@ -47,9 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
             try {
               return _screens[_selectedIndex];
             } catch (e, stackTrace) {
-              print(
-                'ERROR: Failed to render screen at index $_selectedIndex: $e',
-              );
+              print('ERROR: Failed to render screen at index $_selectedIndex: $e');
               print(stackTrace);
               return Center(
                 child: Text(
@@ -131,7 +129,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       }
       print('DEBUG: Current User UID: ${user.uid}');
       print('DEBUG: Fetching reviews for workerId: ${user.uid}');
-      final response = await ApiService.get('/api/reviews/worker/${user.uid}');
+      final response = await ApiService.get('/api/reviews/worker/${user.uid}/reviews-only');
       print('DEBUG: Reviews response for workerId ${user.uid}: $response');
       if (response['status'] == 'success' && response['data'] != null) {
         setState(() {
@@ -269,6 +267,24 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     } catch (e) {
       print('ERROR: Failed to parse service_date: $serviceDate, Error: $e');
       return serviceDate;
+    }
+  }
+
+  String _formatTimeAgo(String createdAt) {
+    try {
+      final now = DateTime.now();
+      final created = DateTime.parse(createdAt);
+      final difference = now.difference(created);
+      if (difference.inDays > 0) {
+        return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+      } else if (difference.inHours > 0) {
+        return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+      } else {
+        return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+      }
+    } catch (e) {
+      print('ERROR: Failed to parse createdAt: $createdAt, Error: $e');
+      return 'Hace desconocido';
     }
   }
 
@@ -634,10 +650,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                     clientName: job['client_name'] ?? 'Usuario ${job['created_by'] ?? 'Desconocido'}',
                                     clientId: job['created_by']?.toString() ?? 'Desconocido',
                                     clientRating: job['client_rating']?.toDouble() ?? 0.0,
-                                    clientProfilePhoto: _normalizeImagePath(
-                                      job['client_profile_photo'],
-                                      isProfilePhoto: true,
-                                    ),
+                                    clientProfilePhoto: _normalizeImagePath(job['client_profile_photo'], isProfilePhoto: true),
                                     tags: [
                                       job['category']?.toUpperCase() ?? 'SERVICIO',
                                       job['subcategory']?.toUpperCase() ?? 'GENERAL',
@@ -751,7 +764,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         else if (_reviewError != null)
                           Center(child: Text('Error: $_reviewError'))
                         else if (_reviews.isEmpty)
-                          const Center(child: Text('No hay comentarios disponibles'))
+                          const Center(child: Text('Aún no tienes comentarios. ¡Empieza a trabajar para recibirlos!'))
                         else
                           ListView.builder(
                             shrinkWrap: true,
@@ -762,9 +775,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               print('DEBUG: Rendering review $index: $review');
                               return _buildReviewCard(
                                 context: context,
-                                client: review['client'] != null
-                                    ? review['client']['name'] ?? 'Usuario Desconocido'
-                                    : review['client_name'] ?? 'Usuario Desconocido',
+                                client: review['client_name'] ?? 'Usuario Desconocido',
                                 rating: (review['rating'] is String
                                     ? double.tryParse(review['rating']) ?? 0.0
                                     : review['rating']?.toDouble()) ?? 0.0,
@@ -887,11 +898,25 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         },
                       ),
                     )
-                  : Center(
-                      child: Icon(
-                        Icons.image,
-                        color: Colors.grey,
-                        size: (screenWidth * 0.1).clamp(40, 60),
+                  : ClipRRect(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(screenWidth * 0.03),
+                      ),
+                      child: Image.asset(
+                        'assets/images/empty.jpg',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: (screenHeight * 0.2).clamp(120, 180),
+                        errorBuilder: (context, error, stackTrace) {
+                          print('ERROR: Failed to load empty.jpg: $error');
+                          return Center(
+                            child: Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                              size: (screenWidth * 0.1).clamp(40, 60),
+                            ),
+                          );
+                        },
                       ),
                     ),
             ),
@@ -1237,23 +1262,5 @@ class _HomeScreenContentState extends State<HomeScreenContent>
         ),
       ),
     );
-  }
-
-  String _formatTimeAgo(String createdAt) {
-    try {
-      final now = DateTime.now();
-      final created = DateTime.parse(createdAt);
-      final difference = now.difference(created);
-      if (difference.inDays > 0) {
-        return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
-      } else if (difference.inHours > 0) {
-        return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
-      } else {
-        return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
-      }
-    } catch (e) {
-      print('ERROR: Failed to parse createdAt: $createdAt, Error: $e');
-      return 'Hace desconocido';
-    }
   }
 }
