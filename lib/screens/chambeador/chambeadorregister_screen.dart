@@ -27,7 +27,9 @@ class ChambeadorRegisterScreen extends StatelessWidget {
         },
       );
 
-      print('DEBUG: Verify profile response: ${response.statusCode} - ${response.body}');
+      print(
+        'DEBUG: Verify profile response: ${response.statusCode} - ${response.body}',
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['can_access_homescreen'] == true) {
@@ -39,12 +41,19 @@ class ChambeadorRegisterScreen extends StatelessWidget {
       } else {
         print('ERROR: Failed to verify profile: ${response.body}');
         final errorData = json.decode(response.body);
-        _showErrorSnackBar(context, errorData['message'] ?? 'Error al verificar el perfil. Intenta de nuevo.');
+        _showErrorSnackBar(
+          context,
+          errorData['message'] ??
+              'Error al verificar el perfil. Intenta de nuevo.',
+        );
         return false;
       }
     } catch (e) {
       print('ERROR: Failed to verify profile: $e');
-      _showErrorSnackBar(context, 'Error de conexión. Verifica tu internet e intenta de nuevo.');
+      _showErrorSnackBar(
+        context,
+        'Error de conexión. Verifica tu internet e intenta de nuevo.',
+      );
       return false;
     }
   }
@@ -71,16 +80,17 @@ class ChambeadorRegisterScreen extends StatelessWidget {
         backgroundColor: Colors.red.shade400,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 4),
         elevation: 6,
       ),
     );
   }
 
-  void _showProfileIncompleteDialog(BuildContext context, Map<String, dynamic> details) {
+  void _showProfileIncompleteDialog(
+    BuildContext context,
+    Map<String, dynamic> details,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -114,11 +124,23 @@ class ChambeadorRegisterScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (!details['has_profile'])
-              _buildIncompleteItem(context, 'Información Básica', const InformacionBasicaScreen()),
+              _buildIncompleteItem(
+                context,
+                'Perfil Chambeador',
+                const PerfilChambeadorScreen(),
+              ),
             if (!details['has_identity_card'])
-              _buildIncompleteItem(context, 'Cédula de Identidad', const IdentityCardScreen()),
+              _buildIncompleteItem(
+                context,
+                'Cédula de Identidad',
+                const IdentityCardScreen(),
+              ),
             if (!details['has_certificate'])
-              _buildIncompleteItem(context, 'Certificado de Antecedentes', const AntecedentesScreen()),
+              _buildIncompleteItem(
+                context,
+                'Certificado de Antecedentes',
+                const AntecedentesScreen(),
+              ),
           ],
         ),
         actions: [
@@ -139,7 +161,11 @@ class ChambeadorRegisterScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildIncompleteItem(BuildContext context, String title, Widget screen) {
+  Widget _buildIncompleteItem(
+    BuildContext context,
+    String title,
+    Widget screen,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
@@ -202,10 +228,23 @@ class ChambeadorRegisterScreen extends StatelessWidget {
                 children: [
                   _buildListTile(
                     context,
+                    title: 'Perfil Chambeador',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PerfilChambeadorScreen(),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: Colors.grey),
+                  _buildListTile(
+                    context,
                     title: 'Cédula de identidad',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const IdentityCardScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const IdentityCardScreen(),
+                      ),
                     ),
                   ),
                   const Divider(height: 1, color: Colors.grey),
@@ -214,16 +253,9 @@ class ChambeadorRegisterScreen extends StatelessWidget {
                     title: 'Certificado de antecedentes policiales',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const AntecedentesScreen()),
-                    ),
-                  ),
-                  const Divider(height: 1, color: Colors.grey),
-                  _buildListTile(
-                    context,
-                    title: 'Perfil Chambeador',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PerfilChambeadorScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const AntecedentesScreen(),
+                      ),
                     ),
                   ),
                 ],
@@ -233,7 +265,9 @@ class ChambeadorRegisterScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
-                  final canAccessHomeScreen = await _verifyProfileCompletion(context);
+                  final canAccessHomeScreen = await _verifyProfileCompletion(
+                    context,
+                  );
                   if (canAccessHomeScreen) {
                     Navigator.pushReplacement(
                       context,
@@ -276,7 +310,11 @@ class ChambeadorRegisterScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(BuildContext context, {required String title, required VoidCallback onTap}) {
+  Widget _buildListTile(
+    BuildContext context, {
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return ListTile(
       title: Text(
         title,
@@ -286,11 +324,7 @@ class ChambeadorRegisterScreen extends StatelessWidget {
           color: Colors.black87,
         ),
       ),
-      trailing: const Icon(
-        Icons.arrow_forward,
-        color: Colors.green,
-        size: 24,
-      ),
+      trailing: const Icon(Icons.arrow_forward, color: Colors.green, size: 24),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     );

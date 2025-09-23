@@ -16,6 +16,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,7 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
             try {
               return _screens[_selectedIndex];
             } catch (e, stackTrace) {
-              print('ERROR: Failed to render screen at index $_selectedIndex: $e');
+              print(
+                'ERROR: Failed to render screen at index $_selectedIndex: $e',
+              );
               print(stackTrace);
               return Center(
                 child: Text(
@@ -100,6 +104,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
   bool _isLoadingClients = false;
   String? _reviewError;
   String? _clientError;
+  double? _totalBalance;
+  bool _isLoadingBalance = false;
+  String? _balanceError;
 
   @override
   void initState() {
@@ -115,6 +122,68 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     _controller.forward();
     _fetchReviews();
     _fetchClients();
+    _fetchBalance();
+  }
+
+  Future<void> _fetchBalance() async {
+    setState(() {
+      _isLoadingBalance = true;
+      _balanceError = null;
+      _totalBalance = null;
+    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Usuario no autenticado');
+      }
+      print('DEBUG: Fetching balance for user UID: ${user.uid}');
+      final token = await user.getIdToken();
+      final response = await http.post(
+        Uri.parse('https://chambea.lat/api/chambeador/check-balance'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'uid': user.uid}),
+      );
+
+      print('DEBUG: Balance response status: ${response.statusCode}');
+      print('DEBUG: Balance response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          final balance = double.tryParse(data['data']['balance'].toString());
+          setState(() {
+            _totalBalance = balance;
+            _isLoadingBalance = false;
+            if (balance == null || balance <= 0) {
+              _balanceError = 'Tu saldo es insuficiente. ¡Recarga ahora!';
+            }
+          });
+          print('DEBUG: Balance fetched: $_totalBalance');
+        } else {
+          throw Exception(
+            'Failed to load balance: ${data['message'] ?? 'Unknown error'}',
+          );
+        }
+      } else {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _balanceError = data['message'] ?? 'Error al verificar el saldo';
+          _isLoadingBalance = false;
+        });
+        print('DEBUG: Balance fetch failed: ${_balanceError}');
+      }
+    } catch (e, stackTrace) {
+      print('ERROR: Failed to fetch balance: $e');
+      print('Stack Trace: $stackTrace');
+      setState(() {
+        _balanceError = 'No se pudo cargar el saldo: $e';
+        _isLoadingBalance = false;
+      });
+    }
   }
 
   Future<void> _fetchReviews() async {
@@ -129,7 +198,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       }
       print('DEBUG: Current User UID: ${user.uid}');
       print('DEBUG: Fetching reviews for workerId: ${user.uid}');
-      final response = await ApiService.get('/api/reviews/worker/${user.uid}/reviews-only');
+      final response = await ApiService.get(
+        '/api/reviews/worker/${user.uid}/reviews-only',
+      );
       print('DEBUG: Reviews response for workerId ${user.uid}: $response');
       if (response['status'] == 'success' && response['data'] != null) {
         setState(() {
@@ -142,7 +213,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
           print('DEBUG: No reviews returned for workerId: ${user.uid}');
         }
       } else {
-        throw Exception('Failed to load reviews: ${response['message'] ?? 'Unknown error'}');
+        throw Exception(
+          'Failed to load reviews: ${response['message'] ?? 'Unknown error'}',
+        );
       }
     } catch (e, stackTrace) {
       print('ERROR: Failed to fetch reviews: $e');
@@ -261,7 +334,6 @@ class _HomeScreenContentState extends State<HomeScreenContent>
   String _formatServiceDate(String? serviceDate) {
     if (serviceDate == null) return 'Unknown date';
     try {
-      // Assuming service_date is in DD/MM/YYYY format based on service_requests table
       final date = DateFormat('dd/MM/yyyy').parse(serviceDate);
       return DateFormat.yMMMd().format(date);
     } catch (e) {
@@ -294,7 +366,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       builder: (context, constraints) {
         final double screenWidth = constraints.maxWidth;
         final double screenHeight = constraints.maxHeight;
-        final double textScaleFactor = MediaQuery.of(context).textScaler.scale(1.0);
+        final double textScaleFactor = MediaQuery.of(
+          context,
+        ).textScaler.scale(1.0);
         final double baseFontSize = screenWidth * 0.035;
 
         return Column(
@@ -303,7 +377,8 @@ class _HomeScreenContentState extends State<HomeScreenContent>
               title: Text(
                 'Inicio',
                 style: TextStyle(
-                  fontSize: (baseFontSize * 1.4).clamp(16, 20) * textScaleFactor,
+                  fontSize:
+                      (baseFontSize * 1.4).clamp(16, 20) * textScaleFactor,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
@@ -382,9 +457,8 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           builder: (context, state) {
                             String workerName = 'Usuario';
                             double workerRating = 0.0;
-                            double totalBalance = 0.0;
-                            int ongoingServices = 0;
                             String? workerProfilePhoto;
+                            int ongoingServices = 0;
 
                             if (state is JobsLoading) {
                               return const Center(
@@ -395,21 +469,27 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                 child: Text('Error: ${state.message}'),
                               );
                             } else if (state is JobsLoaded) {
-                              workerName = state.workerProfile?['name'] ?? 'Usuario';
-                              workerRating = state.workerProfile?['rating']?.toDouble() ?? 0.0;
+                              workerName =
+                                  state.workerProfile?['name'] ?? 'Usuario';
+                              workerRating =
+                                  state.workerProfile?['rating']?.toDouble() ??
+                                  0.0;
                               workerProfilePhoto = _normalizeImagePath(
                                 state.workerProfile?['profile_photo'],
                                 isProfilePhoto: true,
                               );
-                              totalBalance = state.contractSummary?['total_balance']?.toDouble() ?? 0.0;
-                              ongoingServices = state.contractSummary?['ongoing_services'] ?? 0;
+                              ongoingServices =
+                                  state.contractSummary?['ongoing_services'] ??
+                                  0;
                             }
 
                             return FadeTransition(
                               opacity: _fadeAnimation,
                               child: Container(
                                 padding: EdgeInsets.all(
-                                  screenWidth < 360 ? screenWidth * 0.03 : screenWidth * 0.04,
+                                  screenWidth < 360
+                                      ? screenWidth * 0.03
+                                      : screenWidth * 0.04,
                                 ),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
@@ -420,7 +500,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                       Colors.green.shade100.withOpacity(0.8),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(screenWidth * 0.04),
+                                  borderRadius: BorderRadius.circular(
+                                    screenWidth * 0.04,
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.1),
@@ -430,60 +512,105 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                   ],
                                 ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Flexible(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'Recarga',
+                                            '!Ofrece tu servicio hoy mismo!',
                                             style: TextStyle(
                                               fontSize: screenWidth < 360
-                                                  ? (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor
-                                                  : (baseFontSize * 1.2).clamp(14, 18) * textScaleFactor,
+                                                  ? (baseFontSize * 1.1).clamp(
+                                                          12,
+                                                          16,
+                                                        ) *
+                                                        textScaleFactor
+                                                  : (baseFontSize * 1.2).clamp(
+                                                          14,
+                                                          18,
+                                                        ) *
+                                                        textScaleFactor,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.black87,
                                             ),
                                           ),
-                                          SizedBox(height: screenHeight * 0.015),
+                                          SizedBox(
+                                            height: screenHeight * 0.015,
+                                          ),
                                           Row(
                                             children: [
                                               CircleAvatar(
-                                                radius: (screenWidth * 0.045).clamp(12, 16),
-                                                backgroundColor: Colors.grey.shade400,
-                                                child: workerProfilePhoto != null && workerProfilePhoto.isNotEmpty
+                                                radius: (screenWidth * 0.045)
+                                                    .clamp(12, 16),
+                                                backgroundColor:
+                                                    Colors.grey.shade400,
+                                                child:
+                                                    workerProfilePhoto !=
+                                                            null &&
+                                                        workerProfilePhoto
+                                                            .isNotEmpty
                                                     ? ClipOval(
                                                         child: CachedNetworkImage(
-                                                          imageUrl: workerProfilePhoto,
+                                                          imageUrl:
+                                                              workerProfilePhoto,
                                                           fit: BoxFit.cover,
-                                                          placeholder: (context, url) => const CircularProgressIndicator(),
-                                                          errorWidget: (context, url, error) {
-                                                            print('ERROR: Worker profile image load failed for URL $workerProfilePhoto: $error');
-                                                            return Icon(
-                                                              Icons.person,
-                                                              size: (screenWidth * 0.035).clamp(10, 14),
-                                                              color: Colors.white,
-                                                            );
-                                                          },
+                                                          placeholder:
+                                                              (context, url) =>
+                                                                  const CircularProgressIndicator(),
+                                                          errorWidget:
+                                                              (
+                                                                context,
+                                                                url,
+                                                                error,
+                                                              ) {
+                                                                print(
+                                                                  'ERROR: Worker profile image load failed for URL $workerProfilePhoto: $error',
+                                                                );
+                                                                return Icon(
+                                                                  Icons.person,
+                                                                  size:
+                                                                      (screenWidth *
+                                                                              0.035)
+                                                                          .clamp(
+                                                                            10,
+                                                                            14,
+                                                                          ),
+                                                                  color: Colors
+                                                                      .white,
+                                                                );
+                                                              },
                                                         ),
                                                       )
                                                     : Icon(
                                                         Icons.person,
-                                                        size: (screenWidth * 0.035).clamp(10, 14),
+                                                        size:
+                                                            (screenWidth *
+                                                                    0.035)
+                                                                .clamp(10, 14),
                                                         color: Colors.white,
                                                       ),
                                               ),
-                                              SizedBox(width: screenWidth * 0.02),
+                                              SizedBox(
+                                                width: screenWidth * 0.02,
+                                              ),
                                               Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     workerName,
                                                     style: TextStyle(
-                                                      fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontSize:
+                                                          (baseFontSize * 1.0)
+                                                              .clamp(10, 14) *
+                                                          textScaleFactor,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       color: Colors.black87,
                                                     ),
                                                   ),
@@ -491,14 +618,30 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                     children: [
                                                       Icon(
                                                         Icons.star,
-                                                        size: (screenWidth * 0.035).clamp(10, 14),
-                                                        color: Colors.yellow.shade700,
+                                                        size:
+                                                            (screenWidth *
+                                                                    0.035)
+                                                                .clamp(10, 14),
+                                                        color: Colors
+                                                            .yellow
+                                                            .shade700,
                                                       ),
-                                                      SizedBox(width: screenWidth * 0.01),
+                                                      SizedBox(
+                                                        width:
+                                                            screenWidth * 0.01,
+                                                      ),
                                                       Text(
-                                                        workerRating.toStringAsFixed(1),
+                                                        workerRating
+                                                            .toStringAsFixed(1),
                                                         style: TextStyle(
-                                                          fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                                                          fontSize:
+                                                              (baseFontSize *
+                                                                      0.8)
+                                                                  .clamp(
+                                                                    10,
+                                                                    12,
+                                                                  ) *
+                                                              textScaleFactor,
                                                           color: Colors.black54,
                                                         ),
                                                       ),
@@ -508,45 +651,144 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                               ),
                                             ],
                                           ),
-                                          SizedBox(height: screenHeight * 0.015),
+                                          SizedBox(
+                                            height: screenHeight * 0.015,
+                                          ),
                                           Row(
                                             children: [
                                               Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
-                                                  Text(
-                                                    'BOB: ${totalBalance.toStringAsFixed(2)}',
-                                                    style: TextStyle(
-                                                      fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Colors.black87,
-                                                    ),
-                                                  ),
+                                                  _isLoadingBalance
+                                                      ? const CircularProgressIndicator()
+                                                      : _balanceError != null
+                                                      ? Row(
+                                                          children: [
+                                                            Text(
+                                                              _balanceError!,
+                                                              style: TextStyle(
+                                                                fontSize:
+                                                                    (baseFontSize *
+                                                                            0.8)
+                                                                        .clamp(
+                                                                          8,
+                                                                          10,
+                                                                        ) *
+                                                                    textScaleFactor,
+                                                                color:
+                                                                    Colors.red,
+                                                              ),
+                                                            ),
+                                                            SizedBox(
+                                                              width:
+                                                                  screenWidth *
+                                                                  0.02,
+                                                            ),
+                                                            TextButton(
+                                                              onPressed: () {
+                                                                try {
+                                                                  Navigator.push(
+                                                                    context,
+                                                                    MaterialPageRoute(
+                                                                      builder:
+                                                                          (_) =>
+                                                                              BilleteraScreen(),
+                                                                    ),
+                                                                  );
+                                                                } catch (e) {
+                                                                  ScaffoldMessenger.of(
+                                                                    context,
+                                                                  ).showSnackBar(
+                                                                    SnackBar(
+                                                                      content: Text(
+                                                                        'Error navigating to BilleteraScreen: $e',
+                                                                      ),
+                                                                    ),
+                                                                  );
+                                                                }
+                                                              },
+                                                              child: Text(
+                                                                'Recargar ahora',
+                                                                style: TextStyle(
+                                                                  fontSize:
+                                                                      (baseFontSize *
+                                                                              0.8)
+                                                                          .clamp(
+                                                                            8,
+                                                                            10,
+                                                                          ) *
+                                                                      textScaleFactor,
+                                                                  color: const Color(
+                                                                    0xFF22c55e,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        )
+                                                      : Text(
+                                                          _totalBalance != null
+                                                              ? 'BOB: ${_totalBalance!.toStringAsFixed(2)}'
+                                                              : 'BOB: 0.00',
+                                                          style: TextStyle(
+                                                            fontSize:
+                                                                (baseFontSize *
+                                                                        1.0)
+                                                                    .clamp(
+                                                                      10,
+                                                                      14,
+                                                                    ) *
+                                                                textScaleFactor,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color:
+                                                                _totalBalance !=
+                                                                        null &&
+                                                                    _totalBalance! >
+                                                                        0
+                                                                ? Colors.black87
+                                                                : Colors.red,
+                                                          ),
+                                                        ),
                                                   Text(
                                                     'Saldo Actual',
                                                     style: TextStyle(
-                                                      fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
+                                                      fontSize:
+                                                          (baseFontSize * 0.7)
+                                                              .clamp(8, 10) *
+                                                          textScaleFactor,
                                                       color: Colors.black54,
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                              SizedBox(width: screenWidth * 0.04),
+                                              SizedBox(
+                                                width: screenWidth * 0.04,
+                                              ),
                                               Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     '$ongoingServices',
                                                     style: TextStyle(
-                                                      fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontSize:
+                                                          (baseFontSize * 1.0)
+                                                              .clamp(10, 14) *
+                                                          textScaleFactor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: Colors.black87,
                                                     ),
                                                   ),
                                                   Text(
                                                     'Servicios en curso',
                                                     style: TextStyle(
-                                                      fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
+                                                      fontSize:
+                                                          (baseFontSize * 0.7)
+                                                              .clamp(8, 10) *
+                                                          textScaleFactor,
                                                       color: Colors.black54,
                                                     ),
                                                   ),
@@ -562,11 +804,19 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                         try {
                                           Navigator.push(
                                             context,
-                                            MaterialPageRoute(builder: (_) =>  BilleteraScreen()),
+                                            MaterialPageRoute(
+                                              builder: (_) => BilleteraScreen(),
+                                            ),
                                           );
                                         } catch (e) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Error navigating to BilleteraScreen: $e')),
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error navigating to BilleteraScreen: $e',
+                                              ),
+                                            ),
                                           );
                                         }
                                       },
@@ -574,7 +824,12 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                         'Recarga',
                                         style: TextStyle(
                                           color: const Color(0xFF22c55e),
-                                          fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                                          fontSize:
+                                              (baseFontSize * 0.8).clamp(
+                                                10,
+                                                12,
+                                              ) *
+                                              textScaleFactor,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -589,7 +844,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         Text(
                           'Trabajos recomendados para ti',
                           style: TextStyle(
-                            fontSize: (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor,
+                            fontSize:
+                                (baseFontSize * 1.1).clamp(12, 16) *
+                                textScaleFactor,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87,
                           ),
@@ -614,13 +871,15 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                     width: double.infinity,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
-                                      print('ERROR: Failed to load empty image: $error');
+                                      print(
+                                        'ERROR: Failed to load empty image: $error',
+                                      );
                                       return Container(
                                         height: screenHeight * 0.3,
                                         color: Colors.grey.shade300,
                                         child: const Center(
                                           child: Icon(
-                                            Icons.broken_image,
+                                            Icons.image_not_supported,
                                             color: Colors.black54,
                                             size: 40,
                                           ),
@@ -640,22 +899,42 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                     context: context,
                                     requestId: job['id'] as int?,
                                     timeAgo: _formatTimeAgo(
-                                      job['created_at'] ?? DateTime.now().toIso8601String(),
+                                      job['created_at'] ??
+                                          DateTime.now().toIso8601String(),
                                     ),
-                                    title: '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
-                                    budget: job['budget'] != null && double.tryParse(job['budget'].toString()) != null
+                                    title:
+                                        '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
+                                    budget:
+                                        job['budget'] != null &&
+                                            double.tryParse(
+                                                  job['budget'].toString(),
+                                                ) !=
+                                                null
                                         ? 'BOB: ${job['budget']}'
                                         : 'BOB: No especificado',
-                                    location: '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
-                                    clientName: job['client_name'] ?? 'Usuario ${job['created_by'] ?? 'Desconocido'}',
-                                    clientId: job['created_by']?.toString() ?? 'Desconocido',
-                                    clientRating: job['client_rating']?.toDouble() ?? 0.0,
-                                    clientProfilePhoto: _normalizeImagePath(job['client_profile_photo'], isProfilePhoto: true),
+                                    location:
+                                        '${job['location'] ?? 'Sin ubicación'}, ${job['location_details'] ?? ''}',
+                                    clientName:
+                                        job['client_name'] ??
+                                        'Usuario ${job['created_by'] ?? 'Desconocido'}',
+                                    clientId:
+                                        job['created_by']?.toString() ??
+                                        'Desconocido',
+                                    clientRating:
+                                        job['client_rating']?.toDouble() ?? 0.0,
+                                    clientProfilePhoto: _normalizeImagePath(
+                                      job['client_profile_photo'],
+                                      isProfilePhoto: true,
+                                    ),
                                     tags: [
-                                      job['category']?.toUpperCase() ?? 'SERVICIO',
-                                      job['subcategory']?.toUpperCase() ?? 'GENERAL',
+                                      job['category']?.toUpperCase() ??
+                                          'SERVICIO',
+                                      job['subcategory']?.toUpperCase() ??
+                                          'GENERAL',
                                     ],
-                                    imagePath: _normalizeImagePath(job['image']),
+                                    imagePath: _normalizeImagePath(
+                                      job['image'],
+                                    ),
                                     screenWidth: screenWidth,
                                     screenHeight: screenHeight,
                                     textScaleFactor: textScaleFactor,
@@ -674,7 +953,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             Text(
                               'Clientes Recomendados',
                               style: TextStyle(
-                                fontSize: (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor,
+                                fontSize:
+                                    (baseFontSize * 1.1).clamp(12, 16) *
+                                    textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -691,7 +972,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                 'Ver más',
                                 style: TextStyle(
                                   color: const Color(0xFF22c55e),
-                                  fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                                  fontSize:
+                                      (baseFontSize * 0.8).clamp(10, 12) *
+                                      textScaleFactor,
                                 ),
                               ),
                             ),
@@ -703,7 +986,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         else if (_clientError != null)
                           Center(child: Text('Error: $_clientError'))
                         else if (_clients.isEmpty)
-                          const Center(child: Text('No hay clientes disponibles'))
+                          const Center(
+                            child: Text('No hay clientes disponibles'),
+                          )
                         else
                           SizedBox(
                             height: screenHeight * 0.18,
@@ -712,12 +997,23 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               child: Row(
                                 children: _clients.map((client) {
                                   return Padding(
-                                    padding: EdgeInsets.only(right: screenWidth * 0.02),
+                                    padding: EdgeInsets.only(
+                                      right: screenWidth * 0.02,
+                                    ),
                                     child: _buildClientCard(
                                       context: context,
-                                      name: client['name'] ?? client['client_name'] ?? 'Usuario Desconocido',
-                                      rating: client['rating']?.toDouble() ?? client['rate']?.toDouble() ?? 0.0,
-                                      profilePhoto: _normalizeImagePath(client['profile_photo'], isProfilePhoto: true),
+                                      name:
+                                          client['name'] ??
+                                          client['client_name'] ??
+                                          'Usuario Desconocido',
+                                      rating:
+                                          client['rating']?.toDouble() ??
+                                          client['rate']?.toDouble() ??
+                                          0.0,
+                                      profilePhoto: _normalizeImagePath(
+                                        client['profile_photo'],
+                                        isProfilePhoto: true,
+                                      ),
                                       screenWidth: screenWidth,
                                       screenHeight: screenHeight,
                                       textScaleFactor: textScaleFactor,
@@ -735,7 +1031,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             Text(
                               'Últimos comentarios',
                               style: TextStyle(
-                                fontSize: (baseFontSize * 1.1).clamp(12, 16) * textScaleFactor,
+                                fontSize:
+                                    (baseFontSize * 1.1).clamp(12, 16) *
+                                    textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -752,7 +1050,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                 'Ver todos',
                                 style: TextStyle(
                                   color: const Color(0xFF22c55e),
-                                  fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                                  fontSize:
+                                      (baseFontSize * 0.8).clamp(10, 12) *
+                                      textScaleFactor,
                                 ),
                               ),
                             ),
@@ -764,7 +1064,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         else if (_reviewError != null)
                           Center(child: Text('Error: $_reviewError'))
                         else if (_reviews.isEmpty)
-                          const Center(child: Text('Aún no tienes comentarios. ¡Empieza a trabajar para recibirlos!'))
+                          const Center(
+                            child: Text(
+                              'Aún no tienes comentarios. ¡Empieza a trabajar para recibirlos!',
+                            ),
+                          )
                         else
                           ListView.builder(
                             shrinkWrap: true,
@@ -775,17 +1079,27 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                               print('DEBUG: Rendering review $index: $review');
                               return _buildReviewCard(
                                 context: context,
-                                client: review['client_name'] ?? 'Usuario Desconocido',
-                                rating: (review['rating'] is String
-                                    ? double.tryParse(review['rating']) ?? 0.0
-                                    : review['rating']?.toDouble()) ?? 0.0,
+                                client:
+                                    review['client_name'] ??
+                                    'Usuario Desconocido',
+                                rating:
+                                    (review['rating'] is String
+                                        ? double.tryParse(review['rating']) ??
+                                              0.0
+                                        : review['rating']?.toDouble()) ??
+                                    0.0,
                                 timeAgo: _formatTimeAgo(
-                                  review['created_at'] ?? DateTime.now().toIso8601String(),
+                                  review['created_at'] ??
+                                      DateTime.now().toIso8601String(),
                                 ),
                                 comment: review['comment'] ?? 'Sin comentario',
-                                serviceCategory: review['service_category'] ?? 'Unknown',
-                                serviceSubcategory: review['service_subcategory'] ?? 'Unknown',
-                                serviceDate: _formatServiceDate(review['service_date']),
+                                serviceCategory:
+                                    review['service_category'] ?? 'Unknown',
+                                serviceSubcategory:
+                                    review['service_subcategory'] ?? 'Unknown',
+                                serviceDate: _formatServiceDate(
+                                  review['service_date'],
+                                ),
                                 screenWidth: screenWidth,
                                 screenHeight: screenHeight,
                                 textScaleFactor: textScaleFactor,
@@ -825,7 +1139,10 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double baseFontSize,
   }) {
     final normalizedImagePath = _normalizeImagePath(imagePath);
-    final normalizedClientPhoto = _normalizeImagePath(clientProfilePhoto, isProfilePhoto: true);
+    final normalizedClientPhoto = _normalizeImagePath(
+      clientProfilePhoto,
+      isProfilePhoto: true,
+    );
     print(
       'DEBUG: Job ID: $requestId, Client Name: $clientName, Client ID: $clientId, '
       'Location: $location, Image Path: $normalizedImagePath, Client Profile Photo: $normalizedClientPhoto',
@@ -883,16 +1200,38 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       child: CachedNetworkImage(
                         imageUrl: normalizedImagePath,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                        placeholder: (context, url) =>
+                            const Center(child: CircularProgressIndicator()),
                         errorWidget: (context, url, error) {
                           print(
                             'ERROR: Image load failed for URL $normalizedImagePath: $error',
                           );
-                          return Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              color: Colors.grey,
-                              size: (screenWidth * 0.1).clamp(40, 60),
+                          return ClipRRect(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(screenWidth * 0.03),
+                            ),
+                            child: Image.asset(
+                              'assets/images/empty.jpg',
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: (screenHeight * 0.2).clamp(120, 180),
+                              errorBuilder: (context, error, stackTrace) {
+                                print(
+                                  'ERROR: Failed to load empty.jpg: $error',
+                                );
+                                return Container(
+                                  height: (screenHeight * 0.2).clamp(120, 180),
+                                  width: double.infinity,
+                                  color: Colors.grey.shade200,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.image_not_supported,
+                                      color: Colors.grey,
+                                      size: 40,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           );
                         },
@@ -909,11 +1248,16 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         height: (screenHeight * 0.2).clamp(120, 180),
                         errorBuilder: (context, error, stackTrace) {
                           print('ERROR: Failed to load empty.jpg: $error');
-                          return Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              color: Colors.grey,
-                              size: (screenWidth * 0.1).clamp(40, 60),
+                          return Container(
+                            height: (screenHeight * 0.2).clamp(120, 180),
+                            width: double.infinity,
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey,
+                                size: 40,
+                              ),
                             ),
                           );
                         },
@@ -931,14 +1275,18 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       Text(
                         timeAgo,
                         style: TextStyle(
-                          fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
+                          fontSize:
+                              (baseFontSize * 0.7).clamp(8, 10) *
+                              textScaleFactor,
                           color: Colors.black54,
                         ),
                       ),
                       Text(
                         budget,
                         style: TextStyle(
-                          fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                          fontSize:
+                              (baseFontSize * 1.0).clamp(10, 14) *
+                              textScaleFactor,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -949,7 +1297,8 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: (baseFontSize * 1.2).clamp(12, 16) * textScaleFactor,
+                      fontSize:
+                          (baseFontSize * 1.2).clamp(12, 16) * textScaleFactor,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
@@ -963,7 +1312,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             label: Text(
                               tag,
                               style: TextStyle(
-                                fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
+                                fontSize:
+                                    (baseFontSize * 0.7).clamp(8, 10) *
+                                    textScaleFactor,
                               ),
                             ),
                             backgroundColor: Colors.grey.shade200,
@@ -988,7 +1339,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         child: Text(
                           location,
                           style: TextStyle(
-                            fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                            fontSize:
+                                (baseFontSize * 0.8).clamp(10, 12) *
+                                textScaleFactor,
                             color: Colors.black54,
                           ),
                         ),
@@ -1006,7 +1359,8 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                 child: CachedNetworkImage(
                                   imageUrl: normalizedClientPhoto,
                                   fit: BoxFit.cover,
-                                  placeholder: (context, url) => const CircularProgressIndicator(),
+                                  placeholder: (context, url) =>
+                                      const CircularProgressIndicator(),
                                   errorWidget: (context, url, error) {
                                     print(
                                       'ERROR: Client profile image load failed for URL $normalizedClientPhoto: $error',
@@ -1033,7 +1387,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                             Text(
                               clientName,
                               style: TextStyle(
-                                fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                                fontSize:
+                                    (baseFontSize * 1.0).clamp(10, 14) *
+                                    textScaleFactor,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
@@ -1051,7 +1407,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                 Text(
                                   clientRating.toStringAsFixed(1),
                                   style: TextStyle(
-                                    fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                                    fontSize:
+                                        (baseFontSize * 0.8).clamp(10, 12) *
+                                        textScaleFactor,
                                     color: Colors.black54,
                                   ),
                                 ),
@@ -1081,8 +1439,13 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     required double textScaleFactor,
     required double baseFontSize,
   }) {
-    final normalizedProfilePhoto = _normalizeImagePath(profilePhoto, isProfilePhoto: true);
-    print('DEBUG: Building client card for name: $name, profilePhoto: $normalizedProfilePhoto');
+    final normalizedProfilePhoto = _normalizeImagePath(
+      profilePhoto,
+      isProfilePhoto: true,
+    );
+    print(
+      'DEBUG: Building client card for name: $name, profilePhoto: $normalizedProfilePhoto',
+    );
 
     return SizedBox(
       width: (screenWidth * 0.22).clamp(90.0, 110.0),
@@ -1097,9 +1460,12 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                     child: CachedNetworkImage(
                       imageUrl: normalizedProfilePhoto,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => const CircularProgressIndicator(),
+                      placeholder: (context, url) =>
+                          const CircularProgressIndicator(),
                       errorWidget: (context, url, error) {
-                        print('ERROR: Client profile image load failed for URL $normalizedProfilePhoto: $error');
+                        print(
+                          'ERROR: Client profile image load failed for URL $normalizedProfilePhoto: $error',
+                        );
                         return Icon(
                           Icons.person,
                           size: (screenWidth * 0.05).clamp(18, 26),
@@ -1140,7 +1506,8 @@ class _HomeScreenContentState extends State<HomeScreenContent>
               Text(
                 rating.toStringAsFixed(1),
                 style: TextStyle(
-                  fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                  fontSize:
+                      (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
                   color: Colors.black54,
                 ),
               ),
@@ -1194,7 +1561,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                       Text(
                         client,
                         style: TextStyle(
-                          fontSize: (baseFontSize * 1.0).clamp(10, 14) * textScaleFactor,
+                          fontSize:
+                              (baseFontSize * 1.0).clamp(10, 14) *
+                              textScaleFactor,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -1205,7 +1574,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                         children: [
                           for (int i = 0; i < 5; i++)
                             Icon(
-                              i < rating.floor() ? Icons.star : Icons.star_border,
+                              i < rating.floor()
+                                  ? Icons.star
+                                  : Icons.star_border,
                               size: (screenWidth * 0.035).clamp(10, 14),
                               color: Colors.yellow.shade700,
                             ),
@@ -1213,7 +1584,9 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                           Text(
                             rating.toStringAsFixed(1),
                             style: TextStyle(
-                              fontSize: (baseFontSize * 0.8).clamp(10, 12) * textScaleFactor,
+                              fontSize:
+                                  (baseFontSize * 0.8).clamp(10, 12) *
+                                  textScaleFactor,
                               color: Colors.black54,
                             ),
                           ),
@@ -1226,7 +1599,8 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 Text(
                   timeAgo,
                   style: TextStyle(
-                    fontSize: (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
+                    fontSize:
+                        (baseFontSize * 0.7).clamp(8, 10) * textScaleFactor,
                     color: Colors.black54,
                   ),
                 ),

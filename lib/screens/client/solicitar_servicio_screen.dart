@@ -226,23 +226,6 @@ class _SolicitarServicioScreenState extends State<SolicitarServicioScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.black54,
-                        size: 16,
-                      ),
-                      SizedBox(width: screenWidth * 0.02),
-                      Text(
-                        'Av. Benavides 4887',
-                        style: TextStyle(
-                          color: Colors.black54,
-                          fontSize: screenWidth * 0.035,
-                        ),
-                      ),
-                    ],
-                  ),
                   SizedBox(height: screenHeight * 0.02),
                   Row(
                     children: [

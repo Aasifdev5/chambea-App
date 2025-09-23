@@ -8,8 +8,86 @@ import 'package:chambea/blocs/chambeador/jobs_state.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class BuscarScreen extends StatelessWidget {
+  // Normalize image path to ensure correct URL formatting
+  String _normalizeImagePath(String? imagePath, {bool isProfilePhoto = false}) {
+    if (imagePath == null || imagePath.trim().isEmpty) {
+      print('DEBUG: Image path is null or empty');
+      return '';
+    }
+
+    String normalized = imagePath.trim();
+
+    // Remove duplicate or incorrect prefixes
+    normalized = normalized.replaceAll(
+      RegExp(r'^https://chambea\.lat/https://chambea\.lat/'),
+      'https://chambea.lat/',
+    );
+
+    // Remove 'storage/' prefix
+    normalized = normalized.replaceFirst(RegExp(r'^storage/'), '');
+
+    // Normalize case for prefix checks
+    String lowerCasePath = normalized.toLowerCase();
+
+    // Define expected prefixes
+    const profilePrefix = 'uploads/profile_photos/';
+    const jobPrefix = 'uploads/service_requests/';
+
+    // Remove existing prefix if present to avoid duplication
+    if (isProfilePhoto && lowerCasePath.contains(profilePrefix.toLowerCase())) {
+      normalized = normalized.substring(
+        normalized.toLowerCase().indexOf(profilePrefix.toLowerCase()) +
+            profilePrefix.length,
+      );
+    } else if (!isProfilePhoto &&
+        lowerCasePath.contains(jobPrefix.toLowerCase())) {
+      normalized = normalized.substring(
+        normalized.toLowerCase().indexOf(jobPrefix.toLowerCase()) +
+            jobPrefix.length,
+      );
+    } else if (isProfilePhoto &&
+        (lowerCasePath.contains('uploads/user_profiles/') ||
+            lowerCasePath.contains('uploads/chambeador_profiles/'))) {
+      print('WARNING: Unexpected profile photo path: $normalized');
+      normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+    } else if (!isProfilePhoto && lowerCasePath.contains('service_requests/')) {
+      print('WARNING: Unexpected job image path: $normalized');
+      normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+    }
+
+    // Add correct prefix
+    normalized = isProfilePhoto
+        ? 'uploads/profile_photos/$normalized'
+        : 'uploads/service_requests/$normalized';
+
+    // Prepend base URL for relative paths
+    if (!normalized.startsWith('http')) {
+      normalized = 'https://chambea.lat/$normalized';
+    }
+
+    // Convert 'Uploads/' to 'uploads/' for consistency
+    normalized = normalized.replaceAll('Uploads/', 'uploads/');
+
+    // Validate URL
+    try {
+      final uri = Uri.parse(normalized);
+      if (!uri.isAbsolute || uri.host.isEmpty) {
+        print('ERROR: Invalid URL format: $normalized');
+        return '';
+      }
+      print('DEBUG: Normalized image path: $normalized');
+      return normalized;
+    } catch (e, stackTrace) {
+      print(
+        'ERROR: Failed to parse URL $normalized: $e\nStack Trace: $stackTrace',
+      );
+      return '';
+    }
+  }
+
   // Check balance before submitting proposal
   Future<bool> _checkBalance(BuildContext context) async {
     try {
@@ -44,25 +122,25 @@ class BuscarScreen extends StatelessWidget {
           return true;
         } else {
           print('DEBUG: Balance check failed: ${data['message']}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['message'])),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(data['message'])));
           return false;
         }
       } else {
         final data = jsonDecode(response.body);
         print('DEBUG: Balance check error: ${data['message']}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'])),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(data['message'])));
         return false;
       }
     } catch (e, stackTrace) {
       print('ERROR: Failed to check balance: $e');
       print('Stack trace: $stackTrace');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al verificar saldo: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al verificar saldo: $e')));
       return false;
     }
   }
@@ -93,16 +171,6 @@ class BuscarScreen extends StatelessWidget {
           ),
           backgroundColor: Colors.white,
           elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search, color: Colors.black54),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Búsqueda iniciada')),
-                );
-              },
-            ),
-          ],
         ),
         body: BlocBuilder<JobsBloc, JobsState>(
           builder: (context, state) {
@@ -112,7 +180,28 @@ class BuscarScreen extends StatelessWidget {
               return Center(child: Text('Error: ${state.message}'));
             } else if (state is JobsLoaded) {
               if (state.jobs.isEmpty) {
-                return const Center(child: Text('No hay trabajos disponibles'));
+                return Center(
+                  child: Image.asset(
+                    'assets/images/empty.jpg',
+                    height: MediaQuery.of(context).size.height * 0.3,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      print('ERROR: Failed to load empty.jpg: $error');
+                      return Container(
+                        height: MediaQuery.of(context).size.height * 0.3,
+                        color: Colors.grey.shade300,
+                        child: const Center(
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Colors.black54,
+                            size: 40,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
               }
               return ListView.builder(
                 padding: const EdgeInsets.symmetric(
@@ -134,6 +223,9 @@ class BuscarScreen extends StatelessWidget {
   }
 
   Widget _buildTrabajoCard(BuildContext context, Map<String, dynamic> job) {
+    final normalizedImagePath = _normalizeImagePath(job['image']);
+    final hasImage = normalizedImagePath.isNotEmpty;
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
@@ -144,40 +236,94 @@ class BuscarScreen extends StatelessWidget {
           // Image with overlay label
           Stack(
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
+              Container(
+                height: 150,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  color: Colors.grey.shade300,
                 ),
-                child: Image.network(
-                  job['image'] ??
-                      'https://cdn.pixabay.com/photo/2021/11/14/12/07/fire-6792859_1280.jpg',
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 150,
-                      width: double.infinity,
-                      color: Colors.grey.shade200,
-                      child: const Center(child: CircularProgressIndicator()),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 150,
-                      width: double.infinity,
-                      color: Colors.grey.shade200,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.grey,
-                          size: 40,
+                child: hasImage
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        child: CachedNetworkImage(
+                          imageUrl: normalizedImagePath,
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            height: 150,
+                            width: double.infinity,
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) {
+                            print(
+                              'ERROR: Image load failed for URL $normalizedImagePath: $error',
+                            );
+                            return ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(12),
+                              ),
+                              child: Image.asset(
+                                'assets/images/empty.jpg',
+                                height: 150,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  print(
+                                    'ERROR: Failed to load empty.jpg: $error',
+                                  );
+                                  return Container(
+                                    height: 150,
+                                    width: double.infinity,
+                                    color: Colors.grey.shade200,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.image_not_supported,
+                                        color: Colors.grey,
+                                        size: 40,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        child: Image.asset(
+                          'assets/images/empty.jpg',
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            print('ERROR: Failed to load empty.jpg: $error');
+                            return Container(
+                              height: 150,
+                              width: double.infinity,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  color: Colors.grey,
+                                  size: 40,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
-                    );
-                  },
-                ),
               ),
               Positioned(
                 top: 8,
@@ -373,7 +519,8 @@ class BuscarScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => PropuestaScreen(requestId: job['id']),
+                            builder: (_) =>
+                                PropuestaScreen(requestId: job['id']),
                           ),
                         );
                       } catch (e, stackTrace) {
@@ -382,9 +529,7 @@ class BuscarScreen extends StatelessWidget {
                         );
                         print('Stack trace: $stackTrace');
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error de navegación: $e'),
-                          ),
+                          SnackBar(content: Text('Error de navegación: $e')),
                         );
                       }
                     }

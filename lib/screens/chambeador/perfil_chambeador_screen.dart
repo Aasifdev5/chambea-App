@@ -254,9 +254,12 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
       context: context,
       initialDate: _birthDateController.text.isNotEmpty
           ? DateFormat('dd/MM/yyyy').parse(_birthDateController.text)
-          : DateTime.now().subtract(const Duration(days: 7300)), // ~20 years ago
+          : DateTime.now().subtract(
+              const Duration(days: 7300),
+            ), // ~20 years ago
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
+      locale: const Locale('es', 'ES'), // Set Spanish locale
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -264,6 +267,11 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
               primary: Colors.blue,
               onPrimary: Colors.white,
               onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue, // Button text color
+              ),
             ),
           ),
           child: child!,
@@ -382,7 +390,10 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
             actions: [
               TextButton(
                 onPressed: () {
-                  if (_formKey.currentState!.validate() && _skills.isNotEmpty) {
+                  if (_formKey.currentState!.validate() &&
+                      _skills.isNotEmpty &&
+                      state.profilePhotoPath != null &&
+                      state.profilePhotoPath!.isNotEmpty) {
                     final subcategoriesList = _subcategories.keys
                         .where((key) => _subcategories[key]!)
                         .toList();
@@ -428,12 +439,12 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                     Navigator.pushNamed(context, '/home');
                   } else {
                     print(
-                      '[PerfilChambeadorScreen] Form validation failed or no skills added',
+                      '[PerfilChambeadorScreen] Form validation failed, no skills, no profile photo, or no subcategories',
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text(
-                          'Por favor, completa todos los campos requeridos y añade al menos una habilidad',
+                          'Por favor, completa todos los campos requeridos, añade al menos una habilidad${_availableSubcategories.isNotEmpty ? ", selecciona al menos una subcategoría" : ""}${state.profilePhotoPath == null || state.profilePhotoPath!.isEmpty ? ", y sube una foto de perfil" : ""}',
                         ),
                       ),
                     );
@@ -483,6 +494,17 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                                 color: Colors.red,
                                 fontSize: 12,
                               ),
+                            ),
+                          ),
+                        if (state.profilePhotoPath == null ||
+                            state.profilePhotoPath!.isEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              bottom: screenHeight * 0.02,
+                            ),
+                            child: const Text(
+                              'Debe subir una foto de perfil',
+                              style: TextStyle(color: Colors.red, fontSize: 12),
                             ),
                           ),
                         Center(
@@ -595,7 +617,9 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               return 'Este campo es requerido';
                             }
                             try {
-                              final date = DateFormat('dd/MM/yyyy').parse(value);
+                              final date = DateFormat(
+                                'dd/MM/yyyy',
+                              ).parse(value);
                               if (date.isAfter(DateTime.now())) {
                                 return 'La fecha no puede ser en el futuro';
                               }
@@ -935,7 +959,9 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                                 (_availableSubcategories.isEmpty ||
                                     _subcategories.values.any(
                                       (selected) => selected,
-                                    ))) {
+                                    )) &&
+                                state.profilePhotoPath != null &&
+                                state.profilePhotoPath!.isNotEmpty) {
                               final subcategoriesList = _subcategories.keys
                                   .where((key) => _subcategories[key]!)
                                   .toList();
@@ -979,12 +1005,12 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               );
                             } else {
                               print(
-                                '[PerfilChambeadorScreen] Form validation failed, no skills, or no subcategories selected',
+                                '[PerfilChambeadorScreen] Form validation failed, no skills, no subcategories, or no profile photo',
                               );
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Por favor, completa todos los campos requeridos, añade al menos una habilidad y selecciona al menos una subcategoría si están disponibles',
+                                    'Por favor, completa todos los campos requeridos, añade al menos una habilidad${_availableSubcategories.isNotEmpty ? ", selecciona al menos una subcategoría" : ""}${state.profilePhotoPath == null || state.profilePhotoPath!.isEmpty ? ", y sube una foto de perfil" : ""}',
                                   ),
                                 ),
                               );
@@ -1028,8 +1054,12 @@ class MapPickerScreen extends StatefulWidget {
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
   GoogleMapController? _mapController;
-  LatLng? _selectedLocation;
+  LatLng _selectedLocation = const LatLng(
+    -17.9833,
+    -67.15,
+  ); // Oruro, Bolivia as fallback
   String _address = '';
+  Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -1041,6 +1071,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     if (widget.initialLat != null && widget.initialLng != null) {
       setState(() {
         _selectedLocation = LatLng(widget.initialLat!, widget.initialLng!);
+        _updateMarker(_selectedLocation);
       });
       await _updateAddress(widget.initialLat!, widget.initialLng!);
     } else {
@@ -1091,6 +1122,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
       setState(() {
         _selectedLocation = LatLng(position.latitude, position.longitude);
+        _updateMarker(_selectedLocation);
         print(
           '[MapPickerScreen] Current location: lat=${position.latitude}, lng=${position.longitude}',
         );
@@ -1099,7 +1131,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       await _updateAddress(position.latitude, position.longitude);
       if (_mapController != null && _selectedLocation != null) {
         _mapController!.animateCamera(
-          CameraUpdate.newLatLng(_selectedLocation!),
+          CameraUpdate.newLatLng(_selectedLocation),
         );
       }
     } catch (e) {
@@ -1111,9 +1143,39 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     }
   }
 
+  Future<void> _goToCurrentLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      setState(() {
+        _selectedLocation = LatLng(position.latitude, position.longitude);
+        _updateMarker(_selectedLocation);
+      });
+      _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: _selectedLocation, zoom: 15.0),
+        ),
+      );
+      await _updateAddress(
+        _selectedLocation.latitude,
+        _selectedLocation.longitude,
+      );
+      print(
+        '[MapPickerScreen] Moved to current location: lat=${_selectedLocation.latitude}, lng=${_selectedLocation.longitude}',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al obtener la ubicación actual')),
+      );
+      print('[MapPickerScreen] Error going to current location: $e');
+    }
+  }
+
   void _setFallbackLocation() {
     setState(() {
       _selectedLocation = const LatLng(-17.9833, -67.15); // Oruro, Bolivia
+      _updateMarker(_selectedLocation);
       _address = 'Ubicación desconocida';
       print(
         '[MapPickerScreen] Set fallback location: lat=-17.9833, lng=-67.15',
@@ -1151,6 +1213,34 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     }
   }
 
+  Future<void> _updateMarker(LatLng position) async {
+    setState(() {
+      _markers.clear();
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('selected-location'),
+          position: position,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+          draggable: true,
+          onDragEnd: (newPosition) {
+            setState(() {
+              _selectedLocation = newPosition;
+              _updateMarker(newPosition);
+              print(
+                '[MapPickerScreen] Marker dragged to: lat=${newPosition.latitude}, lng=${newPosition.longitude}',
+              );
+            });
+            _updateAddress(newPosition.latitude, newPosition.longitude);
+          },
+        ),
+      );
+      _selectedLocation = position;
+    });
+    await _updateAddress(position.latitude, position.longitude);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1163,8 +1253,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 : () {
                     Navigator.pop(context, {
                       'address': _address,
-                      'lat': _selectedLocation!.latitude,
-                      'lng': _selectedLocation!.longitude,
+                      'lat': _selectedLocation.latitude,
+                      'lng': _selectedLocation.longitude,
                     });
                   },
             child: const Text(
@@ -1176,37 +1266,43 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       ),
       body: _selectedLocation == null
           ? const Center(child: CircularProgressIndicator())
-          : GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _selectedLocation!,
-                zoom: 15,
-              ),
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-                if (_selectedLocation != null) {
-                  _mapController!.animateCamera(
-                    CameraUpdate.newLatLng(_selectedLocation!),
-                  );
-                }
-              },
-              onTap: (LatLng location) {
-                setState(() {
-                  _selectedLocation = location;
-                  _mapController?.animateCamera(
-                    CameraUpdate.newLatLng(location),
-                  );
-                  print(
-                    '[MapPickerScreen] Selected location on map: lat=${location.latitude}, lng=${location.longitude}',
-                  );
-                });
-                _updateAddress(location.latitude, location.longitude);
-              },
-              markers: {
-                Marker(
-                  markerId: const MarkerId('selected-location'),
-                  position: _selectedLocation!,
+          : Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _selectedLocation,
+                    zoom: 15,
+                  ),
+                  onMapCreated: (GoogleMapController controller) {
+                    _mapController = controller;
+                    if (_selectedLocation != null) {
+                      _mapController!.animateCamera(
+                        CameraUpdate.newLatLng(_selectedLocation),
+                      );
+                    }
+                  },
+                  onTap: (position) {
+                    setState(() {
+                      _selectedLocation = position;
+                      _updateMarker(position);
+                      print(
+                        '[MapPickerScreen] Map tapped at: lat=${position.latitude}, lng=${position.longitude}',
+                      );
+                    });
+                  },
+                  markers: _markers,
                 ),
-              },
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: FloatingActionButton(
+                    mini: true,
+                    backgroundColor: Colors.green,
+                    onPressed: _goToCurrentLocation,
+                    child: const Icon(Icons.my_location, color: Colors.white),
+                  ),
+                ),
+              ],
             ),
     );
   }

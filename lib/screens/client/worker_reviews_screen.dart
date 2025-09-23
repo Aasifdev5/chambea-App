@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:chambea/services/api_service.dart';
 import 'package:intl/intl.dart';
@@ -26,8 +25,14 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
     }
     String normalized = imagePath
         .replaceAll('https://chambea.lat/storage/', 'https://chambea.lat/')
-        .replaceAll('https://chambea.lat/Uploads/', 'https://chambea.lat/uploads/')
-        .replaceAll('https://chambea.lat/https://chambea.lat/', 'https://chambea.lat/');
+        .replaceAll(
+          'https://chambea.lat/Uploads/',
+          'https://chambea.lat/uploads/',
+        )
+        .replaceAll(
+          'https://chambea.lat/https://chambea.lat/',
+          'https://chambea.lat/',
+        );
     if (!normalized.startsWith('http')) {
       normalized = 'https://chambea.lat/$normalized';
     }
@@ -37,54 +42,65 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
 
   Future<Map<String, dynamic>> _fetchWorkerReviews() async {
     try {
-      final response = await ApiService.get('/api/reviews/worker/${widget.workerId}');
-      print('DEBUG: Reviews response for workerId ${widget.workerId}: $response');
+      final response = await ApiService.get(
+        '/api/reviews/worker/${widget.workerId}',
+      );
+      print(
+        'DEBUG: Reviews response for workerId ${widget.workerId}: $response',
+      );
       if (response['status'] == 'success' && response['data'] != null) {
         return Map<String, dynamic>.from(response['data']);
       } else {
-        throw Exception('Failed to load reviews: ${response['message'] ?? 'Unknown error'}');
+        throw Exception(
+          'Failed to load reviews: ${response['message'] ?? 'Unknown error'}',
+        );
       }
     } catch (e) {
-      print('ERROR: Failed to fetch reviews for workerId ${widget.workerId}: $e');
+      print(
+        'ERROR: Failed to fetch reviews for workerId ${widget.workerId}: $e',
+      );
       rethrow;
     }
   }
 
   double _calculateAverageRating(List<Map<String, dynamic>> reviews) {
     if (reviews.isEmpty) return 0.0;
-    double total = reviews.fold(0.0, (sum, review) => sum + (review['rating']?.toDouble() ?? 0.0));
+    double total = reviews.fold(
+      0.0,
+      (sum, review) => sum + (review['rating']?.toDouble() ?? 0.0),
+    );
     return total / reviews.length;
   }
 
   String _formatTimestamp(String? createdAt) {
-    if (createdAt == null) return 'Unknown date';
+    if (createdAt == null) return 'Fecha desconocida';
     try {
       final date = DateTime.parse(createdAt);
       final now = DateTime.now();
       final difference = now.difference(date);
       if (difference.inDays < 1) {
-        return '${difference.inHours} hours ago';
+        return 'Hace ${difference.inHours} horas';
       } else if (difference.inDays < 30) {
-        return '${difference.inDays} days ago';
+        return 'Hace ${difference.inDays} días';
       } else if (difference.inDays < 365) {
-        return '${(difference.inDays / 30).floor()} months ago';
+        return 'Hace ${(difference.inDays / 30).floor()} meses';
       } else {
         return DateFormat.yMMMd().format(date);
       }
     } catch (e) {
       print('DEBUG: Error formatting timestamp: $e');
-      return 'Unknown date';
+      return 'Fecha desconocida';
     }
   }
 
   String _formatServiceDate(String? serviceDate) {
-    if (serviceDate == null) return 'Unknown date';
+    if (serviceDate == null) return 'Fecha desconocida';
     try {
       final date = DateFormat('dd/MM/yyyy').parse(serviceDate);
       return DateFormat.yMMMd().format(date);
     } catch (e) {
       print('DEBUG: Error formatting service date: $e');
-      return serviceDate ?? 'Unknown date';
+      return serviceDate ?? 'Fecha desconocida';
     }
   }
 
@@ -101,7 +117,7 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
           },
         ),
         title: Text(
-          '${widget.workerName} - Reviews',
+          '${widget.workerName} - Historial',
           style: const TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -121,11 +137,11 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Error loading reviews',
+                    'Error al cargar historial',
                     style: TextStyle(fontSize: 16, color: Colors.red),
                   ),
                   Text(
-                    'Details: ${snapshot.error}',
+                    'Detalles: ${snapshot.error}',
                     style: const TextStyle(fontSize: 14, color: Colors.black54),
                     textAlign: TextAlign.center,
                   ),
@@ -134,32 +150,31 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                     onPressed: () {
                       if (mounted) setState(() {});
                     },
-                    child: const Text('Retry'),
+                    child: const Text('Reintentar'),
                   ),
                 ],
-              ),
-            );
-          } else if (!snapshot.hasData || snapshot.data!['reviews'].isEmpty) {
-            return const Center(
-              child: Text(
-                'No reviews available for this worker',
-                style: TextStyle(fontSize: 16, color: Colors.black54),
               ),
             );
           }
 
           final data = snapshot.data!;
-          final reviews = List<Map<String, dynamic>>.from(data['reviews'] ?? []);
+          final reviews = List<Map<String, dynamic>>.from(
+            data['reviews'] ?? [],
+          );
           final profile = data['profile'] as Map<String, dynamic>?;
 
           // Log when profile is null
           if (profile == null) {
-            print('DEBUG: Profile data is null for workerId ${widget.workerId}');
+            print(
+              'DEBUG: Profile data is null for workerId ${widget.workerId}',
+            );
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Worker profile details are not available'),
+                    content: Text(
+                      'Detalles del perfil del trabajador no están disponibles',
+                    ),
                     duration: Duration(seconds: 3),
                   ),
                 );
@@ -189,12 +204,24 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                           children: [
                             CircleAvatar(
                               radius: 30,
-                              backgroundImage: profile != null && profile['profile_image'] != null
-                                  ? CachedNetworkImageProvider(_normalizeImagePath(profile['profile_image']))
+                              backgroundImage:
+                                  profile != null &&
+                                      profile['profile_image'] != null
+                                  ? CachedNetworkImageProvider(
+                                      _normalizeImagePath(
+                                        profile['profile_image'],
+                                      ),
+                                    )
                                   : null,
                               backgroundColor: Colors.grey.shade300,
-                              child: profile == null || profile['profile_image'] == null
-                                  ? const Icon(Icons.person, size: 30, color: Colors.white)
+                              child:
+                                  profile == null ||
+                                      profile['profile_image'] == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 30,
+                                      color: Colors.white,
+                                    )
                                   : null,
                             ),
                             const SizedBox(width: 12),
@@ -234,7 +261,7 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        '(${reviews.length} reviews)',
+                                        '(${reviews.length} reseñas)',
                                         style: const TextStyle(
                                           fontSize: 12,
                                           color: Colors.black54,
@@ -263,7 +290,7 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                             Text(
                               profile != null && profile['about_me'] != null
                                   ? profile['about_me']
-                                  : 'No bio available',
+                                  : 'No hay biografía disponible',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.black54,
@@ -284,26 +311,38 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            profile != null && profile['skills'] != null && (profile['skills'] as List).isNotEmpty
+                            profile != null &&
+                                    profile['skills'] != null &&
+                                    (profile['skills'] as List).isNotEmpty
                                 ? Wrap(
                                     spacing: 8,
                                     runSpacing: 4,
-                                    children: (profile['skills'] as List<dynamic>)
-                                        .map((skill) => Chip(
-                                              label: Text(
-                                                skill.toString(),
-                                                style: const TextStyle(fontSize: 12),
+                                    children:
+                                        (profile['skills'] as List<dynamic>)
+                                            .map(
+                                              (skill) => Chip(
+                                                label: Text(
+                                                  skill.toString(),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                backgroundColor:
+                                                    Colors.grey.shade100,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
                                               ),
-                                              backgroundColor: Colors.grey.shade100,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                                            ))
-                                        .toList(),
+                                            )
+                                            .toList(),
                                   )
                                 : const Text(
-                                    'No skills listed',
+                                    'No hay habilidades listadas',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.black54,
@@ -327,7 +366,7 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                             Text(
                               profile != null && profile['category'] != null
                                   ? profile['category']
-                                  : 'No service category available',
+                                  : 'No hay categoría de servicio disponible',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.black54,
@@ -348,26 +387,40 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            profile != null && profile['subcategories'] != null && (profile['subcategories'] as List).isNotEmpty
+                            profile != null &&
+                                    profile['subcategories'] != null &&
+                                    (profile['subcategories'] as List)
+                                        .isNotEmpty
                                 ? Wrap(
                                     spacing: 8,
                                     runSpacing: 4,
-                                    children: (profile['subcategories'] as List<dynamic>)
-                                        .map((subcategory) => Chip(
-                                              label: Text(
-                                                subcategory.toString(),
-                                                style: const TextStyle(fontSize: 12),
+                                    children:
+                                        (profile['subcategories']
+                                                as List<dynamic>)
+                                            .map(
+                                              (subcategory) => Chip(
+                                                label: Text(
+                                                  subcategory.toString(),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                backgroundColor:
+                                                    Colors.grey.shade100,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
                                               ),
-                                              backgroundColor: Colors.grey.shade100,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                                            ))
-                                        .toList(),
+                                            )
+                                            .toList(),
                                   )
                                 : const Text(
-                                    'No subcategories listed',
+                                    'No hay subcategorías listadas',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.black54,
@@ -380,110 +433,131 @@ class _WorkerReviewsScreenState extends State<WorkerReviewsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Reseñas',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Review list
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: reviews.length,
-                  itemBuilder: (context, index) {
-                    final review = reviews[index];
-                    return Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    review['client_name'] ?? 'Usuario Desconocido',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Text(
-                                  _formatTimestamp(review['created_at']),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                for (int i = 0; i < 5; i++)
-                                  Icon(
-                                    i < (review['rating']?.toDouble() ?? 0.0).floor()
-                                        ? Icons.star
-                                        : Icons.star_border,
-                                    color: Colors.yellow.shade700,
-                                    size: 20,
-                                  ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  (review['rating']?.toDouble() ?? 0.0).toStringAsFixed(1),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${review['service_category'] ?? 'Unknown'} - ${review['service_subcategory'] ?? 'Unknown'}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              'Date: ${_formatServiceDate(review['service_date'])}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.black54,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              review['comment'] ?? 'No comment provided',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.black54,
-                              ),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                if (reviews.isEmpty)
+                  const Center(
+                    child: Text(
+                      'No hay reseñas disponibles para este trabajador',
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                    ),
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Reseñas',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
                       ),
-                    );
-                  },
-                ),
+                      const SizedBox(height: 8),
+                      // Review list
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: reviews.length,
+                        itemBuilder: (context, index) {
+                          final review = reviews[index];
+                          return Card(
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          review['client_name'] ??
+                                              'Usuario Desconocido',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatTimestamp(review['created_at']),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      for (int i = 0; i < 5; i++)
+                                        Icon(
+                                          i <
+                                                  (review['rating']
+                                                              ?.toDouble() ??
+                                                          0.0)
+                                                      .floor()
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                          color: Colors.yellow.shade700,
+                                          size: 20,
+                                        ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        (review['rating']?.toDouble() ?? 0.0)
+                                            .toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${review['service_category'] ?? 'Desconocido'} - ${review['service_subcategory'] ?? 'Desconocido'}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Fecha: ${_formatServiceDate(review['service_date'])}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    review['comment'] ??
+                                        'No hay comentario proporcionado',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
               ],
             ),
           );

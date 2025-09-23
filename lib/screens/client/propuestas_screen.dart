@@ -107,10 +107,15 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         );
       }
 
-      if (photoResponse['status'] == 'success' && photoResponse['data'] != null) {
-        profilePhotoUrl = photoResponse['data']['profile_photo_url']?.toString() ?? '';
-        if (profilePhotoUrl.isNotEmpty && !Uri.parse(profilePhotoUrl).isAbsolute) {
-          print('ERROR: Invalid profile photo URL for workerId $workerId: $profilePhotoUrl');
+      if (photoResponse['status'] == 'success' &&
+          photoResponse['data'] != null) {
+        profilePhotoUrl =
+            photoResponse['data']['profile_photo_url']?.toString() ?? '';
+        if (profilePhotoUrl.isNotEmpty &&
+            !Uri.parse(profilePhotoUrl).isAbsolute) {
+          print(
+            'ERROR: Invalid profile photo URL for workerId $workerId: $profilePhotoUrl',
+          );
           profilePhotoUrl = '';
         }
       } else {
@@ -119,7 +124,9 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         );
       }
 
-      if (reviewsResponse['status'] == 'success' && reviewsResponse['data'] != null && reviewsResponse['data']['reviews'] != null) {
+      if (reviewsResponse['status'] == 'success' &&
+          reviewsResponse['data'] != null &&
+          reviewsResponse['data']['reviews'] != null) {
         reviewCount = (reviewsResponse['data']['reviews'] as List).length;
       } else {
         print(
@@ -132,7 +139,9 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         'photo': profilePhotoUrl,
         'review_count': reviewCount,
       };
-      print('DEBUG: Worker details for workerId $workerId: ${_workerCache[workerId]}');
+      print(
+        'DEBUG: Worker details for workerId $workerId: ${_workerCache[workerId]}',
+      );
       return _workerCache[workerId]!;
     } catch (e, stackTrace) {
       print('ERROR: Failed to fetch worker details for workerId $workerId: $e');
@@ -185,16 +194,13 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         body: BlocListener<ProposalsBloc, ProposalsState>(
           listener: (context, state) {
             if (state is ProposalsError) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(state.message)));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.message)));
             } else if (state is ProposalsActionSuccess) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(state.message)));
-              if (state.message == 'Recontratación iniciada exitosamente') {
-                setState(() {
-                  _newRequestId = null;
-                });
-              }
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.message)));
             } else if (state is ProposalsLoaded && _newRequestId == null) {
               if (state.serviceRequest['id'] != widget.requestId) {
                 setState(() {
@@ -234,13 +240,18 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                 }
 
                 // Filter proposals: show only the accepted proposal if service is not completed
-                final isServiceCompleted = state.serviceRequest['status'] == 'Completado';
-                final hasAcceptedProposal = state.proposals.any((p) => p['status'] == 'accepted');
+                final isServiceCompleted =
+                    state.serviceRequest['status'] == 'Completado';
+                final hasAcceptedProposal = state.proposals.any(
+                  (p) => p['status'] == 'accepted',
+                );
                 final filteredProposals = isServiceCompleted
                     ? state.proposals
                     : hasAcceptedProposal
-                        ? state.proposals.where((p) => p['status'] == 'accepted').toList()
-                        : state.proposals;
+                    ? state.proposals
+                          .where((p) => p['status'] == 'accepted')
+                          .toList()
+                    : state.proposals;
 
                 if (filteredProposals.isEmpty) {
                   return const Center(
@@ -270,23 +281,23 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                       builder: (context, snapshot) {
                         final workerName =
                             snapshot.connectionState == ConnectionState.done
-                                ? (snapshot.data?['name'] ??
-                                    'Usuario ${proposal['worker_id']}')
-                                : (proposal['worker_name']
-                                          ?.toString()
-                                          .trim()
-                                          .isNotEmpty ??
-                                      false)
-                                    ? proposal['worker_name']
-                                    : 'Cargando...';
+                            ? (snapshot.data?['name'] ??
+                                  'Usuario ${proposal['worker_id']}')
+                            : (proposal['worker_name']
+                                      ?.toString()
+                                      .trim()
+                                      .isNotEmpty ??
+                                  false)
+                            ? proposal['worker_name']
+                            : 'Cargando...';
                         final profilePhotoUrl =
                             snapshot.connectionState == ConnectionState.done
-                                ? (snapshot.data?['photo'] ?? '')
-                                : '';
+                            ? (snapshot.data?['photo'] ?? '')
+                            : '';
                         final reviewCount =
                             snapshot.connectionState == ConnectionState.done
-                                ? (snapshot.data?['review_count'] ?? 0)
-                                : 0;
+                            ? (snapshot.data?['review_count'] ?? 0)
+                            : 0;
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           child: Padding(
@@ -307,8 +318,8 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                         color: proposal['status'] == 'pending'
                                             ? Colors.yellow.shade100
                                             : proposal['status'] == 'accepted'
-                                                ? Colors.blue.shade100
-                                                : Colors.red.shade100,
+                                            ? Colors.blue.shade100
+                                            : Colors.red.shade100,
                                         borderRadius: BorderRadius.circular(4),
                                         border: proposal['status'] == 'accepted'
                                             ? Border.all(
@@ -331,19 +342,21 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                             proposal['status'] == 'pending'
                                                 ? 'Pendiente'
                                                 : proposal['status'] ==
-                                                        'accepted'
-                                                    ? 'Contratado'
-                                                    : 'Rechazada',
+                                                      'accepted'
+                                                ? 'Contratado'
+                                                : 'Rechazada',
                                             style: TextStyle(
-                                              color: proposal['status'] ==
+                                              color:
+                                                  proposal['status'] ==
                                                       'pending'
                                                   ? Colors.yellow.shade800
                                                   : proposal['status'] ==
-                                                          'accepted'
-                                                      ? Colors.blue.shade800
-                                                      : Colors.red.shade800,
+                                                        'accepted'
+                                                  ? Colors.blue.shade800
+                                                  : Colors.red.shade800,
                                               fontSize: 12,
-                                              fontWeight: proposal['status'] ==
+                                              fontWeight:
+                                                  proposal['status'] ==
                                                       'accepted'
                                                   ? FontWeight.bold
                                                   : FontWeight.normal,
@@ -415,95 +428,122 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: proposal['worker_id'] == null
-                                      ? null
-                                      : () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => WorkerReviewsScreen(
-                                                workerId: proposal['worker_id'].toString(),
-                                                workerName: workerName,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: Colors.grey.shade300,
-                                        child: profilePhotoUrl.isNotEmpty
-                                            ? ClipOval(
-                                                child: CachedNetworkImage(
-                                                  imageUrl: profilePhotoUrl,
-                                                  placeholder: (context, url) =>
-                                                      const CircularProgressIndicator(
-                                                    strokeWidth: 2,
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: Colors.grey.shade300,
+                                          child: profilePhotoUrl.isNotEmpty
+                                              ? ClipOval(
+                                                  child: CachedNetworkImage(
+                                                    imageUrl: profilePhotoUrl,
+                                                    placeholder: (context, url) =>
+                                                        const CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                        ),
+                                                    errorWidget:
+                                                        (context, url, error) =>
+                                                            const Icon(
+                                                              Icons.person,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 20,
+                                                            ),
+                                                    width: 32,
+                                                    height: 32,
+                                                    fit: BoxFit.cover,
                                                   ),
-                                                  errorWidget:
-                                                      (context, url, error) =>
-                                                          const Icon(
-                                                    Icons.person,
-                                                    color: Colors.white,
-                                                    size: 20,
+                                                )
+                                              : const Icon(
+                                                  Icons.person,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  workerName,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.black87,
                                                   ),
-                                                  width: 32,
-                                                  height: 32,
-                                                  fit: BoxFit.cover,
                                                 ),
-                                              )
-                                            : const Icon(
-                                                Icons.person,
-                                                color: Colors.white,
-                                                size: 20,
-                                              ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            workerName,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.black87,
-                                              decoration: TextDecoration.underline,
+                                                const SizedBox(width: 8),
+                                                GestureDetector(
+                                                  onTap:
+                                                      proposal['worker_id'] ==
+                                                          null
+                                                      ? null
+                                                      : () {
+                                                          Navigator.push(
+                                                            context,
+                                                            MaterialPageRoute(
+                                                              builder: (context) =>
+                                                                  WorkerReviewsScreen(
+                                                                    workerId:
+                                                                        proposal['worker_id']
+                                                                            .toString(),
+                                                                    workerName:
+                                                                        workerName,
+                                                                  ),
+                                                            ),
+                                                          );
+                                                        },
+                                                  child: const Text(
+                                                    'Ver perfil',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Color(0xFF1e40af),
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.star,
-                                                size: 16,
-                                                color: Colors.yellow.shade700,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                (proposal['worker_rating'] ?? 0.0)
-                                                    .toStringAsFixed(1),
-                                                style: const TextStyle(
-                                                  color: Colors.black54,
-                                                  fontSize: 14,
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.star,
+                                                  size: 16,
+                                                  color: Colors.yellow.shade700,
                                                 ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                '($reviewCount ${reviewCount == 1 ? 'review' : 'reviews'})',
-                                                style: const TextStyle(
-                                                  color: Colors.black54,
-                                                  fontSize: 14,
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  (proposal['worker_rating'] ??
+                                                          0.0)
+                                                      .toStringAsFixed(1),
+                                                  style: const TextStyle(
+                                                    color: Colors.black54,
+                                                    fontSize: 14,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '($reviewCount ${reviewCount == 1 ? 'reseña' : 'reseñas'})',
+                                                  style: const TextStyle(
+                                                    color: Colors.black54,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
@@ -519,14 +559,17 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                     Expanded(
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF22c55e),
+                                          backgroundColor: const Color(
+                                            0xFF22c55e,
+                                          ),
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 12,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                         ),
                                         onPressed: proposal['worker_id'] == null
@@ -540,12 +583,13 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                                   MaterialPageRoute(
                                                     builder: (context) =>
                                                         ContratadoScreen(
-                                                      requestId:
-                                                          widget.requestId,
-                                                      proposalId: proposal['id'],
-                                                      workerId:
-                                                          proposal['worker_id'],
-                                                    ),
+                                                          requestId:
+                                                              widget.requestId,
+                                                          proposalId:
+                                                              proposal['id'],
+                                                          workerId:
+                                                              proposal['worker_id'],
+                                                        ),
                                                   ),
                                                 );
                                               },
@@ -568,12 +612,14 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                         Expanded(
                                           child: ElevatedButton(
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color(0xFF22c55e),
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 12,
+                                              backgroundColor: const Color(
+                                                0xFF1e40af,
                                               ),
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(4),
@@ -588,91 +634,22 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                                 MaterialPageRoute(
                                                   builder: (context) =>
                                                       ReviewServiceScreen(
-                                                    requestId: widget.requestId,
-                                                    workerId: proposal[
-                                                            'worker_id']
-                                                        .toString(),
-                                                    workerName:
-                                                        workerName !=
+                                                        requestId:
+                                                            widget.requestId,
+                                                        workerId:
+                                                            proposal['worker_id']
+                                                                .toString(),
+                                                        workerName:
+                                                            workerName !=
                                                                 'Cargando...'
                                                             ? workerName
                                                             : null,
-                                                  ),
+                                                      ),
                                                 ),
                                               );
                                             },
                                             child: const Text(
                                               'Calificar',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color(0xFF1e40af),
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 12,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                            ),
-                                            onPressed: () {
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) => AlertDialog(
-                                                  title: const Text(
-                                                    'Confirmar Recontratación',
-                                                  ),
-                                                  content: const Text(
-                                                    '¿Desea recontratar a este trabajador?',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(context),
-                                                      child: const Text(
-                                                        'Cancelar',
-                                                      ),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () {
-                                                        Navigator.pop(context);
-                                                        print(
-                                                          'DEBUG: Initiating recontract for workerId: ${proposal['worker_id']}, type: ${proposal['worker_id'].runtimeType}, requestId: ${widget.requestId}',
-                                                        );
-                                                        context
-                                                            .read<ProposalsBloc>()
-                                                            .add(
-                                                              RecontractWorker(
-                                                                workerId:
-                                                                    proposal[
-                                                                        'worker_id'],
-                                                                requestId: widget
-                                                                    .requestId,
-                                                                subcategory: widget
-                                                                    .subcategory,
-                                                              ),
-                                                            );
-                                                      },
-                                                      child: const Text(
-                                                        'Confirmar',
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                            child: const Text(
-                                              'Recontratar',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w500,
