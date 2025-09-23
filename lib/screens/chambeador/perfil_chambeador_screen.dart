@@ -250,6 +250,7 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
   }
 
   Future<void> _selectBirthDate() async {
+    print('[PerfilChambeadorScreen] Birth date field tapped');
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _birthDateController.text.isNotEmpty

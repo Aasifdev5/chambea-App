@@ -14,6 +14,7 @@ import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:chambea/blocs/client/client_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // ✅ Added
 import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/client/proposals_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +28,9 @@ class AuthUtils {
   static bool _isNavigating = false;
   static DateTime? _lastBackPress;
   static int _backPressCount = 0; // Track number of back presses
-  static const _debounceDuration = Duration(milliseconds: 500); // Reduced for double-tap detection
+  static const _debounceDuration = Duration(
+    milliseconds: 500,
+  ); // Reduced for double-tap detection
   static const _maxBackPresses = 2; // Number of taps to trigger popup
 
   static Future<Widget> getAuthenticatedScreen(BuildContext context) async {
@@ -316,10 +319,18 @@ class _ChambeaAppState extends State<ChambeaApp> {
             ),
           ),
         ),
+
+        /// ✅ Localization setup
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('es', 'ES'), // Spanish
+        ],
         home: _isLoading
-            ? const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              )
+            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : _initialScreen,
         routes: {
           '/perfil': (context) => const PerfilScreen(),
@@ -418,7 +429,9 @@ class _OnboardingOneScreenState extends State<OnboardingOneScreen> {
     });
     final nextScreen = await AuthUtils.getAuthenticatedScreen(context);
     if (mounted && nextScreen != const SplashScreen()) {
-      print('DEBUG: Logged-in user detected, redirecting from OnboardingOneScreen');
+      print(
+        'DEBUG: Logged-in user detected, redirecting from OnboardingOneScreen',
+      );
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => nextScreen),
@@ -439,9 +452,7 @@ class _OnboardingOneScreenState extends State<OnboardingOneScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isCheckingAuth) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -501,7 +512,9 @@ class _OnboardingOneScreenState extends State<OnboardingOneScreen> {
                         onPressed: () {
                           Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
                             (route) => false,
                           );
                         },
@@ -577,7 +590,9 @@ class _OnboardingTwoScreenState extends State<OnboardingTwoScreen> {
     });
     final nextScreen = await AuthUtils.getAuthenticatedScreen(context);
     if (mounted && nextScreen != const SplashScreen()) {
-      print('DEBUG: Logged-in user detected, redirecting from OnboardingTwoScreen');
+      print(
+        'DEBUG: Logged-in user detected, redirecting from OnboardingTwoScreen',
+      );
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => nextScreen),
@@ -598,9 +613,7 @@ class _OnboardingTwoScreenState extends State<OnboardingTwoScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isCheckingAuth) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -660,7 +673,9 @@ class _OnboardingTwoScreenState extends State<OnboardingTwoScreen> {
                         onPressed: () {
                           Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
                             (route) => false,
                           );
                         },
@@ -736,7 +751,9 @@ class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
     });
     final nextScreen = await AuthUtils.getAuthenticatedScreen(context);
     if (mounted && nextScreen != const SplashScreen()) {
-      print('DEBUG: Logged-in user detected, redirecting from OnboardingThreeScreen');
+      print(
+        'DEBUG: Logged-in user detected, redirecting from OnboardingThreeScreen',
+      );
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => nextScreen),
@@ -757,9 +774,7 @@ class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isCheckingAuth) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -819,7 +834,9 @@ class _OnboardingThreeScreenState extends State<OnboardingThreeScreen> {
                         onPressed: () {
                           Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
                             (route) => false,
                           );
                         },
@@ -1115,9 +1132,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isCheckingAuth) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -1601,7 +1616,9 @@ class _OTPScreenState extends State<OTPScreen> with CodeAutoFill {
                       'Reenviar código',
                       style: TextStyle(
                         fontSize: screenWidth * 0.035,
-                        color: _canResend ? const Color(0xFF22c55e) : Colors.grey,
+                        color: _canResend
+                            ? const Color(0xFF22c55e)
+                            : Colors.grey,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1938,8 +1955,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
                             _selectedProfile != null && _termsAccepted
-                                ? const Color(0xFF22C55E)
-                                : Colors.grey.shade400,
+                            ? const Color(0xFF22C55E)
+                            : Colors.grey.shade400,
                         padding: EdgeInsets.symmetric(
                           vertical: screenHeight * 0.02,
                         ),

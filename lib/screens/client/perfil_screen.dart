@@ -39,6 +39,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     });
   }
 
+  // Check authentication and fetch profile data
   Future<void> _checkAuthAndFetchProfile() async {
     if (!mounted) return;
     if (FirebaseAuth.instance.currentUser == null) {
@@ -55,59 +56,57 @@ class _PerfilScreenState extends State<PerfilScreen> {
     context.read<ClientBloc>().add(FetchClientProfileEvent());
   }
 
-  void _showImageSourceDialog() {
-    showModalBottomSheet(
+  // Select birth date with Spanish-localized calendar
+  Future<void> _selectBirthDate() async {
+    final now = DateTime.now();
+    final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
+    final DateTime? picked = await showDatePicker(
       context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Galería'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImageFromSource(ImageSource.gallery);
-                },
+      initialDate: _selectedBirthDate ?? eighteenYearsAgo,
+      firstDate: DateTime(1900),
+      lastDate: now,
+      locale: const Locale('es', 'ES'), // Spanish calendar UI
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF22c55e), // App primary color
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            dialogBackgroundColor: Colors.white,
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF22c55e),
               ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: const Text('Cámara'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImageFromSource(ImageSource.camera);
-                },
-              ),
-            ],
+            ),
           ),
+          child: child!,
         );
       },
     );
-  }
-
-  Future<void> _pickImageFromSource(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(
-      source: source,
-      imageQuality: 50,
-    );
-
-    if (pickedFile != null && mounted) {
+    if (picked != null && picked != _selectedBirthDate) {
+      // Validate age (must be at least 18)
+      final age = now.difference(picked).inDays ~/ 365;
+      if (age < 18) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debes tener al menos 18 años')),
+        );
+        return;
+      }
       setState(() {
-        _imageFile = File(pickedFile.path);
+        _selectedBirthDate = picked;
+        _birthDateController.text = DateFormat(
+          'dd/MM/yyyy',
+          'es_ES',
+        ).format(picked);
+        print('DEBUG: Selected birth date: ${_birthDateController.text}');
       });
-      print('DEBUG: Image selected: ${pickedFile.path}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Imagen seleccionada. Puedes subirla ahora o más tarde.',
-          ),
-        ),
-      );
-    } else {
-      print('DEBUG: No image selected');
     }
   }
 
+  // Upload profile image
   Future<void> _uploadImage() async {
     if (_imageFile == null) {
       print('DEBUG: No image to upload');
@@ -141,37 +140,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
-  Future<void> _selectBirthDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedBirthDate ?? DateTime.now(),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-      locale: const Locale('es', 'ES'),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.blue,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: Colors.blue),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _selectedBirthDate) {
-      setState(() {
-        _selectedBirthDate = picked;
-        _birthDateController.text = DateFormat('dd/MM/yyyy').format(picked);
-      });
-    }
-  }
-
+  // Pick location
   Future<void> _pickLocation() async {
     final result = await Navigator.push(
       context,
@@ -187,6 +156,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  // Save profile
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) {
       print('DEBUG: Form validation failed');
@@ -438,30 +408,24 @@ class _PerfilScreenState extends State<PerfilScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        GestureDetector(
-                          onTap: _selectBirthDate,
-                          child: AbsorbPointer(
-                            child: TextFormField(
-                              controller: _birthDateController,
-                              enabled: false,
-                              decoration: const InputDecoration(
-                                hintText: 'Fecha de nacimiento (dd/mm/yyyy)',
-                                prefixIcon: Icon(Icons.calendar_today),
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (_selectedBirthDate == null) {
-                                  return 'Por favor seleccione su fecha de nacimiento';
-                                }
-                                if (_selectedBirthDate!.isAfter(
-                                  DateTime.now(),
-                                )) {
-                                  return 'La fecha de nacimiento no puede ser en el futuro';
-                                }
-                                return null;
-                              },
-                            ),
+                        TextFormField(
+                          controller: _birthDateController,
+                          readOnly: true,
+                          decoration: const InputDecoration(
+                            hintText: 'Fecha de nacimiento (dd/mm/yyyy)',
+                            prefixIcon: Icon(Icons.calendar_today),
+                            border: OutlineInputBorder(),
                           ),
+                          onTap: _selectBirthDate,
+                          validator: (value) {
+                            if (_selectedBirthDate == null) {
+                              return 'Por favor seleccione su fecha de nacimiento';
+                            }
+                            if (_selectedBirthDate!.isAfter(DateTime.now())) {
+                              return 'La fecha de nacimiento no puede ser en el futuro';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -534,8 +498,64 @@ class _PerfilScreenState extends State<PerfilScreen> {
       },
     );
   }
+
+  // Image source dialog
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Galería'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickImageFromSource(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Cámara'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickImageFromSource(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Pick image
+  Future<void> _pickImageFromSource(ImageSource source) async {
+    final pickedFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 50,
+    );
+
+    if (pickedFile != null && mounted) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+      print('DEBUG: Image selected: ${pickedFile.path}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Imagen seleccionada. Puedes subirla ahora o más tarde.',
+          ),
+        ),
+      );
+    } else {
+      print('DEBUG: No image selected');
+    }
+  }
 }
 
+// MapPickerScreen remains unchanged
 class MapPickerScreen extends StatefulWidget {
   const MapPickerScreen({super.key});
 
@@ -545,10 +565,7 @@ class MapPickerScreen extends StatefulWidget {
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
   GoogleMapController? _mapController;
-  LatLng _selectedLocation = const LatLng(
-    -17.9833,
-    -67.15,
-  ); // Oruro, Bolivia as fallback
+  LatLng _selectedLocation = const LatLng(-17.9833, -67.15); // Oruro, Bolivia
   String _address = '';
   Set<Marker> _markers = {};
 
