@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:chambea/screens/chambeador/perfil_chambeador_screen.dart';
+import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_event.dart';
 import 'package:chambea/blocs/chambeador/chambeador_state.dart';
@@ -178,8 +178,7 @@ class _AntecedentesScreenState extends State<AntecedentesScreen> {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      const PerfilChambeadorScreen(),
+                                  builder: (context) => const HomeScreen(),
                                 ),
                               );
                             }

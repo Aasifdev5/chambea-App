@@ -56,7 +56,7 @@ android {
 
 dependencies {
     // Firebase BoM (Bill of Materials) to align versions
-    implementation(platform("com.google.firebase:firebase-bom:33.5.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
 
     // Firebase core services
     implementation("com.google.firebase:firebase-auth")

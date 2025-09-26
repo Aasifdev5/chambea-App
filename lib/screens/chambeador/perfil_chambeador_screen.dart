@@ -4,7 +4,7 @@ import 'package:chambea/blocs/chambeador/chambeador_bloc.dart';
 import 'package:chambea/blocs/chambeador/chambeador_event.dart';
 import 'package:chambea/blocs/chambeador/chambeador_state.dart';
 import 'package:chambea/screens/chambeador/profile_photo_upload_screen.dart';
-import 'package:chambea/screens/chambeador/home_screen.dart';
+import 'package:chambea/screens/chambeador/identity_card_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1001,7 +1001,7 @@ class _PerfilChambeadorScreenState extends State<PerfilChambeadorScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const HomeScreen(),
+                                  builder: (_) => const IdentityCardScreen(),
                                 ),
                               );
                             } else {

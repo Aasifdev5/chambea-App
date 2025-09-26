@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/screens/client/chat_detail_screen.dart';
+import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/services/api_service.dart';
 
 class ContractConfirmationScreen extends StatefulWidget {
@@ -163,14 +164,6 @@ class _ContractConfirmationScreenState
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: Colors.black,
-            size: screenWidth * 0.06,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(
           "Agendar",
           style: TextStyle(
@@ -364,6 +357,7 @@ class _ContractConfirmationScreenState
                       ),
                     ),
                     SizedBox(height: screenHeight * 0.03),
+
                     // Chat Button
                     SizedBox(
                       width: double.infinity,
@@ -398,9 +392,6 @@ class _ContractConfirmationScreenState
                                   'Completado',
                                 ].contains(_serviceRequest?['status'])
                             ? () {
-                                print(
-                                  'DEBUG: Chat button pressed, navigating to ChatDetailScreen with workerId: $_workerFirebaseUid, requestId: ${widget.requestId}',
-                                );
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -421,6 +412,41 @@ class _ContractConfirmationScreenState
                                   ].contains(_serviceRequest?['status'])
                               ? 'Chatea con el chambeador'
                               : 'Seleccione un trabajador para chatear',
+                          style: TextStyle(fontSize: screenWidth * 0.04),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: screenHeight * 0.02),
+
+                    // Ir a inicio Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          minimumSize: Size(
+                            double.infinity,
+                            screenHeight * 0.07,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              screenWidth * 0.03,
+                            ),
+                          ),
+                          elevation: 8,
+                        ),
+                        onPressed: () {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ClientHomeScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                        child: Text(
+                          'Ir a inicio',
                           style: TextStyle(fontSize: screenWidth * 0.04),
                         ),
                       ),

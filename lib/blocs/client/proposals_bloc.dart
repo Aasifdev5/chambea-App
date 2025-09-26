@@ -159,13 +159,21 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         '/api/account-type/$workerFirebaseUid',
       );
 
-      final response = await ApiService.post('/api/service-requests/${event.requestId}/hire', {
-        'agreed_budget': event.budget,
-        if (event.proposalId != null) 'proposal_id': event.proposalId,
-        'worker_id': workerFirebaseUid,
-      });
+      final response = await ApiService.post(
+        '/api/service-requests/${event.requestId}/hire',
+        {
+          'agreed_budget': event.budget,
+          if (event.proposalId != null) 'proposal_id': event.proposalId,
+          'worker_id': workerFirebaseUid,
+        },
+      );
 
-      emit(ProposalsActionSuccess('Contrato creado exitosamente', contractData: response['contract']));
+      emit(
+        ProposalsActionSuccess(
+          'Contrato creado exitosamente',
+          contractData: response['contract'],
+        ),
+      );
       add(FetchServiceRequests());
     } catch (e) {
       final errorMessage = _handleError(e);
@@ -231,17 +239,23 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       // If the current state is ProposalsLoaded, emit it with the refreshingRequestId
       if (state is ProposalsLoaded) {
         final currentState = state as ProposalsLoaded;
-        emit(ProposalsLoaded(
-          currentState.serviceRequest,
-          currentState.proposals,
-          refreshingRequestId: event.requestId,
-        ));
+        emit(
+          ProposalsLoaded(
+            currentState.serviceRequest,
+            currentState.proposals,
+            refreshingRequestId: event.requestId,
+          ),
+        );
       }
 
       // Fetch the updated service request
-      final response = await ApiService.get('/api/service-requests/${event.requestId}');
+      final response = await ApiService.get(
+        '/api/service-requests/${event.requestId}',
+      );
       final updatedRequest = Map<String, dynamic>.from(response['data'] ?? {});
-      final proposals = List<Map<String, dynamic>>.from(updatedRequest['proposals'] ?? []);
+      final proposals = List<Map<String, dynamic>>.from(
+        updatedRequest['proposals'] ?? [],
+      );
 
       // Fetch worker data for proposals
       final workerIds = <int>{};
@@ -266,7 +280,9 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         final currentRequests = List<Map<String, dynamic>>.from(
           currentState.serviceRequest['requests'] ?? [],
         );
-        final index = currentRequests.indexWhere((req) => req['id'] == event.requestId);
+        final index = currentRequests.indexWhere(
+          (req) => req['id'] == event.requestId,
+        );
         if (index != -1) {
           currentRequests[index] = updatedRequest;
         } else {
@@ -274,7 +290,14 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         }
         emit(ProposalsLoaded({'requests': currentRequests}, currentRequests));
       } else {
-        emit(ProposalsLoaded({'requests': [updatedRequest]}, [updatedRequest]));
+        emit(
+          ProposalsLoaded(
+            {
+              'requests': [updatedRequest],
+            },
+            [updatedRequest],
+          ),
+        );
       }
     } catch (e) {
       final errorMessage = _handleError(e);
@@ -293,26 +316,19 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           '/api/users/map-id-to-uid/$workerId',
         );
         final workerFirebaseUid = uidResponse['data']['uid'];
+
         if (workerFirebaseUid != null) {
           final userResponse = await ApiService.get(
             '/api/users/$workerFirebaseUid',
           );
           final userData = userResponse['data'] ?? {};
-          if (userData['account_type'] == 'Chambeador') {
-            workerData[workerId] = {
-              'uid': workerFirebaseUid,
-              'name': userData['name'] ?? 'Usuario $workerId',
-              'rating': userData['rating']?.toDouble() ?? 0.0,
-              'image': userData['image'],
-            };
-          } else {
-            workerData[workerId] = {
-              'uid': workerFirebaseUid,
-              'name': 'Usuario $workerId',
-              'rating': 0.0,
-              'image': null,
-            };
-          }
+
+          workerData[workerId] = {
+            'uid': workerFirebaseUid,
+            'name': userData['name'] ?? 'Usuario $workerId',
+            'rating': userData['rating']?.toDouble() ?? 0.0,
+            'image': userData['image'],
+          };
         } else {
           workerData[workerId] = {
             'uid': null,

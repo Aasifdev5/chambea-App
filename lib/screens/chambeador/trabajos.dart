@@ -24,10 +24,14 @@ class _TrabajosContentState extends State<TrabajosContent> {
       final firebaseUid = user.uid;
       final endpoint = '/api/service-requests/worker-jobs/$firebaseUid';
 
-      final response = await ApiService.get(endpoint).timeout(const Duration(seconds: 10));
+      final response = await ApiService.get(
+        endpoint,
+      ).timeout(const Duration(seconds: 10));
 
       if (response['status'] != 'success') {
-        throw Exception(response['message'] ?? 'Error desconocido del servidor');
+        throw Exception(
+          response['message'] ?? 'Error desconocido del servidor',
+        );
       }
       if (response['data'] == null || response['data'] is! List) {
         throw Exception('Formato de datos inválido del servidor');
@@ -35,7 +39,11 @@ class _TrabajosContentState extends State<TrabajosContent> {
 
       final data = response['data'] as List;
       logger.d('✅ Jobs fetched successfully, total: ${data.length}');
-      logger.d('Job statuses: ${data.map((jobJson) => jobJson['status']).toList()}');
+      logger.d(
+        'Job statuses: ${data.map((jobJson) => jobJson['status']).toList()}',
+      );
+
+      // Map API response to Job model
       return data.map((jobJson) => Job.fromJson(jobJson)).toList();
     } catch (e) {
       logger.e('⛔ Exception in fetchJobs: $e');
@@ -89,7 +97,7 @@ class _TrabajosContentState extends State<TrabajosContent> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => refreshJobs(),
+                    onPressed: refreshJobs,
                     child: const Text('Reintentar'),
                   ),
                 ],
@@ -116,19 +124,25 @@ class _TrabajosContentState extends State<TrabajosContent> {
                     child: TabBarView(
                       children: [
                         JobList(
-                          jobs: jobs.where((job) => job.status == 'Pendiente').toList(),
+                          jobs: jobs
+                              .where((job) => job.status == 'Pendiente')
+                              .toList(),
                           onRefresh: refreshJobs,
                           emptyMessage: 'No hay trabajos pendientes',
                           allowStartService: false,
                         ),
                         JobList(
-                          jobs: jobs.where((job) => job.status == 'En curso').toList(),
+                          jobs: jobs
+                              .where((job) => job.status == 'En curso')
+                              .toList(),
                           onRefresh: refreshJobs,
                           emptyMessage: 'No hay trabajos en curso',
                           allowStartService: true,
                         ),
                         JobList(
-                          jobs: jobs.where((job) => job.status == 'Completado').toList(),
+                          jobs: jobs
+                              .where((job) => job.status == 'Completado')
+                              .toList(),
                           onRefresh: refreshJobs,
                           emptyMessage: 'No hay trabajos completados',
                           allowStartService: false,
@@ -162,7 +176,6 @@ class JobList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('JobList jobs: ${jobs.map((job) => job.title).toList()}');
     if (jobs.isEmpty) {
       return Center(
         child: Text(
@@ -184,10 +197,11 @@ class JobList extends StatelessWidget {
             job: job,
             onTap: allowStartService
                 ? () {
-                    print('Navigating to StartServiceScreen for job: ${job.title}');
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => StartServiceScreen(job: job)),
+                      MaterialPageRoute(
+                        builder: (_) => StartServiceScreen(job: job),
+                      ),
                     ).then((_) => onRefresh());
                   }
                 : null,
@@ -227,11 +241,14 @@ class TrabajoCard extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(12),
-          color: job.status == 'Completado' ? Colors.grey.shade100 : Colors.white,
+          color: job.status == 'Completado'
+              ? Colors.grey.shade100
+              : Colors.white,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Status
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -248,19 +265,28 @@ class TrabajoCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
+            // Title
             Text(
               job.title,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
+            // Categories
             Wrap(
               spacing: 8,
-              children: job.categories.map((category) => _TagChip(label: category)).toList(),
+              children: job.categories
+                  .map((category) => _TagChip(label: category))
+                  .toList(),
             ),
             const SizedBox(height: 12),
+            // Location & Date
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 18, color: Colors.grey),
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 18,
+                  color: Colors.grey,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -276,24 +302,38 @@ class TrabajoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
+            // Start Time & Price
             Row(
               children: [
-                const Icon(Icons.access_time_outlined, size: 18, color: Colors.grey),
+                const Icon(
+                  Icons.access_time_outlined,
+                  size: 18,
+                  color: Colors.grey,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   job.startTime ?? 'No especificado',
                   style: const TextStyle(fontSize: 13),
                 ),
                 const SizedBox(width: 10),
-                const Icon(Icons.attach_money_outlined, size: 18, color: Colors.grey),
+                const Icon(
+                  Icons.attach_money_outlined,
+                  size: 18,
+                  color: Colors.grey,
+                ),
                 const SizedBox(width: 4),
                 Text(job.priceRange, style: const TextStyle(fontSize: 13)),
               ],
             ),
             const SizedBox(height: 6),
+            // Payment Method
             Row(
               children: [
-                const Icon(Icons.payments_outlined, size: 18, color: Colors.grey),
+                const Icon(
+                  Icons.payments_outlined,
+                  size: 18,
+                  color: Colors.grey,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   job.paymentMethod ?? 'No especificado',
@@ -302,6 +342,7 @@ class TrabajoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
+            // Client info & rating
             Row(
               children: [
                 const CircleAvatar(
