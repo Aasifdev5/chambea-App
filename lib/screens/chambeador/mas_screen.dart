@@ -8,12 +8,13 @@ import 'package:chambea/screens/chambeador/configuracion_screen.dart';
 import 'package:chambea/screens/client/supportscreen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/screens/client/perfil_screen.dart';
-
 import 'package:chambea/screens/client/home.dart';
 import 'package:chambea/main.dart';
 import 'package:chambea/screens/chambeador/informacion_basica_screen.dart';
 import 'package:chambea/screens/chambeador/identity_card_screen.dart';
 import 'package:chambea/screens/chambeador/antecedentes_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class MasScreen extends StatelessWidget {
   const MasScreen({super.key});
@@ -40,6 +41,96 @@ class MasScreen extends StatelessWidget {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error al cerrar sesión: $e')));
+      }
+    }
+  }
+
+  // Check if user profile exists via Laravel API
+  Future<bool> _checkUserProfile(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No authenticated user found');
+    }
+
+    try {
+      final idToken = await user.getIdToken();
+      final response = await http.get(
+        Uri.parse('https://chambea.lat/api/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+      );
+
+      print('DEBUG: API response status: ${response.statusCode}');
+      print('DEBUG: API response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          print('DEBUG: User profile exists for UID: ${user.uid}');
+          return true;
+        } else {
+          print('DEBUG: Unexpected response format: ${response.body}');
+          return false;
+        }
+      } else if (response.statusCode == 404) {
+        print('DEBUG: Profile not found for UID: ${user.uid}');
+        return false;
+      } else {
+        throw Exception('API error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('DEBUG: Error checking user profile: $e');
+      throw Exception('Error checking user profile: $e');
+    }
+  }
+
+  // Handle Modo Client button tap
+  Future<void> _handleModoClient(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor inicia sesión para continuar'),
+          ),
+        );
+        Navigator.pushNamed(context, '/login');
+      }
+      return;
+    }
+
+    try {
+      // Show loading indicator
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verificando perfil del usuario...')),
+        );
+      }
+
+      final profileExists = await _checkUserProfile(context);
+
+      if (context.mounted) {
+        if (profileExists) {
+          print('DEBUG: Navigating to ClientHomeScreen');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ClientHomeScreen()),
+          );
+        } else {
+          print('DEBUG: Navigating to PerfilScreen');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const PerfilScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al verificar perfil: $e')),
+        );
       }
     }
   }
@@ -149,24 +240,6 @@ class MasScreen extends StatelessWidget {
                 );
               },
             ),
-            // ListTile(
-            //   leading: const Icon(Icons.notifications, color: Colors.green),
-            //   title: const Text(
-            //     'Notificación',
-            //     style: TextStyle(fontSize: 16, color: Colors.black87),
-            //   ),
-            //   trailing: const Icon(
-            //     Icons.arrow_forward_ios,
-            //     size: 16,
-            //     color: Colors.black54,
-            //   ),
-            //   onTap: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(builder: (_) => NotificationScreen()),
-            //     );
-            //   },
-            // ),
             ListTile(
               leading: const Icon(
                 Icons.account_balance_wallet,
@@ -188,24 +261,6 @@ class MasScreen extends StatelessWidget {
                 );
               },
             ),
-            // ListTile(
-            //   leading: const Icon(Icons.settings, color: Colors.green),
-            //   title: const Text(
-            //     'Configuración',
-            //     style: TextStyle(fontSize: 16, color: Colors.black87),
-            //   ),
-            //   trailing: const Icon(
-            //     Icons.arrow_forward_ios,
-            //     size: 16,
-            //     color: Colors.black54,
-            //   ),
-            //   onTap: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(builder: (_) => ConfiguracionScreen()),
-            //     );
-            //   },
-            // ),
             ListTile(
               leading: const Icon(Icons.support, color: Colors.green),
               title: const Text(
@@ -248,12 +303,7 @@ class MasScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PerfilScreen()),
-                );
-              },
+              onPressed: () => _handleModoClient(context),
               child: const Text(
                 'Modo Client',
                 style: TextStyle(fontSize: 16, color: Colors.white),

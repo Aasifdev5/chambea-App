@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:chambea/blocs/client/client_bloc.dart';
 import 'package:chambea/blocs/client/client_event.dart';
 import 'package:chambea/blocs/client/client_state.dart';
 import 'package:chambea/screens/client/home.dart';
+import 'package:chambea/screens/client/profile_photo_upload_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -26,9 +27,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
   final _birthDateController = TextEditingController();
   final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
-  File? _imageFile;
-  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+  bool _isImageLoading = false;
   DateTime? _selectedBirthDate;
 
   @override
@@ -42,7 +42,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
   // Check authentication and fetch profile data
   Future<void> _checkAuthAndFetchProfile() async {
     if (!mounted) return;
-    if (FirebaseAuth.instance.currentUser == null) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       print('DEBUG: No authenticated user found');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor inicia sesión para continuar')),
@@ -50,9 +51,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
       Navigator.pushNamed(context, '/login');
       return;
     }
-    print(
-      'DEBUG: Authenticated user: ${FirebaseAuth.instance.currentUser?.uid}',
-    );
+    print('DEBUG: Authenticated user: ${user.uid}');
+    setState(() {
+      _isImageLoading = true;
+    });
     context.read<ClientBloc>().add(FetchClientProfileEvent());
   }
 
@@ -65,12 +67,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
       initialDate: _selectedBirthDate ?? eighteenYearsAgo,
       firstDate: DateTime(1900),
       lastDate: now,
-      locale: const Locale('es', 'ES'), // Spanish calendar UI
+      locale: const Locale('es', 'ES'),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF22c55e), // App primary color
+              primary: Color(0xFF22c55e),
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.black,
@@ -87,7 +89,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
       },
     );
     if (picked != null && picked != _selectedBirthDate) {
-      // Validate age (must be at least 18)
       final age = now.difference(picked).inDays ~/ 365;
       if (age < 18) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,40 +104,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
         ).format(picked);
         print('DEBUG: Selected birth date: ${_birthDateController.text}');
       });
-    }
-  }
-
-  // Upload profile image
-  Future<void> _uploadImage() async {
-    if (_imageFile == null) {
-      print('DEBUG: No image to upload');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No hay imagen para subir')),
-        );
-      }
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      print('DEBUG: Uploading image to /api/profile/upload-image');
-      context.read<ClientBloc>().add(
-        UploadClientProfilePhotoEvent(image: _imageFile!),
-      );
-    } catch (e) {
-      print('DEBUG: Image upload error: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al subir la imagen: $e')));
-      }
     }
   }
 
@@ -164,9 +131,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
 
     final state = context.read<ClientBloc>().state;
-    if (_imageFile == null &&
-        (state.profilePhotoPath == null || state.profilePhotoPath!.isEmpty)) {
-      print('DEBUG: No profile image selected or uploaded');
+    if (state.profilePhotoPath == null || state.profilePhotoPath!.isEmpty) {
+      print('DEBUG: No profile image uploaded');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Por favor, sube una foto de perfil')),
@@ -226,6 +192,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return BlocConsumer<ClientBloc, ClientState>(
       listener: (context, state) {
         if (state.error != null) {
@@ -254,15 +221,21 @@ class _PerfilScreenState extends State<PerfilScreen> {
         }
         if (!state.isLoading &&
             state.profilePhotoPath != null &&
-            _imageFile != null) {
+            state.profilePhotoPath!.isNotEmpty) {
           if (mounted) {
             setState(() {
-              _imageFile = null;
               _isLoading = false;
+              _isImageLoading = false;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Imagen subida con éxito')),
-            );
+            if (state.wasUpdated) {
+              // Clear cache only for this specific image to avoid stale cache
+              DefaultCacheManager().removeFile(
+                'https://chambea.lat/${state.profilePhotoPath!}',
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Imagen subida con éxito')),
+              );
+            }
           }
         }
         if (!state.isLoading && state.name.isNotEmpty && state.wasUpdated) {
@@ -281,6 +254,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
         }
       },
       builder: (context, state) {
+        final hasProfileImage =
+            state.profilePhotoPath != null &&
+            state.profilePhotoPath!.isNotEmpty;
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -297,9 +273,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        if (_imageFile == null &&
-                            (state.profilePhotoPath == null ||
-                                state.profilePhotoPath!.isEmpty))
+                        // Show warning if no image is uploaded
+                        if (!hasProfileImage)
                           const Padding(
                             padding: EdgeInsets.only(bottom: 8),
                             child: Text(
@@ -307,76 +282,88 @@ class _PerfilScreenState extends State<PerfilScreen> {
                               style: TextStyle(color: Colors.red, fontSize: 12),
                             ),
                           ),
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            GestureDetector(
-                              onTap: _showImageSourceDialog,
-                              child: CircleAvatar(
-                                radius: 50,
-                                backgroundImage: _imageFile != null
-                                    ? FileImage(_imageFile!)
-                                    : state.profilePhotoPath != null &&
-                                          state.profilePhotoPath!.isNotEmpty
-                                    ? NetworkImage(
-                                        'https://chambea.lat/${state.profilePhotoPath!}',
-                                      )
-                                    : null,
-                                onBackgroundImageError:
-                                    state.profilePhotoPath != null &&
-                                        state.profilePhotoPath!.isNotEmpty
-                                    ? (exception, stackTrace) {
-                                        print(
-                                          'DEBUG: Error loading profile image: $exception',
-                                        );
-                                      }
-                                    : null,
-                                child:
-                                    _imageFile == null &&
-                                        (state.profilePhotoPath == null ||
-                                            state.profilePhotoPath!.isEmpty)
-                                    ? const Icon(
-                                        Icons.person,
-                                        color: Colors.white,
-                                        size: 50,
-                                      )
-                                    : null,
-                              ),
-                            ),
-                            if (_imageFile != null)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.blue,
-                                  ),
-                                  child: const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.white,
-                                    size: 20,
+                        Center(
+                          child: GestureDetector(
+                            onTap: () async {
+                              print(
+                                '[PerfilScreen] Navigating to ProfilePhotoUploadScreen',
+                              );
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ProfilePhotoUploadScreen(),
+                                ),
+                              );
+                              // If returning from upload with refresh flag, fetch profile
+                              if (result != null && result['refresh'] == true) {
+                                print(
+                                  'DEBUG: Refresh triggered from ProfilePhotoUploadScreen',
+                                );
+                                context.read<ClientBloc>().add(
+                                  FetchClientProfileEvent(),
+                                );
+                              }
+                            },
+                            child: Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: screenWidth * 0.13,
+                                  backgroundColor: Colors.grey.shade300,
+                                  child: hasProfileImage
+                                      ? ClipOval(
+                                          child: CachedNetworkImage(
+                                            imageUrl:
+                                                'https://chambea.lat/${state.profilePhotoPath!}',
+                                            width: screenWidth * 0.26,
+                                            height: screenWidth * 0.26,
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) =>
+                                                const CircularProgressIndicator(),
+                                            errorWidget: (context, url, error) {
+                                              print(
+                                                '[PerfilScreen] Error loading profile image: $error',
+                                              );
+                                              return Icon(
+                                                Icons.person,
+                                                size: screenWidth * 0.13,
+                                                color: Colors.white,
+                                              );
+                                            },
+                                            cacheManager: DefaultCacheManager(),
+                                            cacheKey:
+                                                'profile_${FirebaseAuth.instance.currentUser?.uid}_${state.profilePhotoPath}',
+                                            fadeInDuration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            fadeOutDuration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.person,
+                                          size: screenWidth * 0.13,
+                                          color: Colors.white,
+                                        ),
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: CircleAvatar(
+                                    radius: screenWidth * 0.04,
+                                    backgroundColor: Colors.green,
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      size: screenWidth * 0.04,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                        if (_imageFile != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: ElevatedButton(
-                              onPressed: _uploadImage,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text('Subir Imagen'),
+                              ],
                             ),
                           ),
+                        ),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _nameController,
@@ -498,64 +485,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
       },
     );
   }
-
-  // Image source dialog
-  void _showImageSourceDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Galería'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImageFromSource(ImageSource.gallery);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: const Text('Cámara'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImageFromSource(ImageSource.camera);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Pick image
-  Future<void> _pickImageFromSource(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(
-      source: source,
-      imageQuality: 50,
-    );
-
-    if (pickedFile != null && mounted) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-      });
-      print('DEBUG: Image selected: ${pickedFile.path}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Imagen seleccionada. Puedes subirla ahora o más tarde.',
-          ),
-        ),
-      );
-    } else {
-      print('DEBUG: No image selected');
-    }
-  }
 }
 
-// MapPickerScreen remains unchanged
+// MapPickerScreen (unchanged)
 class MapPickerScreen extends StatefulWidget {
   const MapPickerScreen({super.key});
 
