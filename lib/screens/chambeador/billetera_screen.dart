@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:chambea/services/api_service.dart'; // Your ApiService
+import 'package:chambea/services/api_service.dart';
 
 class BilleteraScreen extends StatefulWidget {
   @override
@@ -12,7 +12,7 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
   double balance = 0.0;
   bool isLoading = true;
   String errorMessage = '';
-  String workerStatus = ''; // Track worker status from API
+  String workerStatus = ''; // status from API: approved, rejected, pending
   String whatsappNumber = '+59178528046';
   String whatsappMessage = '';
 
@@ -33,19 +33,19 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
       final response = await ApiService.get('/api/balance');
 
       if (response['status'] == 'error') {
-        // API returned an error, get status if available
         setState(() {
-          workerStatus = response['worker_status'] ?? '';
+          workerStatus = response['data']?['worker_status'] ?? '';
           errorMessage = response['message'] ?? 'Error al cargar el saldo';
           isLoading = false;
         });
         return;
       }
 
-      // Success
+      final data = response['data'] ?? {};
+
       setState(() {
-        balance = double.tryParse(response['balance'].toString()) ?? 0;
-        workerStatus = response['worker_status'] ?? '';
+        balance = double.tryParse(data['balance']?.toString() ?? '0') ?? 0.0;
+        workerStatus = data['worker_status'] ?? '';
         errorMessage = '';
         isLoading = false;
       });
@@ -61,7 +61,7 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
   Future<void> _fetchRechargeInfo() async {
     try {
       final response = await ApiService.get('/api/recharge-info');
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
           whatsappNumber =
               response['data']['whatsapp_number'] ?? whatsappNumber;
@@ -74,58 +74,62 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
   }
 
   Future<void> _launchWhatsApp() async {
-    try {
-      if (workerStatus != 'approved' || balance <= 0) return; // prevent launch
+    if (!canRecharge()) return;
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('Usuario no autenticado');
-
-      String message = whatsappMessage.isNotEmpty
-          ? whatsappMessage
-          : 'Hola, quiero recargar mi saldo en la app Chambeador.';
-      message +=
-          '\n\nMi saldo actual: BOB. $balance\n\nPor favor, indícame los datos para el depósito.';
-
-      String cleanNumber = whatsappNumber.replaceAll(RegExp(r'[\s+]'), '');
-      final whatsappUrl =
-          'https://wa.me/$cleanNumber?text=${Uri.encodeComponent(message)}';
-      final whatsappUri = Uri.parse(whatsappUrl);
-
-      if (await canLaunchUrl(whatsappUri)) {
-        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
-      } else {
-        final browserUrl =
-            'https://web.whatsapp.com/send?phone=$cleanNumber&text=${Uri.encodeComponent(message)}';
-        final browserUri = Uri.parse(browserUrl);
-
-        if (await canLaunchUrl(browserUri)) {
-          await launchUrl(browserUri, mode: LaunchMode.platformDefault);
-        } else {
-          throw 'No se pudo abrir WhatsApp ni en la aplicación ni en el navegador';
-        }
-      }
-    } catch (e) {
-      debugPrint('Error launching WhatsApp: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al abrir WhatsApp: ${e.toString()}'),
-          duration: Duration(seconds: 5),
-        ),
-      );
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Usuario no autenticado')));
+      return;
     }
+
+    String message = whatsappMessage.isNotEmpty
+        ? whatsappMessage
+        : 'Hola, quiero recargar mi saldo en la app Chambeador.';
+
+    message +=
+        '\n\nMi saldo actual: BOB. $balance\n\nPor favor, indícame los datos para el depósito.';
+
+    String cleanNumber = whatsappNumber.replaceAll(RegExp(r'[\s+]'), '');
+    final whatsappUri = Uri.parse(
+      'https://wa.me/$cleanNumber?text=${Uri.encodeComponent(message)}',
+    );
+
+    if (await canLaunchUrl(whatsappUri)) {
+      await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+    } else {
+      final browserUri = Uri.parse(
+        'https://web.whatsapp.com/send?phone=$cleanNumber&text=${Uri.encodeComponent(message)}',
+      );
+      if (await canLaunchUrl(browserUri)) {
+        await launchUrl(browserUri, mode: LaunchMode.platformDefault);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se pudo abrir WhatsApp ni en la aplicación ni en el navegador',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  bool canRecharge() {
+    // Enabled only if worker is approved
+    return workerStatus == 'approved';
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool canRecharge = workerStatus == 'approved' && balance > 0;
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black54),
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'Billetera',
           style: TextStyle(
             fontSize: 20,
@@ -137,11 +141,11 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
         elevation: 0,
       ),
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Saldo',
               style: TextStyle(
                 fontSize: 16,
@@ -149,12 +153,12 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
                 color: Colors.black87,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             if (isLoading)
-              Center(child: CircularProgressIndicator())
+              const Center(child: CircularProgressIndicator())
             else if (errorMessage.isNotEmpty)
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.red.shade300),
                   borderRadius: BorderRadius.circular(8),
@@ -162,26 +166,26 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Error',
                       style: TextStyle(
                         color: Colors.red,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(errorMessage),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     TextButton(
                       onPressed: _fetchBalance,
-                      child: Text('Reintentar'),
+                      child: const Text('Reintentar'),
                     ),
                   ],
                 ),
               )
             else
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(8),
@@ -192,23 +196,23 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Saldo disponible',
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(color: Colors.grey),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           'BOB. ${balance.toStringAsFixed(2)}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
-                          'Estado: $workerStatus',
-                          style: TextStyle(
-                            color: Colors.grey.shade700,
+                          'Estado: ${workerStatus.isEmpty ? "pendiente" : workerStatus}',
+                          style: const TextStyle(
+                            color: Colors.grey,
                             fontSize: 12,
                           ),
                         ),
@@ -217,39 +221,39 @@ class _BilleteraScreenState extends State<BilleteraScreen> {
                   ],
                 ),
               ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             if (!isLoading && errorMessage.isEmpty)
               Center(
                 child: Column(
                   children: [
                     ElevatedButton.icon(
-                      onPressed: canRecharge ? _launchWhatsApp : null,
-                      icon: Icon(Icons.add, color: Colors.white),
-                      label: Text(
+                      onPressed: canRecharge() ? _launchWhatsApp : null,
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text(
                         'Recargar Saldo',
                         style: TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: canRecharge
+                        backgroundColor: canRecharge()
                             ? Colors.green
                             : Colors.grey,
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        minimumSize: Size(double.infinity, 50),
+                        minimumSize: const Size(double.infinity, 50),
                       ),
                     ),
-                    if (!canRecharge)
+                    if (!canRecharge())
                       Padding(
-                        padding: EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          workerStatus != 'approved'
-                              ? 'Tus documentos están en revisión. Una vez aprobados podrás acceder a tu cuenta de trabajador.'
-                              : 'Tu saldo es cero. Por favor, recarga tu saldo para aplicar a este trabajo.',
+                          workerStatus == 'rejected'
+                              ? 'Tus documentos han sido rechazados. Revisa tu perfil.'
+                              : 'Tus documentos están en revisión. Una vez aprobados podrás acceder a tu cuenta de trabajador.',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.orange.shade800,

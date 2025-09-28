@@ -131,56 +131,87 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       _balanceError = null;
       _totalBalance = null;
     });
+
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw Exception('Usuario no autenticado');
       }
       print('DEBUG: Fetching balance for user UID: ${user.uid}');
+
       final token = await user.getIdToken();
-      final response = await http.post(
-        Uri.parse('https://chambea.lat/api/chambeador/check-balance'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'uid': user.uid}),
-      );
+      final response = await http
+          .post(
+            Uri.parse('https://chambea.lat/api/chambeador/check-balance'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'uid': user.uid}),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Request timed out');
+            },
+          );
 
       print('DEBUG: Balance response status: ${response.statusCode}');
       print('DEBUG: Balance response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['status'] == 'success' && data['data'] != null) {
-          final balance = double.tryParse(data['data']['balance'].toString());
-          setState(() {
-            _totalBalance = balance;
-            _isLoadingBalance = false;
-            if (balance == null || balance <= 0) {
-              _balanceError = 'Tu saldo es insuficiente. ¡Recarga ahora!';
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          print('DEBUG: Parsed JSON: $data');
+
+          if (data['status'] == 'success' && data['data'] != null) {
+            final balanceStr = data['data']['balance']?.toString();
+            if (balanceStr == null) {
+              throw Exception('Balance field is missing or null');
             }
-          });
-          print('DEBUG: Balance fetched: $_totalBalance');
-        } else {
-          throw Exception(
-            'Failed to load balance: ${data['message'] ?? 'Unknown error'}',
-          );
+
+            final balance = double.tryParse(balanceStr);
+            if (balance == null) {
+              throw Exception('Failed to parse balance: $balanceStr');
+            }
+
+            setState(() {
+              _totalBalance = balance;
+              _isLoadingBalance = false;
+              if (balance <= 0) {
+                _balanceError = 'Tu saldo es insuficiente. ¡Recarga ahora!';
+              }
+            });
+            print('DEBUG: Balance fetched successfully: $_totalBalance');
+          } else {
+            throw Exception(
+              'Invalid response: ${data['message'] ?? 'Unknown error'}',
+            );
+          }
+        } catch (e) {
+          throw Exception('JSON parsing error: $e');
         }
       } else {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _balanceError = data['message'] ?? 'Error al verificar el saldo';
-          _isLoadingBalance = false;
-        });
-        print('DEBUG: Balance fetch failed: ${_balanceError}');
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          setState(() {
+            _balanceError = data['message'] ?? 'Error al verificar el saldo';
+            _isLoadingBalance = false;
+          });
+          print(
+            'DEBUG: Balance fetch failed with status ${response.statusCode}: $_balanceError',
+          );
+        } catch (e) {
+          throw Exception('Failed to parse error response: $e');
+        }
       }
     } catch (e, stackTrace) {
       print('ERROR: Failed to fetch balance: $e');
       print('Stack Trace: $stackTrace');
       setState(() {
-        _balanceError = 'No se pudo cargar el saldo: $e';
+        _balanceError =
+            'No se pudo cargar el saldo. Por favor, intenta de nuevo.';
         _isLoadingBalance = false;
       });
     }
@@ -263,23 +294,18 @@ class _HomeScreenContentState extends State<HomeScreenContent>
 
     String normalized = imagePath.trim();
 
-    // Remove duplicate or incorrect prefixes
     normalized = normalized.replaceAll(
       RegExp(r'^https://chambea\.lat/https://chambea\.lat/'),
       'https://chambea.lat/',
     );
 
-    // Remove 'storage/' prefix
     normalized = normalized.replaceFirst(RegExp(r'^storage/'), '');
 
-    // Normalize case for prefix checks
     String lowerCasePath = normalized.toLowerCase();
 
-    // Define expected prefixes
     const profilePrefix = 'uploads/profile_photos/';
     const jobPrefix = 'uploads/service_requests/';
 
-    // Remove existing prefix if present to avoid duplication
     if (isProfilePhoto && lowerCasePath.contains(profilePrefix.toLowerCase())) {
       normalized = normalized.substring(
         normalized.toLowerCase().indexOf(profilePrefix.toLowerCase()) +
@@ -301,20 +327,16 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
     }
 
-    // Add correct prefix
     normalized = isProfilePhoto
         ? 'uploads/profile_photos/$normalized'
         : 'uploads/service_requests/$normalized';
 
-    // Prepend base URL for relative paths
     if (!normalized.startsWith('http')) {
       normalized = 'https://chambea.lat/$normalized';
     }
 
-    // Convert 'Uploads/' to 'uploads/' for consistency
     normalized = normalized.replaceAll('Uploads/', 'uploads/');
 
-    // Validate URL
     try {
       final uri = Uri.parse(normalized);
       if (!uri.isAbsolute || uri.host.isEmpty) {
