@@ -206,9 +206,11 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, inicia sesión para continuar'),
+        ),
+      );
       return;
     }
 
@@ -257,6 +259,71 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
         budget: budget,
       ),
     );
+  }
+
+  Future<void> _cancelContract() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, inicia sesión para continuar'),
+          ),
+        );
+        return;
+      }
+
+      final response = await ApiService.post(
+        '/api/contracts/cancel/${widget.requestId}',
+        {},
+      );
+
+      if (response['status'] == 'success') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Contrato cancelado con éxito')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
+        );
+      } else {
+        String errorMessage =
+            response['message'] ?? 'No se pudo cancelar el contrato';
+        if (errorMessage.contains('El trabajador ha iniciado el servicio')) {
+          errorMessage =
+              'No puedes cancelar el contrato porque el trabajador ya comenzó el servicio.';
+        } else if (errorMessage.contains('No se encontró un contrato')) {
+          errorMessage = 'No se encontró un contrato para cancelar.';
+        } else if (errorMessage.contains(
+          'No autorizado para cancelar este contrato',
+        )) {
+          errorMessage = 'No estás autorizado para cancelar este contrato.';
+        } else {
+          errorMessage =
+              'No se pudo cancelar el contrato. Por favor, intenta de nuevo.';
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      }
+    } catch (e) {
+      print('Error cancelling contract: $e');
+      String errorMessage =
+          'No se pudo cancelar el contrato. Por favor, intenta de nuevo.';
+      if (e.toString().contains('El trabajador ha iniciado el servicio')) {
+        errorMessage =
+            'No puedes cancelar el contrato porque el trabajador ya comenzó el servicio.';
+      } else if (e.toString().contains('No se encontró un contrato')) {
+        errorMessage = 'No se encontró un contrato para cancelar.';
+      } else if (e.toString().contains(
+        'No autorizado para cancelar este contrato',
+      )) {
+        errorMessage = 'No estás autorizado para cancelar este contrato.';
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+    }
   }
 
   @override
@@ -460,7 +527,7 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                             ),
                             _buildDetailRow(
                               'Ubicación',
-                              '${_serviceRequest!['location'] ?? 'Sin ubicación'}, ${_serviceRequest!['location_details'] ?? ''}',
+                              '${_serviceRequest?['location'] ?? 'Sin ubicación'}, ${_serviceRequest?['location_details'] ?? ''}',
                             ),
                             _buildDetailRow(
                               'Forma de pago',
@@ -499,6 +566,18 @@ class _ContratadoScreenState extends State<ContratadoScreen> {
                         ),
                         onPressed: () => _hireWorker(budget: _agreedBudget),
                         child: const Text('Confirmar Contratación'),
+                      ),
+                    const SizedBox(height: 8),
+                    if (_serviceRequest!['status'] == 'accepted' ||
+                        _serviceRequest!['status'] == 'En curso')
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        onPressed: _cancelContract,
+                        child: const Text('Cancelar Contrato'),
                       ),
                     const SizedBox(height: 8),
                     if (_serviceRequest!['status'] == 'Completado')

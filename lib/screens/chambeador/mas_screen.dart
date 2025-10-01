@@ -305,7 +305,7 @@ class MasScreen extends StatelessWidget {
               ),
               onPressed: () => _handleModoClient(context),
               child: const Text(
-                'Modo Client',
+                'Modo cliente',
                 style: TextStyle(fontSize: 16, color: Colors.white),
               ),
             ),

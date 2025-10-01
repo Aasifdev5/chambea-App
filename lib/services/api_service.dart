@@ -271,7 +271,7 @@ class ApiService {
     );
   }
 
-  /// Handles HTTP responses and throws appropriate exceptions
+  /// Handles HTTP responses and returns the response body
   static Map<String, dynamic> _handleResponse(
     http.Response response,
     String endpoint,
@@ -289,29 +289,11 @@ class ApiService {
 
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return body;
-      } else if (response.statusCode == 401) {
-        throw Exception(
-          'Unauthorized: Invalid or missing authentication token',
-        );
-      } else if (response.statusCode == 404) {
-        throw Exception('Resource not found: $endpoint');
-      } else if (response.statusCode == 405) {
-        throw Exception(
-          'Method Not Allowed: $method is not supported for $endpoint',
-        );
-      } else if (response.statusCode == 422) {
-        throw Exception(
-          'Validation error: ${body['message'] ?? body['errors'] ?? response.body}',
-        );
-      } else {
-        throw Exception(
-          'Request failed: ${response.statusCode} - ${body['message'] ?? response.body}',
-        );
-      }
+      return body; // Return the response body for all status codes
     } catch (e) {
-      throw Exception('Invalid JSON format for $method $endpoint: $e');
+      throw Exception(
+        'Invalid JSON format for $method $endpoint: ${response.body}',
+      );
     }
   }
 }

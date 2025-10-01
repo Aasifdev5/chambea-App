@@ -16,8 +16,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -107,6 +106,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
   double? _totalBalance;
   bool _isLoadingBalance = false;
   String? _balanceError;
+  DateTime? _lastBalanceFetchTime;
+
+  // Cache keys for shared_preferences
+  static const String _balanceKey = 'total_balance';
+  static const String _balanceTimestampKey = 'balance_timestamp';
 
   @override
   void initState() {
@@ -122,14 +126,40 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     _controller.forward();
     _fetchReviews();
     _fetchClients();
-    _fetchBalance();
+    _loadCachedBalance();
+  }
+
+  Future<void> _loadCachedBalance() async {
+    final prefs = await SharedPreferences.getInstance();
+    final balance = prefs.getDouble(_balanceKey);
+    final timestamp = prefs.getString(_balanceTimestampKey);
+
+    if (balance != null && timestamp != null) {
+      final lastFetch = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      // Check if cached balance is less than 5 minutes old
+      if (now.difference(lastFetch).inMinutes < 5) {
+        setState(() {
+          _totalBalance = balance;
+          _lastBalanceFetchTime = lastFetch;
+          _isLoadingBalance = false;
+          if (balance <= 0) {
+            _balanceError = 'Tu saldo es insuficiente';
+          }
+        });
+        print('DEBUG: Loaded cached balance: $_totalBalance at $lastFetch');
+        return;
+      }
+    }
+
+    // Fetch fresh balance if no valid cache or cache is stale
+    await _fetchBalance();
   }
 
   Future<void> _fetchBalance() async {
     setState(() {
       _isLoadingBalance = true;
       _balanceError = null;
-      _totalBalance = null;
     });
 
     try {
@@ -139,79 +169,60 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       }
       print('DEBUG: Fetching balance for user UID: ${user.uid}');
 
-      final token = await user.getIdToken();
-      final response = await http
-          .post(
-            Uri.parse('https://chambea.lat/api/chambeador/check-balance'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({'uid': user.uid}),
-          )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Request timed out');
-            },
-          );
+      // Use ApiService for consistency and retry logic
+      final response = await ApiService.post('/api/chambeador/check-balance', {
+        'uid': user.uid,
+      });
 
-      print('DEBUG: Balance response status: ${response.statusCode}');
-      print('DEBUG: Balance response body: ${response.body}');
+      print('DEBUG: Balance response: $response');
 
-      if (response.statusCode == 200) {
-        try {
-          final data = jsonDecode(response.body) as Map<String, dynamic>;
-          print('DEBUG: Parsed JSON: $data');
+      if (response['status'] == 'success' && response['data'] != null) {
+        final balanceStr = response['data']['balance']?.toString();
+        if (balanceStr == null) {
+          throw Exception('Balance field is missing or null');
+        }
 
-          if (data['status'] == 'success' && data['data'] != null) {
-            final balanceStr = data['data']['balance']?.toString();
-            if (balanceStr == null) {
-              throw Exception('Balance field is missing or null');
-            }
+        final balance = double.tryParse(balanceStr);
+        if (balance == null) {
+          throw Exception('Failed to parse balance: $balanceStr');
+        }
 
-            final balance = double.tryParse(balanceStr);
-            if (balance == null) {
-              throw Exception('Failed to parse balance: $balanceStr');
-            }
+        // Cache the balance and timestamp
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble(_balanceKey, balance);
+        await prefs.setString(
+          _balanceTimestampKey,
+          DateTime.now().toIso8601String(),
+        );
 
-            setState(() {
-              _totalBalance = balance;
-              _isLoadingBalance = false;
-              if (balance <= 0) {
-                _balanceError = 'Tu saldo es insuficiente. ¡Recarga ahora!';
-              }
-            });
-            print('DEBUG: Balance fetched successfully: $_totalBalance');
-          } else {
-            throw Exception(
-              'Invalid response: ${data['message'] ?? 'Unknown error'}',
-            );
+        setState(() {
+          _totalBalance = balance;
+          _lastBalanceFetchTime = DateTime.now();
+          _isLoadingBalance = false;
+          if (balance <= 0) {
+            _balanceError = 'Tu saldo es insuficiente';
           }
-        } catch (e) {
-          throw Exception('JSON parsing error: $e');
-        }
+        });
+        print('DEBUG: Balance fetched and cached: $_totalBalance');
       } else {
-        try {
-          final data = jsonDecode(response.body) as Map<String, dynamic>;
-          setState(() {
-            _balanceError = data['message'] ?? 'Error al verificar el saldo';
-            _isLoadingBalance = false;
-          });
-          print(
-            'DEBUG: Balance fetch failed with status ${response.statusCode}: $_balanceError',
-          );
-        } catch (e) {
-          throw Exception('Failed to parse error response: $e');
-        }
+        throw Exception(
+          'Invalid response: ${response['message'] ?? 'Unknown error'}',
+        );
       }
     } catch (e, stackTrace) {
       print('ERROR: Failed to fetch balance: $e');
       print('Stack Trace: $stackTrace');
+      String errorMessage =
+          'No se pudo cargar el saldo. Por favor, intenta de nuevo.';
+      if (e.toString().contains('404')) {
+        errorMessage =
+            'Servicio de saldo no disponible. Verifica la conexión o intenta de nuevo más tarde.';
+      } else if (e.toString().contains('Server returned HTML')) {
+        errorMessage =
+            'Error del servidor. Por favor, intenta de nuevo más tarde.';
+      }
       setState(() {
-        _balanceError =
-            'No se pudo cargar el saldo. Por favor, intenta de nuevo.';
+        _balanceError = errorMessage;
         _isLoadingBalance = false;
       });
     }
@@ -682,97 +693,60 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  _isLoadingBalance
-                                                      ? const CircularProgressIndicator()
-                                                      : _balanceError != null
-                                                      ? Row(
-                                                          children: [
-                                                            Text(
-                                                              _balanceError!,
+                                                  Row(
+                                                    children: [
+                                                      _isLoadingBalance
+                                                          ? const CircularProgressIndicator()
+                                                          : Text(
+                                                              _totalBalance !=
+                                                                      null
+                                                                  ? 'BOB ${_totalBalance!.toStringAsFixed(2)}'
+                                                                  : 'BOB 0.00',
                                                               style: TextStyle(
                                                                 fontSize:
                                                                     (baseFontSize *
-                                                                            0.8)
+                                                                            1.0)
                                                                         .clamp(
-                                                                          8,
                                                                           10,
+                                                                          14,
                                                                         ) *
                                                                     textScaleFactor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
                                                                 color:
-                                                                    Colors.red,
+                                                                    _totalBalance !=
+                                                                            null &&
+                                                                        _totalBalance! >
+                                                                            0
+                                                                    ? Colors
+                                                                          .black87
+                                                                    : Colors
+                                                                          .red,
                                                               ),
                                                             ),
-                                                            SizedBox(
-                                                              width:
-                                                                  screenWidth *
-                                                                  0.02,
-                                                            ),
-                                                            TextButton(
-                                                              onPressed: () {
-                                                                try {
-                                                                  Navigator.push(
-                                                                    context,
-                                                                    MaterialPageRoute(
-                                                                      builder:
-                                                                          (_) =>
-                                                                              BilleteraScreen(),
-                                                                    ),
-                                                                  );
-                                                                } catch (e) {
-                                                                  ScaffoldMessenger.of(
-                                                                    context,
-                                                                  ).showSnackBar(
-                                                                    SnackBar(
-                                                                      content: Text(
-                                                                        'Error navigating to BilleteraScreen: $e',
-                                                                      ),
-                                                                    ),
-                                                                  );
-                                                                }
-                                                              },
-                                                              child: Text(
-                                                                'Recargar ahora',
-                                                                style: TextStyle(
-                                                                  fontSize:
-                                                                      (baseFontSize *
-                                                                              0.8)
-                                                                          .clamp(
-                                                                            8,
-                                                                            10,
-                                                                          ) *
-                                                                      textScaleFactor,
-                                                                  color: const Color(
-                                                                    0xFF22c55e,
+                                                      SizedBox(
+                                                        width:
+                                                            screenWidth * 0.02,
+                                                      ),
+                                                      IconButton(
+                                                        icon: Icon(
+                                                          Icons.refresh,
+                                                          size:
+                                                              (screenWidth *
+                                                                      0.035)
+                                                                  .clamp(
+                                                                    10,
+                                                                    14,
                                                                   ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        )
-                                                      : Text(
-                                                          _totalBalance != null
-                                                              ? 'BOB: ${_totalBalance!.toStringAsFixed(2)}'
-                                                              : 'BOB: 0.00',
-                                                          style: TextStyle(
-                                                            fontSize:
-                                                                (baseFontSize *
-                                                                        1.0)
-                                                                    .clamp(
-                                                                      10,
-                                                                      14,
-                                                                    ) *
-                                                                textScaleFactor,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color:
-                                                                _totalBalance !=
-                                                                        null &&
-                                                                    _totalBalance! >
-                                                                        0
-                                                                ? Colors.black87
-                                                                : Colors.red,
-                                                          ),
+                                                          color: Colors.black54,
                                                         ),
+                                                        onPressed: () {
+                                                          _fetchBalance();
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
                                                   Text(
                                                     'Saldo Actual',
                                                     style: TextStyle(
@@ -783,6 +757,17 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                                                       color: Colors.black54,
                                                     ),
                                                   ),
+                                                  if (_balanceError != null)
+                                                    Text(
+                                                      _balanceError!,
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            (baseFontSize * 0.8)
+                                                                .clamp(8, 10) *
+                                                            textScaleFactor,
+                                                        color: Colors.red,
+                                                      ),
+                                                    ),
                                                 ],
                                               ),
                                               SizedBox(
