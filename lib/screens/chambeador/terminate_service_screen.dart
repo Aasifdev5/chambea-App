@@ -6,17 +6,36 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class TerminateServiceScreen extends StatelessWidget {
+class TerminateServiceScreen extends StatefulWidget {
   final Job job;
 
   const TerminateServiceScreen({super.key, required this.job});
 
+  @override
+  State<TerminateServiceScreen> createState() => _TerminateServiceScreenState();
+}
+
+class _TerminateServiceScreenState extends State<TerminateServiceScreen> {
+  final GlobalKey<SlideActionState> _sliderKey = GlobalKey();
+  bool _isLoading = false;
+  bool _hasSubmitted = false; // New flag to prevent multiple submissions
+
   Future<void> _completeService(BuildContext context) async {
-    // Validate job ID before making the API call
-    if (job.id == 0) {
+    if (_isLoading || _hasSubmitted) return; // Prevent multiple submissions
+    setState(() {
+      _isLoading = true;
+      _hasSubmitted = true; // Mark as submitted
+    });
+
+    if (widget.job.id == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error: ID del servicio inválido')),
       );
+      _sliderKey.currentState?.reset();
+      setState(() {
+        _isLoading = false;
+        _hasSubmitted = false; // Allow retry on failure
+      });
       return;
     }
 
@@ -25,16 +44,20 @@ class TerminateServiceScreen extends StatelessWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      _sliderKey.currentState?.reset();
+      setState(() {
+        _isLoading = false;
+        _hasSubmitted = false; // Allow retry on failure
+      });
       return;
     }
 
     try {
       final token = await user.getIdToken();
-      // Log the request details
-      print('Sending complete service request for Job ID: ${job.id}');
+      print('Sending complete service request for Job ID: ${widget.job.id}');
       final response = await http.post(
         Uri.parse(
-          'https://chambea.lat/api/service-requests/${job.id}/complete',
+          'https://chambea.lat/api/service-requests/${widget.job.id}/complete',
         ),
         headers: {
           'Authorization': 'Bearer $token',
@@ -47,6 +70,7 @@ class TerminateServiceScreen extends StatelessWidget {
         'Complete Service Response: ${response.statusCode} - ${response.body}',
       );
       final responseData = json.decode(response.body);
+
       if (response.statusCode == 200) {
         if (responseData['data'] == null) {
           throw Exception('API response does not contain "data" field');
@@ -57,7 +81,6 @@ class TerminateServiceScreen extends StatelessWidget {
           'Updated Job: ID=${updatedJob.id}, WorkerID=${updatedJob.workerId}, ClientID=${updatedJob.clientId}',
         );
 
-        // Validate required fields before navigating
         if (updatedJob.id == 0 ||
             updatedJob.workerId == null ||
             updatedJob.clientId == null) {
@@ -66,10 +89,13 @@ class TerminateServiceScreen extends StatelessWidget {
           );
         }
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Servicio completado exitosamente')),
         );
-        Navigator.push(
+
+        // Navigate to ReviewServiceScreen
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => ReviewServiceScreen(job: updatedJob),
@@ -77,20 +103,34 @@ class TerminateServiceScreen extends StatelessWidget {
         );
       } else {
         final error = responseData['message'] ?? 'Error desconocido';
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al completar servicio: $error')),
         );
+        _sliderKey.currentState?.reset();
+        setState(() {
+          _isLoading = false;
+          _hasSubmitted = false; // Allow retry on failure
+        });
       }
     } catch (e) {
       print('Error completing service: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      _sliderKey.currentState?.reset();
+      setState(() {
+        _isLoading = false;
+        _hasSubmitted = false; // Allow retry on failure
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final job = widget.job;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -244,24 +284,34 @@ class TerminateServiceScreen extends StatelessWidget {
                 job.timeAgo,
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: SlideAction(
-                  borderRadius: 12,
-                  elevation: 0,
-                  innerColor: Colors.red.shade600,
-                  outerColor: Colors.red.shade100,
-                  sliderButtonIcon: const Icon(
-                    Icons.arrow_forward,
-                    color: Colors.white,
+              IgnorePointer(
+                ignoring: _isLoading || _hasSubmitted, // Disable if submitted
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SlideAction(
+                    key: _sliderKey,
+                    borderRadius: 12,
+                    elevation: 0,
+                    innerColor: Colors.red.shade600,
+                    outerColor: Colors.red.shade100,
+                    sliderButtonIcon: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.arrow_forward, color: Colors.white),
+                    text: 'Deslizar para terminar servicio',
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    onSubmit: () => _completeService(context),
                   ),
-                  text: 'Deslizar para terminar servicio',
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                  onSubmit: () => _completeService(context),
                 ),
               ),
               const SizedBox(height: 16),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chambea/models/job.dart';
-import 'package:chambea/screens/chambeador/terminate_service_screen.dart';
+import 'package:chambea/screens/chambeador/review_service_screen.dart';
 import 'package:slide_to_act/slide_to_act.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -16,9 +16,11 @@ class StartServiceScreen extends StatefulWidget {
 }
 
 class _StartServiceScreenState extends State<StartServiceScreen> {
+  final GlobalKey<SlideActionState> _sliderKey = GlobalKey();
   bool _hasContractOffer = false;
   bool _hasContractInProgress = false;
   bool _isLoading = true;
+  bool _hasSubmitted = false; // New flag to prevent multiple submissions
   String? _errorMessage;
 
   @override
@@ -168,7 +170,7 @@ class _StartServiceScreenState extends State<StartServiceScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => TerminateServiceScreen(job: updatedJob),
+            builder: (_) => StartServiceScreen(job: updatedJob),
           ),
         );
       } else {
@@ -182,6 +184,100 @@ class _StartServiceScreenState extends State<StartServiceScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _completeService(BuildContext context) async {
+    if (_isLoading || _hasSubmitted) return; // Prevent multiple submissions
+    setState(() {
+      _isLoading = true;
+      _hasSubmitted = true;
+    });
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
+      _sliderKey.currentState?.reset();
+      setState(() {
+        _isLoading = false;
+        _hasSubmitted = false;
+      });
+      return;
+    }
+
+    try {
+      final token = await user.getIdToken();
+      print('Sending complete service request for Job ID: ${widget.job.id}');
+      final response = await http.post(
+        Uri.parse(
+          'https://chambea.lat/api/service-requests/${widget.job.id}/complete',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      print(
+        'Complete Service Response: ${response.statusCode} - ${response.body}',
+      );
+      final responseData = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        if (responseData['data'] == null) {
+          throw Exception('API response does not contain "data" field');
+        }
+
+        final updatedJob = Job.fromJson(responseData['data']);
+        print(
+          'Updated Job: ID=${updatedJob.id}, WorkerID=${updatedJob.workerId}, ClientID=${updatedJob.clientId}',
+        );
+
+        if (updatedJob.id == 0 ||
+            updatedJob.workerId == null ||
+            updatedJob.clientId == null) {
+          throw Exception(
+            'Invalid job data: Missing ID, workerId, or clientId',
+          );
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Servicio completado exitosamente')),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ReviewServiceScreen(job: updatedJob),
+          ),
+        );
+      } else {
+        final error = responseData['message'] ?? 'Error desconocido';
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al completar servicio: $error')),
+        );
+        _sliderKey.currentState?.reset();
+        setState(() {
+          _isLoading = false;
+          _hasSubmitted = false;
+        });
+      }
+    } catch (e) {
+      print('Error completing service: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      _sliderKey.currentState?.reset();
+      setState(() {
+        _isLoading = false;
+        _hasSubmitted = false;
+      });
     }
   }
 
@@ -454,7 +550,7 @@ class _StartServiceScreenState extends State<StartServiceScreen> {
                   ),
                   const SizedBox(height: 30),
 
-                  // ✅ Iniciar slider -> only check contract
+                  // Iniciar slider
                   if (_hasContractOffer) ...[
                     SlideAction(
                       borderRadius: 12,
@@ -475,33 +571,40 @@ class _StartServiceScreenState extends State<StartServiceScreen> {
                     ),
                   ],
 
-                  // ✅ Terminar slider -> check in-progress
+                  // Terminar slider
                   if (_hasContractInProgress &&
                       widget.job.status == 'En curso') ...[
-                    SlideAction(
-                      borderRadius: 12,
-                      elevation: 0,
-                      innerColor: Colors.red.shade600,
-                      outerColor: Colors.red.shade100,
-                      sliderButtonIcon: const Icon(
-                        Icons.arrow_forward,
-                        color: Colors.white,
+                    IgnorePointer(
+                      ignoring: _isLoading || _hasSubmitted,
+                      child: SlideAction(
+                        key: _sliderKey,
+                        borderRadius: 12,
+                        elevation: 0,
+                        innerColor: Colors.red.shade600,
+                        outerColor: Colors.red.shade100,
+                        sliderButtonIcon: _isLoading
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.arrow_forward,
+                                color: Colors.white,
+                              ),
+                        text: 'Deslizar para Terminar servicio',
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        onSubmit: () => _completeService(context),
                       ),
-                      text: 'Deslizar para Terminar servicio',
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                      onSubmit: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                TerminateServiceScreen(job: widget.job),
-                          ),
-                        );
-                      },
                     ),
                   ],
                 ],

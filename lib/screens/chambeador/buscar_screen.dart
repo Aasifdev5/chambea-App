@@ -4,6 +4,7 @@ import 'package:chambea/screens/chambeador/propuesta_screen.dart';
 import 'package:chambea/screens/chambeador/home_screen.dart';
 import 'package:chambea/blocs/chambeador/jobs_bloc.dart';
 import 'package:chambea/blocs/chambeador/jobs_event.dart';
+import 'package:chambea/screens/chambeador/job_detail_screen.dart';
 import 'package:chambea/blocs/chambeador/jobs_state.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -224,325 +225,386 @@ class BuscarScreen extends StatelessWidget {
 
   Widget _buildTrabajoCard(BuildContext context, Map<String, dynamic> job) {
     final normalizedImagePath = _normalizeImagePath(job['image']);
-    final hasImage = normalizedImagePath.isNotEmpty;
+    final normalizedClientPhoto = _normalizeImagePath(
+      job['client_profile_photo'],
+      isProfilePhoto: true,
+    );
+    final clientName =
+        job['client_name'] ?? 'Usuario ${job['created_by'] ?? 'Desconocido'}';
+    final clientRating = job['client_rating']?.toDouble() ?? 0.0;
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 3,
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image with overlay label
-          Stack(
-            children: [
-              Container(
-                height: 150,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
+    print(
+      'DEBUG: Building job card for job ${job['id']}: '
+      'client_name=$clientName, client_profile_photo=$normalizedClientPhoto, '
+      'client_rating=$clientRating, image=$normalizedImagePath',
+    );
+
+    return GestureDetector(
+      onTap: () {
+        if (job['id'] == null) {
+          print(
+            'ERROR: Attempted to navigate to JobDetailScreen with null job ID',
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error: Invalid job ID')),
+          );
+          return;
+        }
+        try {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => JobDetailScreen(requestId: job['id']),
+            ),
+          );
+        } catch (e) {
+          print(
+            'ERROR: Failed to navigate to JobDetailScreen for jobId: ${job['id']}, Error: $e',
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error navigating to job details: $e')),
+          );
+        }
+      },
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 3,
+        margin: const EdgeInsets.only(bottom: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image with overlay label
+            Stack(
+              children: [
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                    color: Colors.grey.shade300,
                   ),
-                  color: Colors.grey.shade300,
-                ),
-                child: hasImage
-                    ? ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
-                        ),
-                        child: CachedNetworkImage(
-                          imageUrl: normalizedImagePath,
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
+                  child: normalizedImagePath.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12),
+                          ),
+                          child: CachedNetworkImage(
+                            imageUrl: normalizedImagePath,
                             height: 150,
                             width: double.infinity,
-                            color: Colors.grey.shade200,
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) {
-                            print(
-                              'ERROR: Image load failed for URL $normalizedImagePath: $error',
-                            );
-                            return ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(12),
-                              ),
-                              child: Image.asset(
-                                'assets/images/empty.jpg',
-                                height: 150,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  print(
-                                    'ERROR: Failed to load empty.jpg: $error',
-                                  );
-                                  return Container(
-                                    height: 150,
-                                    width: double.infinity,
-                                    color: Colors.grey.shade200,
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.image_not_supported,
-                                        color: Colors.grey,
-                                        size: 40,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    : ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
-                        ),
-                        child: Image.asset(
-                          'assets/images/empty.jpg',
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            print('ERROR: Failed to load empty.jpg: $error');
-                            return Container(
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
                               height: 150,
                               width: double.infinity,
                               color: Colors.grey.shade200,
                               child: const Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  color: Colors.grey,
-                                  size: 40,
-                                ),
+                                child: CircularProgressIndicator(),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Consultar',
-                    style: TextStyle(color: Colors.green[800], fontSize: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _formatTimeAgo(job['created_at']),
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  job['description'] ?? 'Sin descripción disponible',
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                // Tags
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _buildTagChip(job['category']?.toUpperCase() ?? 'SERVICIO'),
-                    _buildTagChip(
-                      job['subcategory']?.toUpperCase() ?? 'GENERAL',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Time and Budget Row
-                Row(
-                  children: [
-                    const Icon(Icons.today, size: 16, color: Colors.black54),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        job['is_time_undefined'] == 1
-                            ? '${job['date'] ?? 'Hoy'} · Flexible'
-                            : '${job['date'] ?? 'Hoy'} · ${job['start_time'] ?? 'Sin horario'}',
-                        style: const TextStyle(color: Colors.black54),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.monetization_on,
-                      size: 16,
-                      color: Colors.black54,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        job['budget'] != null &&
-                                double.tryParse(job['budget'].toString()) !=
-                                    null
-                            ? 'BOB: ${job['budget']}'
-                            : 'BOB: No especificado',
-                        style: const TextStyle(color: Colors.black54),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Location and Payment Method Row
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Colors.black54,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        '${job['location'] ?? 'Sin ubicación'}${job['location_details'] != null ? ', ${job['location_details']}' : ''}',
-                        style: const TextStyle(color: Colors.black54),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.qr_code, size: 16, color: Colors.black54),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        job['payment_method'] ?? 'No especificado',
-                        style: const TextStyle(color: Colors.black54),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // User info
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.grey.shade200,
-                      backgroundImage: job['worker_image'] != null
-                          ? NetworkImage(job['worker_image'])
-                          : const NetworkImage(
-                              'https://i.pravatar.cc/150?img=12',
                             ),
-                      onBackgroundImageError: (error, stackTrace) => const Icon(
-                        Icons.person,
-                        color: Colors.grey,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            job['worker_name'] ??
-                                'Usuario ${job['created_by'] ?? 'Desconocido'}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                            overflow: TextOverflow.ellipsis,
+                            errorWidget: (context, url, error) {
+                              print(
+                                'ERROR: Image load failed for URL $normalizedImagePath: $error',
+                              );
+                              return ClipRRect(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(12),
+                                ),
+                                child: Image.asset(
+                                  'assets/images/empty.jpg',
+                                  height: 150,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    print(
+                                      'ERROR: Failed to load empty.jpg: $error',
+                                    );
+                                    return Container(
+                                      height: 150,
+                                      width: double.infinity,
+                                      color: Colors.grey.shade200,
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.image_not_supported,
+                                          color: Colors.grey,
+                                          size: 40,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            },
                           ),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                size: 14,
-                                color: Colors.amber,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                job['worker_rating']?.toString() ?? '0.0',
-                                style: const TextStyle(color: Colors.black54),
-                              ),
-                            ],
+                        )
+                      : ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12),
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
+                          child: Image.asset(
+                            'assets/images/empty.jpg',
+                            height: 150,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              print('ERROR: Failed to load empty.jpg: $error');
+                              return Container(
+                                height: 150,
+                                width: double.infinity,
+                                color: Colors.grey.shade200,
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    color: Colors.grey,
+                                    size: 40,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                 ),
-                const SizedBox(height: 16),
-                // Action button
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                  ),
-                  onPressed: () async {
-                    print(
-                      'DEBUG: Enviar propuesta button pressed for jobId: ${job['id']}',
-                    );
-                    bool canApply = await _checkBalance(context);
-                    if (canApply) {
-                      print(
-                        'DEBUG: Navigating to PropuestaScreen for jobId: ${job['id']}',
-                      );
-                      try {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                PropuestaScreen(requestId: job['id']),
-                          ),
-                        );
-                      } catch (e, stackTrace) {
-                        print(
-                          'ERROR: Failed to navigate to PropuestaScreen for jobId: ${job['id']}, Error: $e',
-                        );
-                        print('Stack trace: $stackTrace');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error de navegación: $e')),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text(
-                    'Enviar propuesta',
-                    style: TextStyle(color: Colors.white),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Consultar',
+                      style: TextStyle(color: Colors.green[800], fontSize: 12),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatTimeAgo(job['created_at']),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${job['category'] ?? 'Servicio'} - ${job['subcategory'] ?? 'General'}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    job['description'] ?? 'Sin descripción disponible',
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  // Tags
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      _buildTagChip(
+                        job['category']?.toUpperCase() ?? 'SERVICIO',
+                      ),
+                      _buildTagChip(
+                        job['subcategory']?.toUpperCase() ?? 'GENERAL',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Time and Budget Row
+                  Row(
+                    children: [
+                      const Icon(Icons.today, size: 16, color: Colors.black54),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          job['is_time_undefined'] == 1
+                              ? '${job['date'] ?? 'Hoy'} · Flexible'
+                              : '${job['date'] ?? 'Hoy'} · ${job['start_time'] ?? 'Sin horario'}',
+                          style: const TextStyle(color: Colors.black54),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.monetization_on,
+                        size: 16,
+                        color: Colors.black54,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          job['budget'] != null &&
+                                  double.tryParse(job['budget'].toString()) !=
+                                      null
+                              ? 'BOB: ${job['budget']}'
+                              : 'BOB: No especificado',
+                          style: const TextStyle(color: Colors.black54),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Location and Payment Method Row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: Colors.black54,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${job['location'] ?? 'Sin ubicación'}${job['location_details'] != null ? ', ${job['location_details']}' : ''}',
+                          style: const TextStyle(color: Colors.black54),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.qr_code,
+                        size: 16,
+                        color: Colors.black54,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          job['payment_method'] ?? 'No especificado',
+                          style: const TextStyle(color: Colors.black54),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // User info
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.grey.shade200,
+                        child: normalizedClientPhoto.isNotEmpty
+                            ? ClipOval(
+                                child: CachedNetworkImage(
+                                  imageUrl: normalizedClientPhoto,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) =>
+                                      const CircularProgressIndicator(),
+                                  errorWidget: (context, url, error) {
+                                    print(
+                                      'ERROR: Client profile image load failed for URL $normalizedClientPhoto: $error',
+                                    );
+                                    return const Icon(
+                                      Icons.person,
+                                      size: 16,
+                                      color: Colors.white,
+                                    );
+                                  },
+                                ),
+                              )
+                            : const Icon(
+                                Icons.person,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              clientName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.star,
+                                  size: 14,
+                                  color: Colors.amber,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  clientRating.toStringAsFixed(1),
+                                  style: const TextStyle(color: Colors.black54),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Action button
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () async {
+                      print(
+                        'DEBUG: Enviar propuesta button pressed for jobId: ${job['id']}',
+                      );
+                      bool canApply = await _checkBalance(context);
+                      if (canApply) {
+                        print(
+                          'DEBUG: Navigating to PropuestaScreen for jobId: ${job['id']}',
+                        );
+                        try {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PropuestaScreen(requestId: job['id']),
+                            ),
+                          );
+                        } catch (e, stackTrace) {
+                          print(
+                            'ERROR: Failed to navigate to PropuestaScreen for jobId: ${job['id']}, Error: $e',
+                          );
+                          print('Stack trace: $stackTrace');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error de navegación: $e')),
+                          );
+                        }
+                      }
+                    },
+                    child: const Text(
+                      'Enviar propuesta',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -557,15 +619,20 @@ class BuscarScreen extends StatelessWidget {
 
   String _formatTimeAgo(String? createdAt) {
     if (createdAt == null) return 'Hace un momento';
-    final now = DateTime.now();
-    final created = DateTime.parse(createdAt);
-    final difference = now.difference(created);
-    if (difference.inDays > 0) {
-      return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
-    } else if (difference.inHours > 0) {
-      return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
-    } else {
-      return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+    try {
+      final now = DateTime.now();
+      final created = DateTime.parse(createdAt);
+      final difference = now.difference(created);
+      if (difference.inDays > 0) {
+        return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+      } else if (difference.inHours > 0) {
+        return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+      } else {
+        return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+      }
+    } catch (e) {
+      print('ERROR: Failed to parse createdAt: $createdAt, Error: $e');
+      return 'Hace un momento';
     }
   }
 }
