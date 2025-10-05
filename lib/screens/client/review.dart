@@ -34,7 +34,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   @override
   void initState() {
     super.initState();
-    print('DEBUG: ReviewServiceScreen init: requestId=${widget.requestId}, workerId=${widget.workerId}, workerName=${widget.workerName}');
+    print(
+      'DEBUG: ReviewServiceScreen init: requestId=${widget.requestId}, workerId=${widget.workerId}, workerName=${widget.workerName}',
+    );
     _fetchWorkerName();
   }
 
@@ -49,14 +51,16 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
           return;
         }
         final token = await user.getIdToken();
-        final response = await http.get(
-          Uri.parse('https://chambea.lat/api/users/${widget.workerId}'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-        ).timeout(const Duration(seconds: 10));
+        final response = await http
+            .get(
+              Uri.parse('https://chambea.lat/api/users/${widget.workerId}'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            )
+            .timeout(const Duration(seconds: 10));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -69,7 +73,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
               _workerName = 'Trabajador Desconocido';
             });
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No se pudo obtener el nombre del trabajador')),
+              const SnackBar(
+                content: Text('No se pudo obtener el nombre del trabajador'),
+              ),
             );
           }
         } else {
@@ -77,7 +83,11 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
             _workerName = 'Trabajador Desconocido';
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error al obtener el perfil del trabajador: ${response.body}')),
+            SnackBar(
+              content: Text(
+                'Error al obtener el perfil del trabajador: ${response.body}',
+              ),
+            ),
           );
         }
       } catch (e) {
@@ -85,7 +95,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
           _workerName = 'Trabajador Desconocido';
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al obtener el nombre del trabajador: $e')),
+          SnackBar(
+            content: Text('Error al obtener el nombre del trabajador: $e'),
+          ),
         );
       }
     } else {
@@ -98,15 +110,19 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
   Future<void> _submitReview() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe iniciar sesión')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Debe iniciar sesión')));
       return;
     }
 
-    if (_rating == 0) {
+    if (_rating == 0 || _commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor selecciona una calificación')),
+        const SnackBar(
+          content: Text(
+            'Por favor selecciona una calificación y escribe un comentario',
+          ),
+        ),
       );
       return;
     }
@@ -124,17 +140,21 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
 
     try {
       final token = await user.getIdToken();
-      final profileResponse = await http.get(
-        Uri.parse('https://chambea.lat/api/users/${user.uid}'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final profileResponse = await http
+          .get(
+            Uri.parse('https://chambea.lat/api/users/${user.uid}'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (profileResponse.statusCode != 200) {
-        throw Exception('No se pudo obtener el perfil del usuario: ${profileResponse.body}');
+        throw Exception(
+          'No se pudo obtener el perfil del usuario: ${profileResponse.body}',
+        );
       }
       final profileData = json.decode(profileResponse.body);
       if (profileData['status'] != 'success' || profileData['data'] == null) {
@@ -147,16 +167,14 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
         workerId: widget.workerId,
         clientId: clientInternalId,
         rating: _rating,
-        comment: _commentController.text.trim().isEmpty
-            ? 'Sin comentario'
-            : _commentController.text.trim(),
+        comment: _commentController.text.trim(),
         reviewType: 'client_to_worker',
       );
 
       context.read<ProposalsBloc>().add(FetchServiceRequests());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reseña enviada con éxito')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Reseña enviada con éxito')));
 
       if (mounted) {
         Navigator.pushAndRemoveUntil(
@@ -172,9 +190,9 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
       } else if (errorMessage.contains('404')) {
         errorMessage = 'Servicio o usuario no encontrado.';
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
     } finally {
       if (mounted) {
         setState(() {
@@ -297,10 +315,14 @@ class _ReviewServiceScreenState extends State<ReviewServiceScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _rating == 0 || _isLoading ? null : _submitReview,
+                      onPressed: _rating == 0 || _isLoading
+                          ? null
+                          : _submitReview,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF22c55e),
-                        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.02),
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenHeight * 0.02,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),

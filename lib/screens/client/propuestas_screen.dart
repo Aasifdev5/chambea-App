@@ -57,7 +57,6 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
       }
       print('DEBUG: Authenticated user: ${user.uid}');
 
-      // Fetch Firebase UID for user and profile photo endpoints
       final uidResponse = await ApiService.get(
         '/api/users/map-id-to-uid/$workerId',
       );
@@ -76,19 +75,16 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
         return _workerCache[workerId]!;
       }
 
-      // Fetch user details
       final userResponse = await ApiService.get(
         '/api/users/$workerFirebaseUid',
       );
       print('DEBUG: User response for UID $workerFirebaseUid: $userResponse');
 
-      // Fetch profile photo
       final photoResponse = await ApiService.get(
         '/api/profile-photo/$workerFirebaseUid',
       );
       print('DEBUG: Photo response for UID $workerFirebaseUid: $photoResponse');
 
-      // Fetch review count using workerId directly
       final reviewsResponse = await ApiService.get(
         '/api/reviews/worker/$workerId',
       );
@@ -211,8 +207,19 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                   MaterialPageRoute(
                     builder: (context) => ContratadoScreen(
                       requestId: state.serviceRequest['id'],
-                      proposalId: null,
-                      workerId: null,
+                      proposalId:
+                          state.proposals is List && state.proposals.isNotEmpty
+                          ? state.proposals[0]['id']
+                          : state.proposals is Map
+                          ? (state.proposals as Map<String, dynamic>)['id']
+                          : null,
+                      workerId:
+                          state.proposals is List && state.proposals.isNotEmpty
+                          ? state.proposals[0]['worker_id']
+                          : state.proposals is Map
+                          ? (state.proposals
+                                as Map<String, dynamic>)['worker_id']
+                          : null,
                     ),
                   ),
                 );
@@ -230,7 +237,22 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                 print(
                   'DEBUG: Service request status: ${state.serviceRequest['status']}',
                 );
-                if (state.proposals.isEmpty) {
+                // Access contractStatus safely
+                final contractStatus =
+                    state.serviceRequest.containsKey('contract_status')
+                    ? state.serviceRequest['contract_status'] as String?
+                    : null;
+                print('DEBUG: Contract status: $contractStatus');
+
+                // Convert single proposal to list for consistent handling
+                final List<Map<String, dynamic>> proposalsList =
+                    state.proposals is List
+                    ? List<Map<String, dynamic>>.from(state.proposals)
+                    : state.proposals is Map
+                    ? [state.proposals as Map<String, dynamic>]
+                    : [];
+
+                if (proposalsList.isEmpty) {
                   return const Center(
                     child: Text(
                       'No hay propuestas disponibles',
@@ -239,19 +261,22 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                   );
                 }
 
-                // Filter proposals: show only the accepted proposal if service is not completed
-                final isServiceCompleted =
-                    state.serviceRequest['status'] == 'Completado';
-                final hasAcceptedProposal = state.proposals.any(
+                // Check if any proposal is accepted
+                final hasAcceptedProposal = proposalsList.any(
                   (p) => p['status'] == 'accepted',
                 );
-                final filteredProposals = isServiceCompleted
-                    ? state.proposals
-                    : hasAcceptedProposal
-                    ? state.proposals
+                // Filter proposals: Show only accepted proposal if one exists, otherwise show non-rejected and non-cancelled proposals
+                final filteredProposals = hasAcceptedProposal
+                    ? proposalsList
                           .where((p) => p['status'] == 'accepted')
                           .toList()
-                    : state.proposals;
+                    : proposalsList
+                          .where(
+                            (p) =>
+                                p['status'] != 'rejected' &&
+                                p['status'] != 'cancelled',
+                          )
+                          .toList();
 
                 if (filteredProposals.isEmpty) {
                   return const Center(
@@ -271,10 +296,10 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                   itemBuilder: (context, index) {
                     final proposal = filteredProposals[index];
                     print(
-                      'DEBUG: Proposal ${proposal['id']}: status=${proposal['status']}, worker_id=${proposal['worker_id']}, service_status=${state.serviceRequest['status']}',
+                      'DEBUG: Proposal ${proposal['id']}: status=${proposal['status']}, worker_id=${proposal['worker_id']}, contract_status=$contractStatus',
                     );
                     final isCompleted =
-                        state.serviceRequest['status'] == 'Completado' &&
+                        contractStatus == 'completed' &&
                         proposal['status'] == 'accepted';
                     return FutureBuilder<Map<String, dynamic>>(
                       future: _fetchWorkerDetails(proposal['worker_id']),
@@ -293,7 +318,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                         final profilePhotoUrl =
                             snapshot.connectionState == ConnectionState.done
                             ? (snapshot.data?['photo'] ?? '')
-                            : '';
+                            : proposal['worker_image'] ?? '';
                         final reviewCount =
                             snapshot.connectionState == ConnectionState.done
                             ? (snapshot.data?['review_count'] ?? 0)
@@ -317,9 +342,7 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                       decoration: BoxDecoration(
                                         color: proposal['status'] == 'pending'
                                             ? Colors.yellow.shade100
-                                            : proposal['status'] == 'accepted'
-                                            ? Colors.blue.shade100
-                                            : Colors.red.shade100,
+                                            : Colors.blue.shade100,
                                         borderRadius: BorderRadius.circular(4),
                                         border: proposal['status'] == 'accepted'
                                             ? Border.all(
@@ -341,19 +364,13 @@ class _PropuestasScreenState extends State<PropuestasScreen> {
                                           Text(
                                             proposal['status'] == 'pending'
                                                 ? 'Pendiente'
-                                                : proposal['status'] ==
-                                                      'accepted'
-                                                ? 'Contratado'
-                                                : 'Rechazada',
+                                                : 'Contratado',
                                             style: TextStyle(
                                               color:
                                                   proposal['status'] ==
                                                       'pending'
                                                   ? Colors.yellow.shade800
-                                                  : proposal['status'] ==
-                                                        'accepted'
-                                                  ? Colors.blue.shade800
-                                                  : Colors.red.shade800,
+                                                  : Colors.blue.shade800,
                                               fontSize: 12,
                                               fontWeight:
                                                   proposal['status'] ==
